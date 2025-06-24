@@ -55,7 +55,7 @@ export const BookingBlock = ({ booking, onClick }: BookingBlockProps) => {
       <div className="font-medium truncate">
         {booking.customer.name}
       </div>
-      <div className="opacity-75 mt-1">
+      <div className="opacity-75 mt-0.5">
         {booking.guests} guests
       </div>
       <div className="opacity-75">
