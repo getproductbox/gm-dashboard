@@ -219,7 +219,7 @@ export const BookingsTable = ({
               </TableCell>
               <TableCell>{booking.guest_count || '-'}</TableCell>
               <TableCell>
-                <StatusBadge status={booking.status} />
+                <StatusBadge status={booking.status as 'pending' | 'confirmed' | 'cancelled'} />
               </TableCell>
               <TableCell className="font-medium">{formatCurrency(booking.total_amount)}</TableCell>
               <TableCell>

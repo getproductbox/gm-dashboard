@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, X } from "lucide-react";
-import { BookingFilters } from "./BookingsList";
+import { BookingFilters } from "@/services/bookingService";
 
 interface BookingsFiltersProps {
   filters: BookingFilters;
@@ -17,7 +17,7 @@ export const BookingsFilters = ({
   onFiltersChange,
   onClearFilters
 }: BookingsFiltersProps) => {
-  const updateFilter = (key: keyof BookingFilters, value: string) => {
+  const updateFilter = (key: keyof BookingFilters, value: string | undefined) => {
     onFiltersChange({ ...filters, [key]: value });
   };
 
@@ -29,8 +29,8 @@ export const BookingsFilters = ({
           <Input
             id="dateFrom"
             type="date"
-            value={filters.dateFrom}
-            onChange={(e) => updateFilter('dateFrom', e.target.value)}
+            value={filters.dateFrom || ''}
+            onChange={(e) => updateFilter('dateFrom', e.target.value || undefined)}
           />
         </div>
         
@@ -39,14 +39,14 @@ export const BookingsFilters = ({
           <Input
             id="dateTo"
             type="date"
-            value={filters.dateTo}
-            onChange={(e) => updateFilter('dateTo', e.target.value)}
+            value={filters.dateTo || ''}
+            onChange={(e) => updateFilter('dateTo', e.target.value || undefined)}
           />
         </div>
         
         <div className="space-y-2">
           <Label>Status</Label>
-          <Select value={filters.status} onValueChange={(value) => updateFilter('status', value)}>
+          <Select value={filters.status || 'all'} onValueChange={(value) => updateFilter('status', value === 'all' ? undefined : value)}>
             <SelectTrigger>
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
@@ -55,21 +55,21 @@ export const BookingsFilters = ({
               <SelectItem value="confirmed">Confirmed</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
         </div>
         
         <div className="space-y-2">
-          <Label>Service</Label>
-          <Select value={filters.service} onValueChange={(value) => updateFilter('service', value)}>
+          <Label>Venue</Label>
+          <Select value={filters.venue || 'all'} onValueChange={(value) => updateFilter('venue', value === 'all' ? undefined : value)}>
             <SelectTrigger>
-              <SelectValue placeholder="All Services" />
+              <SelectValue placeholder="All Venues" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Services</SelectItem>
-              <SelectItem value="karaoke">Karaoke</SelectItem>
-              <SelectItem value="venuehire">Venue Hire</SelectItem>
-              <SelectItem value="eventtickets">Event Tickets</SelectItem>
+              <SelectItem value="all">All Venues</SelectItem>
+              <SelectItem value="manor">Manor</SelectItem>
+              <SelectItem value="hippie">Hippie Club</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -81,8 +81,8 @@ export const BookingsFilters = ({
             <Input
               id="search"
               placeholder="Customer name or reference..."
-              value={filters.search}
-              onChange={(e) => updateFilter('search', e.target.value)}
+              value={filters.search || ''}
+              onChange={(e) => updateFilter('search', e.target.value || undefined)}
               className="pl-10"
             />
           </div>

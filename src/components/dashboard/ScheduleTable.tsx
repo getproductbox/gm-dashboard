@@ -45,6 +45,14 @@ export const ScheduleTable = ({ bookings }: ScheduleTableProps) => {
     return 'All day';
   };
 
+  if (bookings.length === 0) {
+    return (
+      <div className="rounded-md border p-8 text-center">
+        <p className="text-gm-neutral-500">No bookings scheduled for today</p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -88,7 +96,7 @@ export const ScheduleTable = ({ bookings }: ScheduleTableProps) => {
               </TableCell>
               <TableCell>{booking.guest_count || '-'}</TableCell>
               <TableCell>
-                <StatusBadge status={booking.status} />
+                <StatusBadge status={booking.status as 'pending' | 'confirmed' | 'cancelled'} />
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex gap-2 justify-end">

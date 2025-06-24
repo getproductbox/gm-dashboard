@@ -7,16 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useBookings } from "@/hooks/useBookings";
-import { BookingRow } from "@/services/bookingService";
-
-export interface BookingFilters {
-  dateFrom: string;
-  dateTo: string;
-  status: string;
-  venue: string;
-  bookingType: string;
-  search: string;
-}
+import { BookingRow, BookingFilters } from "@/services/bookingService";
 
 export const BookingsList = () => {
   const navigate = useNavigate();
@@ -26,25 +17,15 @@ export const BookingsList = () => {
   const [sortField, setSortField] = useState<keyof BookingRow>('booking_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState<BookingFilters>({
-    dateFrom: '',
-    dateTo: '',
-    status: 'all',
-    venue: 'all',
-    bookingType: 'all',
-    search: '',
+    dateFrom: undefined,
+    dateTo: undefined,
+    status: undefined,
+    venue: undefined,
+    bookingType: undefined,
+    search: undefined,
   });
 
-  // Convert filters for the API
-  const apiFilters = useMemo(() => ({
-    venue: filters.venue !== 'all' ? filters.venue : undefined,
-    bookingType: filters.bookingType !== 'all' ? filters.bookingType : undefined,
-    status: filters.status !== 'all' ? filters.status : undefined,
-    dateFrom: filters.dateFrom || undefined,
-    dateTo: filters.dateTo || undefined,
-    search: filters.search || undefined,
-  }), [filters]);
-
-  const { data: bookings = [], isLoading, error } = useBookings(apiFilters);
+  const { data: bookings = [], isLoading, error } = useBookings(filters);
 
   const sortedBookings = useMemo(() => {
     if (!bookings.length) return [];
@@ -112,8 +93,8 @@ export const BookingsList = () => {
 
   const totalPages = Math.ceil(sortedBookings.length / itemsPerPage);
 
-  const handleFiltersChange = (newFilters: Partial<BookingFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+  const handleFiltersChange = (newFilters: BookingFilters) => {
+    setFilters(newFilters);
     setCurrentPage(1);
   };
 
@@ -128,12 +109,12 @@ export const BookingsList = () => {
 
   const handleClearFilters = () => {
     setFilters({
-      dateFrom: '',
-      dateTo: '',
-      status: 'all',
-      venue: 'all',
-      bookingType: 'all',
-      search: '',
+      dateFrom: undefined,
+      dateTo: undefined,
+      status: undefined,
+      venue: undefined,
+      bookingType: undefined,
+      search: undefined,
     });
     setCurrentPage(1);
   };

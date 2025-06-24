@@ -4,14 +4,44 @@ import { ScheduleTable } from "@/components/dashboard/ScheduleTable";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { mockDashboardMetrics, mockTodaysBookings } from "@/data/mockData/bookings";
 import { Calendar, DollarSign, Users, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useBookings } from "@/hooks/useBookings";
 
 export default function Dashboard() {
-  const { todaysBookings, todaysRevenue, currentOccupancy } = mockDashboardMetrics;
+  const navigate = useNavigate();
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Get today's bookings
+  const { data: todaysBookings = [] } = useBookings({
+    dateFrom: today,
+    dateTo: today
+  });
+
+  // Get all bookings for stats
+  const { data: allBookings = [] } = useBookings();
+
+  const todaysRevenue = todaysBookings.reduce((sum, booking) => 
+    sum + (booking.total_amount || 0), 0
+  );
+
+  const bookingTypeStats = todaysBookings.reduce((acc, booking) => {
+    if (booking.booking_type === 'venue_hire') acc.venueHire++;
+    else if (booking.booking_type === 'vip_tickets') acc.vipTickets++;
+    return acc;
+  }, { venueHire: 0, vipTickets: 0 });
+
+  // Mock occupancy data (this would come from a separate venues/rooms API in real app)
+  const currentOccupancy = {
+    percentage: 67,
+    available: 4,
+    occupied: 8,
+    maintenance: 0,
+    total: 12
+  };
 
   const handleCreateBooking = () => {
-    console.log('Create new booking');
+    navigate('/bookings/create');
   };
 
   const headerActions = (
@@ -37,19 +67,17 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <MetricCard
             title="Today's Bookings"
-            value={todaysBookings.total}
+            value={todaysBookings.length}
             icon={Calendar}
             breakdown={[
-              { label: 'Karaoke', value: todaysBookings.breakdown.karaoke, color: '#f97316' },
-              { label: 'Venue Hire', value: todaysBookings.breakdown.venueHire, color: '#22c55e' },
-              { label: 'Event Tickets', value: todaysBookings.breakdown.eventTickets, color: '#3b82f6' }
+              { label: 'Venue Hire', value: bookingTypeStats.venueHire, color: '#22c55e' },
+              { label: 'VIP Tickets', value: bookingTypeStats.vipTickets, color: '#3b82f6' }
             ]}
           />
           <MetricCard
             title="Today's Revenue"
-            value={todaysRevenue.amount}
+            value={todaysRevenue}
             icon={DollarSign}
-            change={todaysRevenue.change}
           />
           <MetricCard
             title="Current Occupancy"
@@ -66,7 +94,7 @@ export default function Dashboard() {
         {/* Today's Schedule */}
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-gm-neutral-900">Today's Schedule</h2>
-          <ScheduleTable bookings={mockTodaysBookings} />
+          <ScheduleTable bookings={todaysBookings} />
         </div>
       </div>
     </DashboardLayout>
