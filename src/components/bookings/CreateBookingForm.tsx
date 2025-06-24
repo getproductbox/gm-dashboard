@@ -253,6 +253,7 @@ export const CreateBookingForm = () => {
                 />
               </div>
 
+              {/* Show venue area only for venue hire */}
               {bookingType === "venue_hire" && (
                 <FormField
                   control={form.control}
@@ -280,20 +281,24 @@ export const CreateBookingForm = () => {
                 />
               )}
 
-              <FormField
-                control={form.control}
-                name="bookingDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date *</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Show booking date only after booking type is selected */}
+              {bookingType && (
+                <FormField
+                  control={form.control}
+                  name="bookingDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
+              {/* Show time fields only for venue hire */}
               {bookingType === "venue_hire" && (
                 <div className="grid grid-cols-3 gap-4">
                   <FormField
@@ -362,51 +367,54 @@ export const CreateBookingForm = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="guestCount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Number of Guests *</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="1" max="500" placeholder="e.g. 8" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {bookingType === "vip_tickets" && (
+              {/* Show guest/ticket fields only after booking type is selected */}
+              {bookingType && (
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="ticketQuantity"
+                    name="guestCount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Ticket Quantity *</FormLabel>
+                        <FormLabel>Number of Guests *</FormLabel>
                         <FormControl>
-                          <Input type="number" min="1" max="100" placeholder="e.g. 4" {...field} />
+                          <Input type="number" min="1" max="500" placeholder="e.g. 8" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                )}
 
-                <FormField
-                  control={form.control}
-                  name="totalAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Total Amount (£)</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="0" step="0.01" placeholder="e.g. 120.00" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  {bookingType === "vip_tickets" && (
+                    <FormField
+                      control={form.control}
+                      name="ticketQuantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ticket Quantity *</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="1" max="100" placeholder="e.g. 4" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
-                />
-              </div>
+
+                  <FormField
+                    control={form.control}
+                    name="totalAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total Amount (£)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" step="0.01" placeholder="e.g. 120.00" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
