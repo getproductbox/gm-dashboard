@@ -1,73 +1,142 @@
-# Welcome to your Lovable project
 
-## Project info
+# GM Admin - Venue Management Platform
 
-**URL**: https://lovable.dev/projects/d98ece8d-5a7b-4edf-ae49-b14db925e5c2
+A comprehensive staff management platform for GM's venue operations, starting with Manor's karaoke and venue hire services, then expanding to support multiple venues including Hippie Club.
 
-## How can I edit this code?
+## Project Overview
 
-There are several ways of editing your application.
+GM Admin is an **admin-only application** designed exclusively for venue staff and managers. This platform provides centralized operations management, automated administrative functions, and data-driven insights to reduce booking administration time by 80%.
 
-**Use Lovable**
+### Key Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d98ece8d-5a7b-4edf-ae49-b14db925e5c2) and start prompting.
+- **Centralized Dashboard**: Real-time metrics, today's schedule, and quick actions
+- **Booking Management**: Complete booking lifecycle for karaoke and venue hire
+- **Customer Database**: Centralized customer information and booking history
+- **Analytics & Reporting**: Revenue tracking, performance metrics, and trend analysis
+- **Multi-Venue Support**: Scalable architecture for managing multiple venues
+- **Mobile Optimization**: Touch-friendly tools for venue floor management
 
-Changes made via Lovable will be committed automatically to this repo.
+### Target Users
 
-**Use your preferred IDE**
+- **Venue Managers**: Day-to-day operational oversight and performance monitoring
+- **Staff Members**: Booking creation, customer service, and daily operations
+- **Regional Managers**: Multi-venue oversight and strategic planning
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Implementation Roadmap
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Stage 1: Core Management Platform ✅
+- Staff Dashboard with key metrics and quick actions
+- Booking Management for Manor karaoke and venue hire
+- Customer Database with booking history
+- Basic automation for confirmations and notifications
 
-Follow these steps:
+### Stage 2: Advanced Analytics (In Progress)
+- Enhanced reporting and customer segmentation
+- Workflow automation and communication tools
+- Administrative tools for promo codes and pricing
+- Revenue intelligence and capacity optimization
+
+### Stage 3: Multi-Venue Expansion
+- Hippie Club integration
+- Cross-venue booking management
+- Comparative analytics and benchmarking
+- Advanced mobile optimization
+
+### Stage 4: Business Intelligence
+- Predictive analytics and forecasting
+- Performance optimization tools
+- Scalability framework for new venues
+- Strategic planning features
+
+## Technologies Used
+
+This project is built with modern web technologies:
+
+- **Frontend**: React 18 with TypeScript
+- **Build Tool**: Vite for fast development and building
+- **Styling**: Tailwind CSS for responsive design
+- **UI Components**: shadcn/ui component library
+- **State Management**: TanStack React Query
+- **Icons**: Lucide React
+- **Charts**: Recharts for analytics visualization
+
+## Development Setup
+
+### Prerequisites
+- Node.js & npm - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+
+### Getting Started
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# Navigate to project directory
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
+# Install dependencies
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:8080` with hot-reload enabled.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Project Structure
 
-**Use GitHub Codespaces**
+```
+src/
+├── components/          # Reusable UI components
+├── pages/              # Application pages/routes
+├── hooks/              # Custom React hooks
+├── lib/                # Utility functions
+└── types/              # TypeScript type definitions
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+docs/
+├── product/            # Product documentation and PRDs
+├── design/             # Design specifications and assets
+├── technical/          # Technical documentation
+└── user-guides/        # User manuals and guides
+```
 
-## What technologies are used for this project?
+## Deployment
 
-This project is built with:
+### Lovable Platform
+Simply open [Lovable](https://lovable.dev/projects/d98ece8d-5a7b-4edf-ae49-b14db925e5c2) and click on Share → Publish.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Custom Domain
+To connect a custom domain:
+1. Navigate to Project > Settings > Domains
+2. Click "Connect Domain"
+3. Follow the setup instructions
 
-## How can I deploy this project?
+Read more: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
 
-Simply open [Lovable](https://lovable.dev/projects/d98ece8d-5a7b-4edf-ae49-b14db925e5c2) and click on Share -> Publish.
+## Success Metrics
 
-## Can I connect a custom domain to my Lovable project?
+- **Stage 1**: 100% of Manor venue hire bookings processed through the platform
+- **Stage 3**: 100% of all bookings across all venues managed through the platform
+- **Ultimate Goal**: 80% reduction in time spent on booking administration tasks
 
-Yes, you can!
+## Security & Compliance
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- Role-based access control for different user types
+- Complete audit trails for all booking and customer data changes
+- Secure handling of customer information and payment data
+- Staff authentication with session management
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## Support & Documentation
+
+- **Product Requirements**: See `docs/product/prd/main-product-prd.md`
+- **API Documentation**: Coming in Stage 2
+- **User Guides**: Available in `docs/user-guides/`
+- **Technical Specs**: See `docs/technical/`
+
+## Contributing
+
+This is an internal GM project. For development questions or feature requests, please contact the development team.
+
+---
+
+**Project URL**: https://lovable.dev/projects/d98ece8d-5a7b-4edf-ae49-b14db925e5c2
