@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SignupSuccess } from '@/components/auth/SignupSuccess';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Auth() {
@@ -14,6 +14,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [showSuccessPage, setShowSuccessPage] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -67,13 +68,14 @@ export default function Auth() {
         variant: 'destructive',
       });
     } else {
-      toast({
-        title: 'Account Created!',
-        description: 'Please check your email to verify your account.',
-      });
+      setShowSuccessPage(true);
     }
 
     setIsLoading(false);
+  };
+
+  const handleBackToLogin = () => {
+    setShowSuccessPage(false);
   };
 
   if (loading) {
@@ -100,115 +102,119 @@ export default function Auth() {
           <p className="text-gm-neutral-600 mt-2">Access your management dashboard</p>
         </div>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
-          </TabsList>
+        {showSuccessPage ? (
+          <SignupSuccess onBackToLogin={handleBackToLogin} />
+        ) : (
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="login">
-            <Card>
-              <CardHeader>
-                <CardTitle>Login</CardTitle>
-                <CardDescription>Enter your credentials to access the portal</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      name="email"
-                      type="email"
-                      required
-                      placeholder="your.email@example.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
-                    <Input
-                      id="login-password"
-                      name="password"
-                      type="password"
-                      required
-                      placeholder="Enter your password"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-gm-primary-500 hover:bg-gm-primary-600"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Signing in...' : 'Sign In'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="signup">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create Account</CardTitle>
-                <CardDescription>Register as a new staff member</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+            <TabsContent value="login">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Login</CardTitle>
+                  <CardDescription>Enter your credentials to access the portal</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="signup-firstName">First Name</Label>
+                      <Label htmlFor="login-email">Email</Label>
                       <Input
-                        id="signup-firstName"
-                        name="firstName"
-                        type="text"
+                        id="login-email"
+                        name="email"
+                        type="email"
                         required
-                        placeholder="John"
+                        placeholder="your.email@example.com"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-lastName">Last Name</Label>
+                      <Label htmlFor="login-password">Password</Label>
                       <Input
-                        id="signup-lastName"
-                        name="lastName"
-                        type="text"
+                        id="login-password"
+                        name="password"
+                        type="password"
                         required
-                        placeholder="Doe"
+                        placeholder="Enter your password"
                       />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      required
-                      placeholder="your.email@example.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      required
-                      placeholder="Create a password"
-                      minLength={6}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-gm-primary-500 hover:bg-gm-primary-600"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Creating account...' : 'Create Account'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                    <Button
+                      type="submit"
+                      className="w-full bg-gm-primary-500 hover:bg-gm-primary-600"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Signing in...' : 'Sign In'}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="signup">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create Account</CardTitle>
+                  <CardDescription>Register as a new staff member</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSignUp} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-firstName">First Name</Label>
+                        <Input
+                          id="signup-firstName"
+                          name="firstName"
+                          type="text"
+                          required
+                          placeholder="John"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-lastName">Last Name</Label>
+                        <Input
+                          id="signup-lastName"
+                          name="lastName"
+                          type="text"
+                          required
+                          placeholder="Doe"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email</Label>
+                      <Input
+                        id="signup-email"
+                        name="email"
+                        type="email"
+                        required
+                        placeholder="your.email@example.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Password</Label>
+                      <Input
+                        id="signup-password"
+                        name="password"
+                        type="password"
+                        required
+                        placeholder="Create a password"
+                        minLength={6}
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full bg-gm-primary-500 hover:bg-gm-primary-600"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Creating account...' : 'Create Account'}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </div>
   );
