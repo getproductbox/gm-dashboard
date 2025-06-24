@@ -63,20 +63,22 @@ export const CustomerProfilePanel = ({
         />
       )}
 
-      {/* Panel */}
+      {/* Panel - Responsive width that adapts to sidebar */}
       <div className={`
-        fixed top-0 right-0 h-full w-full md:w-2/5 bg-white shadow-2xl z-50 
+        fixed top-0 right-0 h-full bg-white shadow-2xl z-50 
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+        w-full sm:w-[90vw] md:w-[70vw] lg:w-[50vw] xl:w-[40vw] 
+        max-w-2xl min-w-[320px]
       `}>
         <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
-            <div>
-              <h2 className="text-2xl font-bold text-gm-neutral-900">
+          {/* Header - Responsive padding and text sizing */}
+          <div className="flex items-start justify-between p-4 sm:p-6 border-b">
+            <div className="flex-1 min-w-0 pr-4">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gm-neutral-900 truncate">
                 {customerName}
               </h2>
-              <p className="text-gm-neutral-600">
+              <p className="text-sm sm:text-base text-gm-neutral-600 truncate">
                 Customer since {new Date(customer.customerSince).toLocaleDateString()}
               </p>
             </div>
@@ -84,15 +86,15 @@ export const CustomerProfilePanel = ({
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="rounded-full"
+              className="rounded-full flex-shrink-0"
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
 
-          {/* Content */}
+          {/* Content - Scrollable with responsive padding */}
           <div className="flex-1 overflow-y-auto">
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {isEditing ? (
                 <CustomerEditForm
                   customer={customer}
@@ -111,9 +113,9 @@ export const CustomerProfilePanel = ({
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions - Fixed bottom with responsive padding */}
           {!isEditing && (
-            <div className="border-t p-6">
+            <div className="border-t p-4 sm:p-6 bg-white">
               <CustomerActions
                 onCreateBooking={handleCreateBooking}
                 onSendEmail={handleSendEmail}
