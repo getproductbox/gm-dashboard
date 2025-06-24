@@ -27,21 +27,21 @@ export function DashboardLayout({ children, headerActions }: DashboardLayoutProp
     await signOut();
   };
 
-  // Function to get the current page name from the route
-  const getCurrentPageName = () => {
+  // Function to get the current page breadcrumb from the route
+  const getBreadcrumb = () => {
     const path = location.pathname;
     
-    if (path === '/' || path === '/dashboard') return 'Dashboard';
-    if (path === '/calendar') return 'Calendar';
-    if (path === '/bookings') return 'Bookings';
-    if (path === '/bookings/create') return 'Create Booking';
-    if (path === '/customers') return 'Customers';
-    if (path === '/reports') return 'Reports';
-    if (path === '/settings') return 'Settings';
-    if (path === '/design') return 'Design System';
+    if (path === '/' || path === '/dashboard') return ['Dashboard'];
+    if (path === '/calendar') return ['Calendar'];
+    if (path === '/bookings') return ['Bookings'];
+    if (path === '/bookings/create') return ['Bookings', 'Create'];
+    if (path === '/customers') return ['Customers'];
+    if (path === '/reports') return ['Reports'];
+    if (path === '/settings') return ['Settings'];
+    if (path === '/design') return ['Design System'];
     
     // Fallback for any other routes
-    return path.charAt(1).toUpperCase() + path.slice(2);
+    return [path.charAt(1).toUpperCase() + path.slice(2)];
   };
 
   return (
@@ -54,8 +54,14 @@ export function DashboardLayout({ children, headerActions }: DashboardLayoutProp
               <SidebarTrigger />
               <nav className="flex items-center space-x-2 text-sm text-gm-neutral-500">
                 <span>GM Staff Portal</span>
-                <span>/</span>
-                <span className="text-gm-neutral-900">{getCurrentPageName()}</span>
+                {getBreadcrumb().map((crumb, index) => (
+                  <React.Fragment key={index}>
+                    <span>/</span>
+                    <span className={index === getBreadcrumb().length - 1 ? "text-gm-neutral-900" : "text-gm-neutral-500"}>
+                      {crumb}
+                    </span>
+                  </React.Fragment>
+                ))}
               </nav>
             </div>
             <div className="flex items-center space-x-4">
