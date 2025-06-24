@@ -27,7 +27,6 @@ const bookingFormSchema = z.object({
   bookingDate: z.string().min(1, "Please select a date"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
-  durationHours: z.string().optional(),
   guestCount: z.string().min(1, "Please specify number of guests"),
   ticketQuantity: z.string().optional(),
   specialRequests: z.string().optional(),
@@ -101,7 +100,6 @@ export const CreateBookingForm = () => {
       bookingDate: "",
       startTime: "",
       endTime: "",
-      durationHours: "",
       guestCount: "1",
       ticketQuantity: "",
       specialRequests: "",
@@ -124,7 +122,7 @@ export const CreateBookingForm = () => {
         bookingDate: data.bookingDate,
         startTime: data.startTime || undefined,
         endTime: data.endTime || undefined,
-        durationHours: data.durationHours ? parseInt(data.durationHours) : undefined,
+        durationHours: undefined, // Let backend calculate from start/end times
         guestCount: parseInt(data.guestCount),
         ticketQuantity: data.ticketQuantity ? parseInt(data.ticketQuantity) : undefined,
         specialRequests: data.specialRequests || undefined,
@@ -298,9 +296,9 @@ export const CreateBookingForm = () => {
                 />
               )}
 
-              {/* Show time fields only for venue hire */}
+              {/* Show time fields only for venue hire - just start and end time */}
               {bookingType === "venue_hire" && (
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="startTime"
@@ -346,20 +344,6 @@ export const CreateBookingForm = () => {
                             ))}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="durationHours"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Duration (hrs)</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="1" max="24" placeholder="Hours" {...field} />
-                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
