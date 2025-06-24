@@ -3,14 +3,26 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ScheduleTable } from "@/components/dashboard/ScheduleTable";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Button } from "@/components/ui/button";
 import { mockDashboardMetrics, mockTodaysBookings } from "@/data/mockData/bookings";
-import { Calendar, DollarSign, Users } from "lucide-react";
+import { Calendar, DollarSign, Users, Plus } from "lucide-react";
 
 export default function Dashboard() {
   const { todaysBookings, todaysRevenue, currentOccupancy } = mockDashboardMetrics;
 
+  const handleCreateBooking = () => {
+    console.log('Create new booking');
+  };
+
+  const headerActions = (
+    <Button onClick={handleCreateBooking} className="bg-gm-primary-500 hover:bg-gm-primary-600">
+      <Plus className="h-4 w-4" />
+      Create New Booking
+    </Button>
+  );
+
   return (
-    <DashboardLayout>
+    <DashboardLayout headerActions={headerActions}>
       <div className="space-y-6">
         {/* Header */}
         <div>

@@ -4,9 +4,10 @@ import { AppSidebar } from "./AppSidebar";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  headerActions?: React.ReactNode;
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, headerActions }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -21,6 +22,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <span className="text-gm-neutral-900">Dashboard</span>
               </nav>
             </div>
+            {headerActions && (
+              <div className="flex items-center space-x-4">
+                {headerActions}
+              </div>
+            )}
           </div>
           <div className="p-6">
             {children}
