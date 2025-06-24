@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { BookingsFilters } from "./BookingsFilters";
 import { BookingsTable } from "./BookingsTable";
@@ -132,17 +131,11 @@ export const BookingsList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gm-neutral-900">All Bookings</h2>
-          <p className="text-sm text-gm-neutral-600">
-            {isLoading ? 'Loading...' : `${sortedBookings.length} booking${sortedBookings.length !== 1 ? 's' : ''} found`}
-          </p>
-        </div>
-        <Button onClick={() => navigate('/bookings/create')} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Create Booking
-        </Button>
+      <div>
+        <h2 className="text-lg font-semibold text-gm-neutral-900">All Bookings</h2>
+        <p className="text-sm text-gm-neutral-600">
+          {isLoading ? 'Loading...' : `${sortedBookings.length} booking${sortedBookings.length !== 1 ? 's' : ''} found`}
+        </p>
       </div>
 
       <BookingsFilters 
