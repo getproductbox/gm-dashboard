@@ -1,186 +1,125 @@
 
-import { useState, useEffect } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { X, Edit, Mail, Calendar, Archive, Users } from "lucide-react";
-import { Customer } from "@/data/mockData/customers";
-import { CustomerInfo } from "./CustomerInfo";
-import { BookingHistory } from "./BookingHistory";
-import { CustomerActions } from "./CustomerActions";
-import { CustomerEditForm } from "./CustomerEditForm";
-import { getDetailedCustomerData } from "@/data/mockData/customers";
+import React, { useState } from 'react';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CustomerInfo } from './CustomerInfo';
+import { BookingHistory } from './BookingHistory';
+import { CustomerActions } from './CustomerActions';
+import { CustomerEditForm } from './CustomerEditForm';
+import { Customer } from '@/data/mockData/customers';
 
 interface CustomerProfilePanelProps {
+  customer: Customer | null;
   isOpen: boolean;
   onClose: () => void;
-  customerId: string | null;
-  onCustomerUpdated?: (customer: Customer) => void;
+  onEdit: (customer: Customer) => void;
 }
 
-export const CustomerProfilePanel = ({ 
-  isOpen, 
-  onClose, 
-  customerId,
-  onCustomerUpdated 
+export const CustomerProfilePanel = ({
+  customer,
+  isOpen,
+  onClose,
+  onEdit
 }: CustomerProfilePanelProps) => {
-  const [customer, setCustomer] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    if (customerId && isOpen) {
-      loadCustomerData(customerId);
-    }
-  }, [customerId, isOpen]);
+  if (!customer) return null;
 
-  const loadCustomerData = async (id: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const detailedCustomer = getDetailedCustomerData(id);
-      
-      if (!detailedCustomer) {
-        setError("Customer not found");
-      } else {
-        setCustomer(detailedCustomer);
-      }
-    } catch (err) {
-      setError("Failed to load customer data");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEditToggle = () => {
-    setIsEditMode(!isEditMode);
-  };
-
-  const handleSaveCustomer = (updatedCustomer: Customer) => {
-    setCustomer({ ...customer, ...updatedCustomer });
-    setIsEditMode(false);
-    onCustomerUpdated?.(updatedCustomer);
-    console.log('Customer updated:', updatedCustomer);
+  const handleEdit = (updatedCustomer: Customer) => {
+    onEdit(updatedCustomer);
+    setIsEditing(false);
   };
 
   const handleCreateBooking = () => {
-    console.log('Create new booking for customer:', customer?.firstName, customer?.lastName);
-    onClose();
+    console.log('Create booking for customer:', customer.name);
   };
 
   const handleSendEmail = () => {
-    console.log('Send email to:', customer?.email);
+    console.log('Send email to:', customer.email);
   };
 
   const handleArchiveCustomer = () => {
-    console.log('Archive customer:', customer?.firstName, customer?.lastName);
-    onClose();
+    console.log('Archive customer:', customer.name);
   };
 
   const handleMergeDuplicate = () => {
-    console.log('Merge duplicate customer:', customer?.firstName, customer?.lastName);
+    console.log('Merge duplicate customer:', customer.name);
   };
 
   const handleViewAllBookings = () => {
-    console.log('View all bookings for:', customer?.firstName, customer?.lastName);
+    console.log('View all bookings for:', customer.name);
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader className="pb-4">
-          <div className="flex items-start justify-between">
+    <>
+      {/* Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Panel */}
+      <div className={`
+        fixed top-0 right-0 h-full w-full md:w-2/5 bg-white shadow-2xl z-50 
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+      `}>
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b">
             <div>
-              {isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-48" />
-                  <Skeleton className="h-4 w-32" />
-                </div>
-              ) : error ? (
-                <div>
-                  <SheetTitle className="text-red-600">Error</SheetTitle>
-                  <p className="text-sm text-gm-neutral-600">{error}</p>
-                </div>
-              ) : customer ? (
-                <div>
-                  <SheetTitle className="text-xl">
-                    {customer.firstName} {customer.lastName}
-                  </SheetTitle>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      customer.status === 'returning' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {customer.status === 'returning' ? 'Returning Customer' : 'First-time Customer'}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
+              <h2 className="text-2xl font-bold text-gm-neutral-900">
+                {customer.name}
+              </h2>
+              <p className="text-gm-neutral-600">
+                Customer since {new Date(customer.customerSince).toLocaleDateString()}
+              </p>
             </div>
             <Button
               variant="ghost"
-              size="sm"
-              onClick={handleEditToggle}
-              className="flex items-center gap-2"
-              disabled={isLoading || error || !customer}
+              size="icon"
+              onClick={onClose}
+              className="rounded-full"
             >
-              <Edit className="h-4 w-4" />
-              {isEditMode ? 'Cancel' : 'Edit'}
+              <X className="h-5 w-5" />
             </Button>
           </div>
-        </SheetHeader>
 
-        <div className="space-y-6">
-          {isLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-40 w-full" />
-            </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <p className="text-gm-neutral-600">Failed to load customer information</p>
-              <Button 
-                variant="outline" 
-                onClick={() => customerId && loadCustomerData(customerId)}
-                className="mt-4"
-              >
-                Try Again
-              </Button>
-            </div>
-          ) : customer ? (
-            <>
-              {isEditMode ? (
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6 space-y-6">
+              {isEditing ? (
                 <CustomerEditForm
                   customer={customer}
-                  onSave={handleSaveCustomer}
-                  onCancel={() => setIsEditMode(false)}
+                  onSave={handleEdit}
+                  onCancel={() => setIsEditing(false)}
                 />
               ) : (
                 <>
                   <CustomerInfo customer={customer} />
-                  <BookingHistory 
-                    bookings={customer.bookingHistory || []}
-                    onViewAll={handleViewAllBookings}
-                  />
-                  <CustomerActions
-                    onCreateBooking={handleCreateBooking}
-                    onSendEmail={handleSendEmail}
-                    onArchiveCustomer={handleArchiveCustomer}
-                    onMergeDuplicate={handleMergeDuplicate}
-                    onViewAllBookings={handleViewAllBookings}
-                  />
+                  <BookingHistory customer={customer} />
                 </>
               )}
-            </>
-          ) : null}
+            </div>
+          </div>
+
+          {/* Actions */}
+          {!isEditing && (
+            <div className="border-t p-6">
+              <CustomerActions
+                onCreateBooking={handleCreateBooking}
+                onSendEmail={handleSendEmail}
+                onEditCustomer={() => setIsEditing(true)}
+                onArchiveCustomer={handleArchiveCustomer}
+                onMergeDuplicate={handleMergeDuplicate}
+                onViewAllBookings={handleViewAllBookings}
+              />
+            </div>
+          )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </>
   );
 };

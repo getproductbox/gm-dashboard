@@ -2,11 +2,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Mail, Eye, Archive, Users, Calendar } from "lucide-react";
+import { Plus, Mail, Eye, Archive, Users, Calendar, Edit } from "lucide-react";
 
 interface CustomerActionsProps {
   onCreateBooking: () => void;
   onSendEmail: () => void;
+  onEditCustomer: () => void;
   onArchiveCustomer: () => void;
   onMergeDuplicate: () => void;
   onViewAllBookings: () => void;
@@ -15,6 +16,7 @@ interface CustomerActionsProps {
 export const CustomerActions = ({
   onCreateBooking,
   onSendEmail,
+  onEditCustomer,
   onArchiveCustomer,
   onMergeDuplicate,
   onViewAllBookings
@@ -48,13 +50,22 @@ export const CustomerActions = ({
             
             <Button 
               variant="outline" 
-              onClick={onViewAllBookings}
+              onClick={onEditCustomer}
               className="flex items-center gap-2"
             >
-              <Calendar className="h-4 w-4" />
-              All Bookings
+              <Edit className="h-4 w-4" />
+              Edit Customer
             </Button>
           </div>
+          
+          <Button 
+            variant="outline" 
+            onClick={onViewAllBookings}
+            className="w-full flex items-center gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            View All Bookings
+          </Button>
         </div>
 
         <Separator />

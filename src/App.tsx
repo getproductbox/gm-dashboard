@@ -12,6 +12,7 @@ import CreateBooking from "./pages/CreateBooking";
 import DesignSystem from "./pages/DesignSystem";
 import NotFound from "./pages/NotFound";
 import Customers from "./pages/Customers";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -29,7 +30,7 @@ const App = () => (
           <Route path="/bookings/create" element={<CreateBooking />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/reports" element={<NotFound />} />
-          <Route path="/settings" element={<NotFound />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/design" element={<DesignSystem />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
