@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { AppSidebar } from "./AppSidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut, User } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,9 +21,27 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, headerActions }: DashboardLayoutProps) {
   const { user, signOut } = useAuth();
+  const location = useLocation();
 
   const handleLogout = async () => {
     await signOut();
+  };
+
+  // Function to get the current page name from the route
+  const getCurrentPageName = () => {
+    const path = location.pathname;
+    
+    if (path === '/' || path === '/dashboard') return 'Dashboard';
+    if (path === '/calendar') return 'Calendar';
+    if (path === '/bookings') return 'Bookings';
+    if (path === '/bookings/create') return 'Create Booking';
+    if (path === '/customers') return 'Customers';
+    if (path === '/reports') return 'Reports';
+    if (path === '/settings') return 'Settings';
+    if (path === '/design') return 'Design System';
+    
+    // Fallback for any other routes
+    return path.charAt(1).toUpperCase() + path.slice(2);
   };
 
   return (
@@ -36,7 +55,7 @@ export function DashboardLayout({ children, headerActions }: DashboardLayoutProp
               <nav className="flex items-center space-x-2 text-sm text-gm-neutral-500">
                 <span>GM Staff Portal</span>
                 <span>/</span>
-                <span className="text-gm-neutral-900">Dashboard</span>
+                <span className="text-gm-neutral-900">{getCurrentPageName()}</span>
               </nav>
             </div>
             <div className="flex items-center space-x-4">
