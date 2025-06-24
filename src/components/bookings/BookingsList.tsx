@@ -6,7 +6,7 @@ import { BookingsPagination } from "./BookingsPagination";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { mockExtendedBookings } from "@/data/mockData/bookings";
+import { mockExtendedBookings, ExtendedBooking } from "@/data/mockData/bookings";
 
 export interface BookingFilters {
   dateFrom: string;
@@ -21,7 +21,7 @@ export const BookingsList = () => {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [sortField, setSortField] = useState<string>('date');
+  const [sortField, setSortField] = useState<keyof ExtendedBooking>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState<BookingFilters>({
     dateFrom: '',
@@ -114,7 +114,7 @@ export const BookingsList = () => {
     setCurrentPage(1);
   };
 
-  const handleSort = (field: keyof any) => {
+  const handleSort = (field: keyof ExtendedBooking) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
