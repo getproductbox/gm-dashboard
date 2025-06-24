@@ -17,10 +17,11 @@ export interface CreateBookingData {
   startTime?: string;
   endTime?: string;
   durationHours?: number;
-  guestCount: number;
+  guestCount?: number;
   ticketQuantity?: number;
   specialRequests?: string;
   totalAmount?: number;
+  costPerTicket?: number;
   staffNotes?: string;
 }
 
@@ -34,8 +35,57 @@ export interface BookingFilters {
 }
 
 export const bookingService = {
-  // Create a new booking
-  async createBooking(data: CreateBookingData): Promise<BookingRow> {
+  // Create VIP ticket bookings (multiple entries)
+  async createVipTicketBookings(data: CreateBookingData): Promise<BookingRow[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    if (!data.ticketQuantity || !data.costPerTicket) {
+      throw new Error('Ticket quantity and cost per ticket are required for VIP bookings');
+    }
+
+    // Create array of booking objects (one per ticket)
+    const bookingEntries: BookingInsert[] = [];
+    for (let i = 0; i < data.ticketQuantity; i++) {
+      bookingEntries.push({
+        customer_name: data.customerName,
+        customer_email: data.customerEmail,
+        customer_phone: data.customerPhone,
+        booking_type: data.bookingType,
+        venue: data.venue,
+        booking_date: data.bookingDate,
+        ticket_quantity: 1, // Each entry represents one ticket
+        total_amount: data.costPerTicket,
+        special_requests: data.specialRequests,
+        staff_notes: data.staffNotes,
+        created_by: user.id,
+      });
+    }
+
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .insert(bookingEntries)
+      .select();
+
+    if (error) {
+      console.error('Error creating VIP ticket bookings:', error);
+      throw new Error(`Failed to create VIP ticket bookings: ${error.message}`);
+    }
+
+    return bookings;
+  },
+
+  // Create a new booking (handles both venue hire and VIP tickets)
+  async createBooking(data: CreateBookingData): Promise<BookingRow | BookingRow[]> {
+    // For VIP tickets, use the bulk creation method
+    if (data.bookingType === 'vip_tickets') {
+      return this.createVipTicketBookings(data);
+    }
+
+    // For venue hire, create single booking as before
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -54,7 +104,6 @@ export const bookingService = {
       end_time: data.endTime,
       duration_hours: data.durationHours,
       guest_count: data.guestCount,
-      ticket_quantity: data.ticketQuantity,
       special_requests: data.specialRequests,
       total_amount: data.totalAmount,
       staff_notes: data.staffNotes,
@@ -118,7 +167,6 @@ export const bookingService = {
     return bookings || [];
   },
 
-  // Get a single booking by ID
   async getBooking(id: string): Promise<BookingRow> {
     const { data: booking, error } = await supabase
       .from('bookings')
@@ -134,7 +182,6 @@ export const bookingService = {
     return booking;
   },
 
-  // Update a booking
   async updateBooking(id: string, updates: Partial<CreateBookingData>): Promise<BookingRow> {
     const updateData: BookingUpdate = {
       customer_name: updates.customerName,
@@ -169,7 +216,6 @@ export const bookingService = {
     return booking;
   },
 
-  // Update booking status
   async updateBookingStatus(id: string, status: 'pending' | 'confirmed' | 'cancelled' | 'completed'): Promise<BookingRow> {
     const { data: booking, error } = await supabase
       .from('bookings')
@@ -186,7 +232,6 @@ export const bookingService = {
     return booking;
   },
 
-  // Get VIP tickets for export (not yet exported)
   async getVipTicketsForExport(): Promise<BookingRow[]> {
     const { data: bookings, error } = await supabase
       .from('bookings')
@@ -203,7 +248,6 @@ export const bookingService = {
     return bookings || [];
   },
 
-  // Mark VIP tickets as exported
   async markVipTicketsAsExported(bookingIds: string[]): Promise<void> {
     const { error } = await supabase
       .from('bookings')

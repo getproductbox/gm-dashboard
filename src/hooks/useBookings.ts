@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookingService, CreateBookingData, BookingFilters } from '@/services/bookingService';
 import { useToast } from '@/hooks/use-toast';
@@ -27,10 +26,23 @@ export const useCreateBooking = () => {
     mutationFn: (data: CreateBookingData) => bookingService.createBooking(data),
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      toast({
-        title: "Booking Created Successfully",
-        description: `Booking for ${booking.customer_name} has been created and ${booking.status === 'confirmed' ? 'confirmed' : 'is pending'}.`,
-      });
+      
+      // Handle both single booking and multiple VIP ticket bookings
+      if (Array.isArray(booking)) {
+        // Multiple VIP ticket bookings
+        const ticketCount = booking.length;
+        const customerName = booking[0]?.customer_name || 'Customer';
+        toast({
+          title: "VIP Tickets Created Successfully",
+          description: `${ticketCount} VIP tickets for ${customerName} have been created.`,
+        });
+      } else {
+        // Single venue hire booking
+        toast({
+          title: "Booking Created Successfully",
+          description: `Booking for ${booking.customer_name} has been created and ${booking.status === 'confirmed' ? 'confirmed' : 'is pending'}.`,
+        });
+      }
     },
     onError: (error: Error) => {
       toast({

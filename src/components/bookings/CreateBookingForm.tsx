@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -137,8 +136,6 @@ export const CreateBookingForm = () => {
 
   const onSubmit = async (data: BookingFormValues) => {
     try {
-      const totalAmount = bookingType === "vip_tickets" ? calculateTotalAmount() : data.totalAmount;
-      
       await createBookingMutation.mutateAsync({
         customerName: data.customerName,
         customerEmail: data.customerEmail || undefined,
@@ -153,7 +150,8 @@ export const CreateBookingForm = () => {
         guestCount: data.guestCount ? parseInt(data.guestCount) : undefined,
         ticketQuantity: data.ticketQuantity ? parseInt(data.ticketQuantity) : undefined,
         specialRequests: data.specialRequests || undefined,
-        totalAmount: totalAmount ? parseFloat(totalAmount) : undefined,
+        totalAmount: data.totalAmount ? parseFloat(data.totalAmount) : undefined,
+        costPerTicket: data.costPerTicket ? parseFloat(data.costPerTicket) : undefined,
         staffNotes: data.staffNotes || undefined,
       });
       
