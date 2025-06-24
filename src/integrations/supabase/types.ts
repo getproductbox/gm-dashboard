@@ -9,6 +9,111 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      bookings: {
+        Row: {
+          booking_date: string
+          booking_type: string
+          created_at: string | null
+          created_by: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          duration_hours: number | null
+          end_time: string | null
+          export_date: string | null
+          exported_to_megatix: boolean | null
+          guest_count: number | null
+          id: string
+          payment_status: string | null
+          special_requests: string | null
+          staff_notes: string | null
+          start_time: string | null
+          status: string
+          ticket_quantity: number | null
+          total_amount: number | null
+          updated_at: string | null
+          venue: string
+          venue_area: string | null
+        }
+        Insert: {
+          booking_date: string
+          booking_type: string
+          created_at?: string | null
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          duration_hours?: number | null
+          end_time?: string | null
+          export_date?: string | null
+          exported_to_megatix?: boolean | null
+          guest_count?: number | null
+          id?: string
+          payment_status?: string | null
+          special_requests?: string | null
+          staff_notes?: string | null
+          start_time?: string | null
+          status?: string
+          ticket_quantity?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+          venue: string
+          venue_area?: string | null
+        }
+        Update: {
+          booking_date?: string
+          booking_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          duration_hours?: number | null
+          end_time?: string | null
+          export_date?: string | null
+          exported_to_megatix?: boolean | null
+          guest_count?: number | null
+          id?: string
+          payment_status?: string | null
+          special_requests?: string | null
+          staff_notes?: string | null
+          start_time?: string | null
+          status?: string
+          ticket_quantity?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+          venue?: string
+          venue_area?: string | null
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       staff_profiles: {
         Row: {
           created_at: string | null

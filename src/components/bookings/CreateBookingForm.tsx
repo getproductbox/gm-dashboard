@@ -7,41 +7,74 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
 import { Save } from "lucide-react";
+import { useCreateBooking } from "@/hooks/useBookings";
 
 const bookingFormSchema = z.object({
   customerName: z.string().min(2, "Customer name must be at least 2 characters"),
-  customerEmail: z.string().email("Please enter a valid email address"),
-  customerPhone: z.string().min(10, "Please enter a valid phone number"),
-  service: z.string().min(1, "Please select a service"),
-  room: z.string().min(1, "Please select a room"),
-  date: z.string().min(1, "Please select a date"),
-  startTime: z.string().min(1, "Please select a start time"),
-  duration: z.string().min(1, "Please select duration"),
-  guests: z.string().min(1, "Please specify number of guests"),
+  customerEmail: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
+  customerPhone: z.string().min(1, "Please enter a phone number").optional().or(z.literal("")),
+  bookingType: z.enum(["venue_hire", "vip_tickets"], {
+    required_error: "Please select a booking type"
+  }),
+  venue: z.enum(["manor", "hippie"], {
+    required_error: "Please select a venue"
+  }),
+  venueArea: z.enum(["upstairs", "downstairs", "full_venue"]).optional(),
+  bookingDate: z.string().min(1, "Please select a date"),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  durationHours: z.string().optional(),
+  guestCount: z.string().min(1, "Please specify number of guests"),
+  ticketQuantity: z.string().optional(),
   specialRequests: z.string().optional(),
-  price: z.string().min(1, "Please enter the booking price"),
+  totalAmount: z.string().optional(),
+  staffNotes: z.string().optional(),
+}).refine((data) => {
+  // At least one contact method required
+  return data.customerEmail || data.customerPhone;
+}, {
+  message: "Please provide either email or phone number",
+  path: ["customerEmail"],
+}).refine((data) => {
+  // Venue area required for venue hire
+  if (data.bookingType === "venue_hire" && !data.venueArea) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please select a venue area for venue hire bookings",
+  path: ["venueArea"],
+}).refine((data) => {
+  // Ticket quantity required for VIP tickets
+  if (data.bookingType === "vip_tickets" && !data.ticketQuantity) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please specify ticket quantity for VIP ticket bookings",
+  path: ["ticketQuantity"],
 });
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
-const serviceOptions = [
-  { value: "karaoke", label: "Karaoke Session" },
-  { value: "venue-hire", label: "Venue Hire" },
-  { value: "private-party", label: "Private Party" },
+const venueOptions = [
+  { value: "manor", label: "Manor" },
+  { value: "hippie", label: "Hippie Club" },
 ];
 
-const roomOptions = [
-  { value: "karaoke-a", label: "Karaoke Room A" },
-  { value: "karaoke-b", label: "Karaoke Room B" },
-  { value: "karaoke-c", label: "Karaoke Room C" },
-  { value: "main-hall", label: "Main Hall" },
-  { value: "vip-lounge", label: "VIP Lounge" },
+const bookingTypeOptions = [
+  { value: "venue_hire", label: "Venue Hire" },
+  { value: "vip_tickets", label: "VIP Tickets" },
+];
+
+const venueAreaOptions = [
+  { value: "upstairs", label: "Upstairs" },
+  { value: "downstairs", label: "Downstairs" },
+  { value: "full_venue", label: "Full Venue" },
 ];
 
 const timeSlots = [
@@ -52,21 +85,9 @@ const timeSlots = [
   "21:00", "21:30", "22:00", "22:30", "23:00",
 ];
 
-const durationOptions = [
-  { value: "1", label: "1 hour" },
-  { value: "1.5", label: "1.5 hours" },
-  { value: "2", label: "2 hours" },
-  { value: "2.5", label: "2.5 hours" },
-  { value: "3", label: "3 hours" },
-  { value: "4", label: "4 hours" },
-  { value: "6", label: "6 hours" },
-  { value: "8", label: "8 hours" },
-];
-
 export const CreateBookingForm = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const createBookingMutation = useCreateBooking();
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -74,32 +95,47 @@ export const CreateBookingForm = () => {
       customerName: "",
       customerEmail: "",
       customerPhone: "",
-      service: "",
-      room: "",
-      date: "",
+      bookingType: undefined,
+      venue: undefined,
+      venueArea: undefined,
+      bookingDate: "",
       startTime: "",
-      duration: "",
-      guests: "",
+      endTime: "",
+      durationHours: "",
+      guestCount: "1",
+      ticketQuantity: "",
       specialRequests: "",
-      price: "",
+      totalAmount: "",
+      staffNotes: "",
     },
   });
 
+  const bookingType = form.watch("bookingType");
+
   const onSubmit = async (data: BookingFormValues) => {
-    setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log("Creating booking:", data);
-    
-    toast({
-      title: "Booking Created Successfully",
-      description: `Booking for ${data.customerName} has been created.`,
-    });
-    
-    setIsSubmitting(false);
-    navigate('/bookings');
+    try {
+      await createBookingMutation.mutateAsync({
+        customerName: data.customerName,
+        customerEmail: data.customerEmail || undefined,
+        customerPhone: data.customerPhone || undefined,
+        bookingType: data.bookingType,
+        venue: data.venue,
+        venueArea: data.venueArea,
+        bookingDate: data.bookingDate,
+        startTime: data.startTime || undefined,
+        endTime: data.endTime || undefined,
+        durationHours: data.durationHours ? parseInt(data.durationHours) : undefined,
+        guestCount: parseInt(data.guestCount),
+        ticketQuantity: data.ticketQuantity ? parseInt(data.ticketQuantity) : undefined,
+        specialRequests: data.specialRequests || undefined,
+        totalAmount: data.totalAmount ? parseFloat(data.totalAmount) : undefined,
+        staffNotes: data.staffNotes || undefined,
+      });
+      
+      navigate('/bookings');
+    } catch (error) {
+      console.error('Error creating booking:', error);
+    }
   };
 
   return (
@@ -131,10 +167,13 @@ export const CreateBookingForm = () => {
                 name="customerEmail"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email Address *</FormLabel>
+                    <FormLabel>Email Address</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="customer@example.com" {...field} />
                     </FormControl>
+                    <FormDescription>
+                      Provide either email or phone number
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -145,7 +184,7 @@ export const CreateBookingForm = () => {
                 name="customerPhone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number *</FormLabel>
+                    <FormLabel>Phone Number</FormLabel>
                     <FormControl>
                       <Input type="tel" placeholder="+44 123 456 7890" {...field} />
                     </FormControl>
@@ -165,18 +204,18 @@ export const CreateBookingForm = () => {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="service"
+                  name="venue"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Service *</FormLabel>
+                      <FormLabel>Venue *</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select service" />
+                            <SelectValue placeholder="Select venue" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {serviceOptions.map((option) => (
+                          {venueOptions.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>
@@ -190,18 +229,18 @@ export const CreateBookingForm = () => {
 
                 <FormField
                   control={form.control}
-                  name="room"
+                  name="bookingType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Room *</FormLabel>
+                      <FormLabel>Booking Type *</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select room" />
+                            <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {roomOptions.map((option) => (
+                          {bookingTypeOptions.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>
@@ -214,9 +253,36 @@ export const CreateBookingForm = () => {
                 />
               </div>
 
+              {bookingType === "venue_hire" && (
+                <FormField
+                  control={form.control}
+                  name="venueArea"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Venue Area *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select area" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {venueAreaOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <FormField
                 control={form.control}
-                name="date"
+                name="bookingDate"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Date *</FormLabel>
@@ -228,79 +294,111 @@ export const CreateBookingForm = () => {
                 )}
               />
 
+              {bookingType === "venue_hire" && (
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start Time</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Start time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {timeSlots.map((time) => (
+                              <SelectItem key={time} value={time}>
+                                {time}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Time</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="End time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {timeSlots.map((time) => (
+                              <SelectItem key={time} value={time}>
+                                {time}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="durationHours"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Duration (hrs)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" max="24" placeholder="Hours" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="startTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Start Time *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select time" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {timeSlots.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="duration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Duration *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select duration" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {durationOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="guests"
+                  name="guestCount"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Number of Guests *</FormLabel>
                       <FormControl>
-                        <Input type="number" min="1" max="50" placeholder="e.g. 8" {...field} />
+                        <Input type="number" min="1" max="500" placeholder="e.g. 8" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
+                {bookingType === "vip_tickets" && (
+                  <FormField
+                    control={form.control}
+                    name="ticketQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ticket Quantity *</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" max="100" placeholder="e.g. 4" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 <FormField
                   control={form.control}
-                  name="price"
+                  name="totalAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price (£) *</FormLabel>
+                      <FormLabel>Total Amount (£)</FormLabel>
                       <FormControl>
                         <Input type="number" min="0" step="0.01" placeholder="e.g. 120.00" {...field} />
                       </FormControl>
@@ -313,12 +411,12 @@ export const CreateBookingForm = () => {
           </Card>
         </div>
 
-        {/* Special Requests */}
+        {/* Additional Information */}
         <Card>
           <CardHeader>
             <CardTitle>Additional Information</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <FormField
               control={form.control}
               name="specialRequests"
@@ -328,12 +426,33 @@ export const CreateBookingForm = () => {
                   <FormControl>
                     <Textarea
                       placeholder="Any special requirements, dietary restrictions, or additional notes..."
-                      className="min-h-[100px]"
+                      className="min-h-[80px]"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Optional: Include any special requirements or notes for this booking
+                    Customer facing notes and special requirements
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="staffNotes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Staff Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Internal staff notes, reminders, or instructions..."
+                      className="min-h-[80px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Internal notes visible only to staff
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -348,12 +467,12 @@ export const CreateBookingForm = () => {
             type="button"
             variant="outline"
             onClick={() => navigate('/bookings')}
-            disabled={isSubmitting}
+            disabled={createBookingMutation.isPending}
           >
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
+          <Button type="submit" disabled={createBookingMutation.isPending}>
+            {createBookingMutation.isPending ? (
               <>Creating...</>
             ) : (
               <>

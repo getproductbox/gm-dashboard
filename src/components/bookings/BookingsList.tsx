@@ -6,13 +6,15 @@ import { BookingsPagination } from "./BookingsPagination";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { mockExtendedBookings, ExtendedBooking } from "@/data/mockData/bookings";
+import { useBookings } from "@/hooks/useBookings";
+import { BookingRow } from "@/services/bookingService";
 
 export interface BookingFilters {
   dateFrom: string;
   dateTo: string;
   status: string;
-  service: string;
+  venue: string;
+  bookingType: string;
   search: string;
 }
 
@@ -21,70 +23,71 @@ export const BookingsList = () => {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [sortField, setSortField] = useState<keyof ExtendedBooking>('date');
+  const [sortField, setSortField] = useState<keyof BookingRow>('booking_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState<BookingFilters>({
     dateFrom: '',
     dateTo: '',
     status: 'all',
-    service: 'all',
+    venue: 'all',
+    bookingType: 'all',
     search: '',
   });
 
-  const filteredBookings = useMemo(() => {
-    return mockExtendedBookings.filter(booking => {
-      const matchesDateFrom = !filters.dateFrom || booking.date >= filters.dateFrom;
-      const matchesDateTo = !filters.dateTo || booking.date <= filters.dateTo;
-      const matchesStatus = filters.status === 'all' || booking.status === filters.status;
-      const matchesService = filters.service === 'all' || booking.service.toLowerCase().includes(filters.service.toLowerCase());
-      const matchesSearch = !filters.search || 
-        booking.customer.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        booking.reference.toLowerCase().includes(filters.search.toLowerCase());
+  // Convert filters for the API
+  const apiFilters = useMemo(() => ({
+    venue: filters.venue !== 'all' ? filters.venue : undefined,
+    bookingType: filters.bookingType !== 'all' ? filters.bookingType : undefined,
+    status: filters.status !== 'all' ? filters.status : undefined,
+    dateFrom: filters.dateFrom || undefined,
+    dateTo: filters.dateTo || undefined,
+    search: filters.search || undefined,
+  }), [filters]);
 
-      return matchesDateFrom && matchesDateTo && matchesStatus && matchesService && matchesSearch;
-    });
-  }, [filters]);
+  const { data: bookings = [], isLoading, error } = useBookings(apiFilters);
 
   const sortedBookings = useMemo(() => {
-    const sorted = [...filteredBookings].sort((a, b) => {
+    if (!bookings.length) return [];
+
+    const sorted = [...bookings].sort((a, b) => {
       let aValue, bValue;
       
       switch (sortField) {
-        case 'reference':
-          aValue = a.reference;
-          bValue = b.reference;
+        case 'customer_name':
+          aValue = a.customer_name;
+          bValue = b.customer_name;
           break;
-        case 'customer':
-          aValue = a.customer.name;
-          bValue = b.customer.name;
+        case 'venue':
+          aValue = a.venue;
+          bValue = b.venue;
           break;
-        case 'service':
-          aValue = a.service;
-          bValue = b.service;
+        case 'booking_type':
+          aValue = a.booking_type;
+          bValue = b.booking_type;
           break;
-        case 'date':
-          aValue = a.date;
-          bValue = b.date;
+        case 'booking_date':
+          aValue = a.booking_date;
+          bValue = b.booking_date;
           break;
-        case 'time':
-          aValue = a.time;
-          bValue = b.time;
+        case 'start_time':
+          aValue = a.start_time || '';
+          bValue = b.start_time || '';
           break;
-        case 'guests':
-          aValue = a.guests;
-          bValue = b.guests;
+        case 'guest_count':
+          aValue = a.guest_count || 0;
+          bValue = b.guest_count || 0;
           break;
         case 'status':
           aValue = a.status;
           bValue = b.status;
           break;
-        case 'amount':
-          aValue = a.amount;
-          bValue = b.amount;
+        case 'total_amount':
+          aValue = a.total_amount || 0;
+          bValue = b.total_amount || 0;
           break;
         default:
-          aValue = a.date;
-          bValue = b.date;
+          aValue = a.booking_date;
+          bValue = b.booking_date;
       }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -99,7 +102,7 @@ export const BookingsList = () => {
     });
     
     return sorted;
-  }, [filteredBookings, sortField, sortDirection]);
+  }, [bookings, sortField, sortDirection]);
 
   const paginatedBookings = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -114,7 +117,7 @@ export const BookingsList = () => {
     setCurrentPage(1);
   };
 
-  const handleSort = (field: keyof ExtendedBooking) => {
+  const handleSort = (field: keyof BookingRow) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -128,11 +131,23 @@ export const BookingsList = () => {
       dateFrom: '',
       dateTo: '',
       status: 'all',
-      service: 'all',
+      venue: 'all',
+      bookingType: 'all',
       search: '',
     });
     setCurrentPage(1);
   };
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <p className="text-red-700 text-lg font-medium">Error Loading Bookings</p>
+        <p className="text-red-600 text-sm mt-2">
+          {error instanceof Error ? error.message : 'An unexpected error occurred'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -140,7 +155,7 @@ export const BookingsList = () => {
         <div>
           <h2 className="text-lg font-semibold text-gm-neutral-900">All Bookings</h2>
           <p className="text-sm text-gm-neutral-600">
-            {sortedBookings.length} booking{sortedBookings.length !== 1 ? 's' : ''} found
+            {isLoading ? 'Loading...' : `${sortedBookings.length} booking${sortedBookings.length !== 1 ? 's' : ''} found`}
           </p>
         </div>
         <Button onClick={() => navigate('/bookings/create')} className="flex items-center gap-2">
@@ -160,6 +175,7 @@ export const BookingsList = () => {
         sortField={sortField}
         sortDirection={sortDirection}
         onSort={handleSort}
+        isLoading={isLoading}
       />
 
       {sortedBookings.length > 0 && (
