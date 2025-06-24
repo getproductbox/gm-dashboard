@@ -15,32 +15,32 @@ import { Home, Calendar, Users, BarChart3, Settings } from "lucide-react";
 const menuItems = [
   {
     title: "Dashboard",
-    url: "/admin/dashboard",
+    url: "/dashboard",
     icon: Home,
   },
   {
     title: "Calendar",
-    url: "/admin/calendar",
+    url: "/calendar",
     icon: Calendar,
   },
   {
     title: "Bookings",
-    url: "/admin/bookings",
+    url: "/bookings",
     icon: Calendar,
   },
   {
     title: "Customers",
-    url: "/admin/customers",
+    url: "/customers",
     icon: Users,
   },
   {
     title: "Reports",
-    url: "/admin/reports",
+    url: "/reports",
     icon: BarChart3,
   },
   {
     title: "Settings",
-    url: "/admin/settings",
+    url: "/settings",
     icon: Settings,
   },
 ];
@@ -54,8 +54,8 @@ export function AppSidebar() {
             <span className="text-white font-bold text-sm">GM</span>
           </div>
           <div>
-            <div className="font-semibold text-gm-neutral-900">Manor</div>
-            <div className="text-xs text-gm-neutral-500">Primary Venue</div>
+            <div className="font-semibold text-gm-neutral-900">GM Admin</div>
+            <div className="text-xs text-gm-neutral-500">Staff Portal</div>
           </div>
         </div>
       </SidebarHeader>

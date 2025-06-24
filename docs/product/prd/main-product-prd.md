@@ -1,17 +1,19 @@
-# GM Admin - Product Requirements Document
+
+# GM Staff Portal - Product Requirements Document
 
 ## TL;DR
-Develop a dedicated staff management platform for GM's venue operations, starting with Manor's karaoke and venue hire services, then expanding to support multiple venues (including Hippie Club). This admin-only application targets venue managers and staff seeking efficient booking management, operational automation, and data-driven insights.
+Develop a dedicated staff management platform for GM's venue operations, starting with Manor's karaoke and venue hire services, then expanding to support multiple venues (including Hippie Club). This **staff-only application** targets venue managers and staff seeking efficient booking management, operational automation, and data-driven insights.
 
 ## Application Scope
 
-### Admin-Only Platform
-This application is exclusively designed for **staff and venue managers**. Customer-facing booking flows are handled by a separate customer application to ensure:
+### Staff-Only Platform
+This application is exclusively designed for **staff and venue managers**. There are no customer-facing features in this application. Customer-facing booking flows are handled by a completely separate customer application to ensure:
 
 - **Focused User Experience**: Optimized specifically for staff workflows and operational needs
-- **Security Separation**: Admin functions isolated from customer interfaces
-- **Independent Scaling**: Admin and customer systems can be deployed and scaled independently
+- **Security Separation**: Staff functions completely isolated from customer interfaces
+- **Independent Scaling**: Staff and customer systems are deployed and scaled independently
 - **Simplified Maintenance**: Codebase focused solely on management features and staff productivity
+- **Clear Separation of Concerns**: No mixing of customer and staff functionality
 
 ## Goals
 
@@ -23,13 +25,13 @@ This application is exclusively designed for **staff and venue managers**. Custo
 
 ## Success Metrics
 
-- **Stage 1**: 100% of Manor venue hire bookings processed through the admin platform
+- **Stage 1**: 100% of Manor venue hire bookings processed through the staff portal
 - **Stage 3**: 100% of all bookings across all venues managed through the platform
 - **Ultimate**: Staff spending 80% less time on administrative booking tasks, redirecting effort to customer experience and strategic initiatives
 
 ## Non-Goals
 
-- Customer-facing booking interfaces (handled by separate customer application)
+- **NO Customer-facing features** (handled by separate customer application)
 - Advanced AI-powered pricing optimization or demand forecasting
 - Complex inventory management for food, beverages, or merchandise
 - Integration with accounting software or payroll systems
@@ -67,7 +69,7 @@ This application is exclusively designed for **staff and venue managers**. Custo
 
 **Staff Dashboard**: Comprehensive dashboard showing key metrics, today's schedule, and quick actions
 **Booking Management**: Complete booking lifecycle management for Manor karaoke and venue hire
-**Customer Database**: Centralized customer information and booking history
+**Customer Database**: Centralized customer information and booking history (for staff reference only)
 **Technical Foundation**: Multi-tenant architecture built for future venue expansion
 **Basic Automation**: Email confirmations, booking notifications, availability management
 
@@ -134,7 +136,7 @@ This application is exclusively designed for **staff and venue managers**. Custo
 ### For Venue Managers
 - **Operational Dashboard**: Real-time metrics, today's schedule, quick actions
 - **Booking Management**: Complete booking lifecycle with calendar views
-- **Customer Management**: Profiles, history, communication tools
+- **Customer Management**: Profiles, history, communication tools (staff-only access)
 - **Analytics**: Revenue tracking, performance metrics, trend analysis
 - **Multi-Venue Support**: Venue switching, comparative analytics
 
@@ -153,7 +155,7 @@ This application is exclusively designed for **staff and venue managers**. Custo
 ## Technical Considerations
 
 ### Architecture
-- **Admin-Only Focus**: Simplified architecture optimized for staff workflows
+- **Staff-Only Focus**: Simplified architecture optimized for staff workflows
 - **Multi-Tenant Design**: Support for multiple venues with data isolation
 - **API-First Approach**: Enables future integrations and mobile applications
 - **Responsive Design**: Desktop-first with mobile optimization for floor staff
@@ -174,8 +176,8 @@ This application is exclusively designed for **staff and venue managers**. Custo
 
 - **Integration Opportunities**: POS systems, accounting software, marketing tools
 - **Advanced Analytics**: Machine learning for demand forecasting and optimization
-- **Customer Application Integration**: Data sharing with separate customer booking platform
+- **Data Sharing**: API endpoints for separate customer booking platform
 - **Franchise Support**: Template-based approach for rapid venue onboarding
 - **API Ecosystem**: Third-party integrations and custom development support
 
-This PRD serves as the foundation for developing a comprehensive venue management platform that empowers staff to deliver exceptional customer experiences while dramatically reducing administrative overhead.
+This PRD serves as the foundation for developing a comprehensive venue management platform that empowers staff to deliver exceptional customer experiences while dramatically reducing administrative overhead. **This is exclusively a staff-facing application with no customer features.**

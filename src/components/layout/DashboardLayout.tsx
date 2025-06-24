@@ -16,7 +16,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="flex items-center space-x-4">
               <SidebarTrigger />
               <nav className="flex items-center space-x-2 text-sm text-gm-neutral-500">
-                <span>GM Admin</span>
+                <span>GM Staff Portal</span>
                 <span>/</span>
                 <span className="text-gm-neutral-900">Dashboard</span>
               </nav>
