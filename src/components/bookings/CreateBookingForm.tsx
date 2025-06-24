@@ -27,10 +27,11 @@ const bookingFormSchema = z.object({
   bookingDate: z.string().min(1, "Please select a date"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
-  guestCount: z.string().min(1, "Please specify number of guests"),
+  guestCount: z.string().optional(),
   ticketQuantity: z.string().optional(),
   specialRequests: z.string().optional(),
   totalAmount: z.string().optional(),
+  costPerTicket: z.string().optional(),
   staffNotes: z.string().optional(),
 }).refine((data) => {
   // At least one contact method required
@@ -56,6 +57,15 @@ const bookingFormSchema = z.object({
 }, {
   message: "Please specify ticket quantity for VIP ticket bookings",
   path: ["ticketQuantity"],
+}).refine((data) => {
+  // Guest count required for venue hire
+  if (data.bookingType === "venue_hire" && !data.guestCount) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please specify number of guests for venue hire bookings",
+  path: ["guestCount"],
 });
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
@@ -104,14 +114,31 @@ export const CreateBookingForm = () => {
       ticketQuantity: "",
       specialRequests: "",
       totalAmount: "",
+      costPerTicket: "",
       staffNotes: "",
     },
   });
 
   const bookingType = form.watch("bookingType");
+  const ticketQuantity = form.watch("ticketQuantity");
+  const costPerTicket = form.watch("costPerTicket");
+
+  // Calculate total amount for VIP tickets
+  const calculateTotalAmount = () => {
+    if (bookingType === "vip_tickets" && ticketQuantity && costPerTicket) {
+      const quantity = parseInt(ticketQuantity);
+      const cost = parseFloat(costPerTicket);
+      if (!isNaN(quantity) && !isNaN(cost)) {
+        return (quantity * cost).toFixed(2);
+      }
+    }
+    return "";
+  };
 
   const onSubmit = async (data: BookingFormValues) => {
     try {
+      const totalAmount = bookingType === "vip_tickets" ? calculateTotalAmount() : data.totalAmount;
+      
       await createBookingMutation.mutateAsync({
         customerName: data.customerName,
         customerEmail: data.customerEmail || undefined,
@@ -123,10 +150,10 @@ export const CreateBookingForm = () => {
         startTime: data.startTime || undefined,
         endTime: data.endTime || undefined,
         durationHours: undefined, // Let backend calculate from start/end times
-        guestCount: parseInt(data.guestCount),
+        guestCount: data.guestCount ? parseInt(data.guestCount) : undefined,
         ticketQuantity: data.ticketQuantity ? parseInt(data.ticketQuantity) : undefined,
         specialRequests: data.specialRequests || undefined,
-        totalAmount: data.totalAmount ? parseFloat(data.totalAmount) : undefined,
+        totalAmount: totalAmount ? parseFloat(totalAmount) : undefined,
         staffNotes: data.staffNotes || undefined,
       });
       
@@ -354,20 +381,24 @@ export const CreateBookingForm = () => {
               {/* Show guest/ticket fields only after booking type is selected */}
               {bookingType && (
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="guestCount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Number of Guests *</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="1" max="500" placeholder="e.g. 8" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Show guest count only for venue hire */}
+                  {bookingType === "venue_hire" && (
+                    <FormField
+                      control={form.control}
+                      name="guestCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Number of Guests *</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="1" max="500" placeholder="e.g. 8" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
+                  {/* Show ticket quantity for VIP tickets */}
                   {bookingType === "vip_tickets" && (
                     <FormField
                       control={form.control}
@@ -384,19 +415,46 @@ export const CreateBookingForm = () => {
                     />
                   )}
 
-                  <FormField
-                    control={form.control}
-                    name="totalAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Total Amount (£)</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="0" step="0.01" placeholder="e.g. 120.00" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Show cost per ticket for VIP tickets, total amount for venue hire */}
+                  {bookingType === "vip_tickets" ? (
+                    <FormField
+                      control={form.control}
+                      name="costPerTicket"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cost per Ticket (£)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" step="0.01" placeholder="e.g. 30.00" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <FormField
+                      control={form.control}
+                      name="totalAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Total Amount (£)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" step="0.01" placeholder="e.g. 120.00" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Show calculated total for VIP tickets */}
+              {bookingType === "vip_tickets" && ticketQuantity && costPerTicket && (
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <div className="text-sm text-gray-600">Total Cost</div>
+                  <div className="text-lg font-semibold text-gray-900">
+                    £{calculateTotalAmount()}
+                  </div>
                 </div>
               )}
             </CardContent>
