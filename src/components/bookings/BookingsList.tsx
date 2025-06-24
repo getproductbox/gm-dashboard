@@ -1,9 +1,11 @@
-
 import { useState, useMemo } from "react";
 import { BookingsFilters } from "./BookingsFilters";
 import { BookingsTable } from "./BookingsTable";
 import { BookingsPagination } from "./BookingsPagination";
-import { mockExtendedBookings, type ExtendedBooking } from "@/data/mockData/bookings";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
+import { mockBookings } from "@/data/mockData/bookings";
 
 export interface BookingFilters {
   dateFrom: string;
@@ -14,122 +16,164 @@ export interface BookingFilters {
 }
 
 export const BookingsList = () => {
-  const [filters, setFilters] = useState<BookingFilters>({
-    dateFrom: new Date().toISOString().split('T')[0],
-    dateTo: new Date().toISOString().split('T')[0],
-    status: 'all',
-    service: 'all',
-    search: ''
-  });
-
+  const navigate = useNavigate();
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [sortField, setSortField] = useState<keyof ExtendedBooking>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState<string>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filters, setFilters] = useState<BookingFilters>({
+    dateFrom: '',
+    dateTo: '',
+    status: 'all',
+    service: 'all',
+    search: '',
+  });
 
   const filteredBookings = useMemo(() => {
-    let result = [...mockExtendedBookings];
+    return mockBookings.filter(booking => {
+      const matchesDateFrom = !filters.dateFrom || booking.date >= filters.dateFrom;
+      const matchesDateTo = !filters.dateTo || booking.date <= filters.dateTo;
+      const matchesStatus = filters.status === 'all' || booking.status === filters.status;
+      const matchesService = filters.service === 'all' || booking.service.toLowerCase().includes(filters.service.toLowerCase());
+      const matchesSearch = !filters.search || 
+        booking.customerName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        booking.reference.toLowerCase().includes(filters.search.toLowerCase());
 
-    // Filter by date range
-    if (filters.dateFrom) {
-      result = result.filter(booking => booking.date >= filters.dateFrom);
-    }
-    if (filters.dateTo) {
-      result = result.filter(booking => booking.date <= filters.dateTo);
-    }
+      return matchesDateFrom && matchesDateTo && matchesStatus && matchesService && matchesSearch;
+    });
+  }, [filters]);
 
-    // Filter by status
-    if (filters.status !== 'all') {
-      result = result.filter(booking => booking.status === filters.status);
-    }
-
-    // Filter by service
-    if (filters.service !== 'all') {
-      result = result.filter(booking => booking.service.toLowerCase().replace(' ', '') === filters.service);
-    }
-
-    // Filter by search
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      result = result.filter(booking => 
-        booking.customer.name.toLowerCase().includes(searchLower) ||
-        booking.reference.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-
-      if (sortField === 'customer') {
-        aValue = a.customer.name;
-        bValue = b.customer.name;
+  const sortedBookings = useMemo(() => {
+    const sorted = [...filteredBookings].sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'reference':
+          aValue = a.reference;
+          bValue = b.reference;
+          break;
+        case 'customer':
+          aValue = a.customerName;
+          bValue = b.customerName;
+          break;
+        case 'service':
+          aValue = a.service;
+          bValue = b.service;
+          break;
+        case 'date':
+          aValue = a.date;
+          bValue = b.date;
+          break;
+        case 'time':
+          aValue = a.time;
+          bValue = b.time;
+          break;
+        case 'guests':
+          aValue = a.guests;
+          bValue = b.guests;
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case 'amount':
+          aValue = a.amount;
+          bValue = b.amount;
+          break;
+        default:
+          aValue = a.date;
+          bValue = b.date;
       }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
+        return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
       }
-
+      
       if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
       }
-
+      
       return 0;
     });
+    
+    return sorted;
+  }, [filteredBookings, sortBy, sortOrder]);
 
-    return result;
-  }, [filters, sortField, sortDirection]);
+  const paginatedBookings = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return sortedBookings.slice(startIndex, endIndex);
+  }, [sortedBookings, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedBookings = filteredBookings.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(sortedBookings.length / itemsPerPage);
 
-  const handleSort = (field: keyof ExtendedBooking) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+  const handleFilterChange = (newFilters: Partial<BookingFilters>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+    setCurrentPage(1);
+  };
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortField(field);
-      setSortDirection('asc');
+      setSortBy(column);
+      setSortOrder('asc');
     }
   };
 
-  const clearFilters = () => {
+  const handleClearFilters = () => {
     setFilters({
-      dateFrom: new Date().toISOString().split('T')[0],
-      dateTo: new Date().toISOString().split('T')[0],
+      dateFrom: '',
+      dateTo: '',
       status: 'all',
       service: 'all',
-      search: ''
+      search: '',
     });
     setCurrentPage(1);
   };
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gm-neutral-900">All Bookings</h2>
+          <p className="text-sm text-gm-neutral-600">
+            {sortedBookings.length} booking{sortedBookings.length !== 1 ? 's' : ''} found
+          </p>
+        </div>
+        <Button onClick={() => navigate('/bookings/create')} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Create Booking
+        </Button>
+      </div>
+
       <BookingsFilters 
         filters={filters}
-        onFiltersChange={setFilters}
-        onClearFilters={clearFilters}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
       />
-      
-      <BookingsTable
+
+      <BookingsTable 
         bookings={paginatedBookings}
-        sortField={sortField}
-        sortDirection={sortDirection}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
         onSort={handleSort}
       />
-      
-      <BookingsPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalItems={filteredBookings.length}
-        itemsPerPage={itemsPerPage}
-        onPageChange={setCurrentPage}
-        onItemsPerPageChange={setItemsPerPage}
-      />
+
+      {sortedBookings.length > 0 && (
+        <BookingsPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={sortedBookings.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(newItemsPerPage) => {
+            setItemsPerPage(newItemsPerPage);
+            setCurrentPage(1);
+          }}
+        />
+      )}
     </div>
   );
 };
