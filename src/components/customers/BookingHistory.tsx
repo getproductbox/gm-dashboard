@@ -13,7 +13,7 @@ interface BookingHistoryProps {
 
 export const BookingHistory = ({ bookings = [], onViewAll }: BookingHistoryProps) => {
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM dd, yyyy');
+    return format(new Date(dateString), 'dd/MM');
   };
 
   const formatCurrency = (amount: number) => {
@@ -38,109 +38,94 @@ export const BookingHistory = ({ bookings = [], onViewAll }: BookingHistoryProps
     }
   };
 
-  // Show only the last 10 bookings
-  const recentBookings = bookings.slice(0, 10);
+  // Show only the last 6 bookings for space efficiency
+  const recentBookings = bookings.slice(0, 6);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="w-full">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="truncate">Booking History</span>
+          <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            <span>Booking History</span>
           </CardTitle>
-          {bookings.length > 10 && (
+          {bookings.length > 6 && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onViewAll}
-              className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-shrink-0"
+              className="flex items-center gap-1 text-xs px-2 py-1 h-auto"
             >
-              <span className="hidden sm:inline">View All ({bookings.length})</span>
-              <span className="sm:hidden">All ({bookings.length})</span>
-              <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span>All ({bookings.length})</span>
+              <ExternalLink className="h-3 w-3" />
             </Button>
           )}
         </div>
       </CardHeader>
       <CardContent>
         {recentBookings.length === 0 ? (
-          <div className="text-center py-6 sm:py-8">
-            <Calendar className="h-8 w-8 sm:h-12 sm:w-12 text-gm-neutral-300 mx-auto mb-3 sm:mb-4" />
-            <p className="text-gm-neutral-600 text-sm">No booking history yet</p>
-            <p className="text-gm-neutral-500 text-xs mt-1">
-              This customer hasn't made any bookings
-            </p>
+          <div className="text-center py-4">
+            <Calendar className="h-8 w-8 text-gm-neutral-300 mx-auto mb-2" />
+            <p className="text-gm-neutral-600 text-sm">No bookings yet</p>
           </div>
         ) : (
-          <div className="space-y-3 sm:space-y-4">
-            {/* Quick Stats - Responsive grid */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 sm:p-4 bg-gm-neutral-50 rounded-lg">
-              <div className="text-center">
-                <div className="text-sm sm:text-lg font-semibold text-gm-primary-600">
+          <div className="space-y-3">
+            {/* Compact Stats */}
+            <div className="grid grid-cols-3 gap-2 p-2 bg-gm-neutral-50 rounded text-center">
+              <div>
+                <div className="text-sm font-semibold text-gm-primary-600">
                   {bookings.length}
                 </div>
-                <div className="text-xs text-gm-neutral-600">
-                  <span className="hidden sm:inline">Total Bookings</span>
-                  <span className="sm:hidden">Total</span>
-                </div>
+                <div className="text-xs text-gm-neutral-600">Total</div>
               </div>
-              <div className="text-center">
-                <div className="text-sm sm:text-lg font-semibold text-green-600">
+              <div>
+                <div className="text-sm font-semibold text-green-600">
                   {formatCurrency(bookings.reduce((sum, booking) => sum + (booking.amount || 85), 0))}
                 </div>
-                <div className="text-xs text-gm-neutral-600">
-                  <span className="hidden sm:inline">Total Value</span>
-                  <span className="sm:hidden">Value</span>
-                </div>
+                <div className="text-xs text-gm-neutral-600">Value</div>
               </div>
-              <div className="text-center">
-                <div className="text-sm sm:text-lg font-semibold text-blue-600">
+              <div>
+                <div className="text-sm font-semibold text-blue-600">
                   {formatCurrency(bookings.reduce((sum, booking) => sum + (booking.amount || 85), 0) / bookings.length)}
                 </div>
-                <div className="text-xs text-gm-neutral-600">
-                  <span className="hidden sm:inline">Avg. Value</span>
-                  <span className="sm:hidden">Avg.</span>
-                </div>
+                <div className="text-xs text-gm-neutral-600">Avg</div>
               </div>
             </div>
 
-            {/* Recent Bookings Table - Responsive layout */}
-            <div className="border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs sm:text-sm">Date</TableHead>
-                      <TableHead className="text-xs sm:text-sm">Service</TableHead>
-                      <TableHead className="text-xs sm:text-sm">Amount</TableHead>
-                      <TableHead className="text-xs sm:text-sm">Status</TableHead>
+            {/* Compact Bookings List */}
+            <div className="border rounded overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs p-2">Date</TableHead>
+                    <TableHead className="text-xs p-2">Service</TableHead>
+                    <TableHead className="text-xs p-2">Amount</TableHead>
+                    <TableHead className="text-xs p-2">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentBookings.map((booking, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="text-xs p-2 font-medium">
+                        {formatDate(booking.date)}
+                      </TableCell>
+                      <TableCell className="text-xs p-2">
+                        <div className="max-w-[60px] truncate" title={booking.service}>
+                          {booking.service}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs p-2">
+                        {formatCurrency(booking.amount || 85)}
+                      </TableCell>
+                      <TableCell className="p-2">
+                        <Badge className={`${getStatusColor(booking.status)} text-xs px-1 py-0`}>
+                          {booking.status}
+                        </Badge>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentBookings.map((booking, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="text-xs sm:text-sm font-medium whitespace-nowrap">
-                          {formatDate(booking.date)}
-                        </TableCell>
-                        <TableCell className="text-xs sm:text-sm">
-                          <div className="max-w-[80px] sm:max-w-none truncate" title={booking.service}>
-                            {booking.service}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs sm:text-sm whitespace-nowrap">
-                          {formatCurrency(booking.amount || 85)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`${getStatusColor(booking.status)} text-xs px-1.5 py-0.5`}>
-                            {booking.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}

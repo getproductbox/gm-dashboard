@@ -22,86 +22,80 @@ export const CustomerActions = ({
   onViewAllBookings
 }: CustomerActionsProps) => {
   return (
-    <Card>
-      <CardHeader className="pb-3 sm:pb-4">
-        <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
+    <Card className="w-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 sm:space-y-4">
-        {/* Primary Actions */}
-        <div className="space-y-2">
+      <CardContent className="space-y-2">
+        {/* Primary Actions - Compact */}
+        <div className="space-y-1">
           <Button 
             onClick={onCreateBooking}
-            className="w-full flex items-center gap-2 text-sm sm:text-base"
+            className="w-full h-8 text-xs"
             size="sm"
           >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Create New Booking</span>
-            <span className="sm:hidden">New Booking</span>
+            <Plus className="h-3 w-3 mr-1" />
+            New Booking
           </Button>
           
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1">
             <Button 
               variant="outline" 
               onClick={onSendEmail}
-              className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+              className="h-7 text-xs"
               size="sm"
             >
-              <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Send Email</span>
-              <span className="sm:hidden">Email</span>
+              <Mail className="h-3 w-3 mr-1" />
+              Email
             </Button>
             
             <Button 
               variant="outline" 
               onClick={onEditCustomer}
-              className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+              className="h-7 text-xs"
               size="sm"
             >
-              <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Edit Customer</span>
-              <span className="sm:hidden">Edit</span>
+              <Edit className="h-3 w-3 mr-1" />
+              Edit
             </Button>
           </div>
           
           <Button 
             variant="outline" 
             onClick={onViewAllBookings}
-            className="w-full flex items-center gap-2 text-xs sm:text-sm"
+            className="w-full h-7 text-xs"
             size="sm"
           >
-            <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">View All Bookings</span>
-            <span className="sm:hidden">All Bookings</span>
+            <Calendar className="h-3 w-3 mr-1" />
+            All Bookings
           </Button>
         </div>
 
-        <Separator />
+        <Separator className="my-2" />
 
-        {/* Secondary Actions */}
-        <div className="space-y-2">
-          <h4 className="text-xs sm:text-sm font-medium text-gm-neutral-700 mb-2">
-            Advanced Actions
+        {/* Secondary Actions - More compact */}
+        <div className="space-y-1">
+          <h4 className="text-xs font-medium text-gm-neutral-700 mb-1">
+            Advanced
           </h4>
           
-          <div className="space-y-1 sm:space-y-2">
+          <div className="space-y-1">
             <Button 
               variant="ghost" 
               onClick={onMergeDuplicate}
-              className="w-full justify-start text-xs sm:text-sm h-8 sm:h-9"
+              className="w-full justify-start text-xs h-6 px-2"
             >
-              <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-              <span className="hidden sm:inline">Merge Duplicate Customer</span>
-              <span className="sm:hidden">Merge Duplicate</span>
+              <Users className="h-3 w-3 mr-1" />
+              Merge Duplicate
             </Button>
             
             <Button 
               variant="ghost" 
               onClick={onArchiveCustomer}
-              className="w-full justify-start text-xs sm:text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 h-8 sm:h-9"
+              className="w-full justify-start text-xs h-6 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
             >
-              <Archive className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-              <span className="hidden sm:inline">Archive Customer</span>
-              <span className="sm:hidden">Archive</span>
+              <Archive className="h-3 w-3 mr-1" />
+              Archive
             </Button>
           </div>
         </div>
