@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -50,7 +51,7 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
   };
 
   return (
-    <>
+    <div className="relative">
       <div className="bg-white rounded-lg border border-gm-neutral-200 overflow-hidden">
         <Table>
           <TableHeader>
@@ -169,6 +170,6 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
         customer={selectedCustomer}
         onEdit={handleCustomerUpdated}
       />
-    </>
+    </div>
   );
 };
