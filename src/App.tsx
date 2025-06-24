@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
+import Calendar from "./pages/Calendar";
 import DesignSystem from "./pages/DesignSystem";
 import NotFound from "./pages/NotFound";
 
@@ -19,7 +20,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/calendar" element={<NotFound />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/bookings" element={<NotFound />} />
           <Route path="/customers" element={<NotFound />} />
           <Route path="/reports" element={<NotFound />} />

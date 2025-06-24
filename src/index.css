@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -51,6 +52,20 @@
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* GM Design System Colors */
+    --gm-primary-500: 24 82% 51%;    /* #f97316 - Orange primary */
+    --gm-neutral-25: 30 17% 98%;     /* Very light warm neutral */
+    --gm-neutral-50: 30 17% 95%;     /* Light warm neutral */  
+    --gm-neutral-100: 30 17% 91%;    /* Light neutral */
+    --gm-neutral-200: 30 17% 85%;    /* Border neutral */
+    --gm-neutral-300: 30 17% 75%;    /* Muted border */
+    --gm-neutral-400: 30 17% 60%;    /* Placeholder text */
+    --gm-neutral-500: 30 17% 45%;    /* Secondary text */
+    --gm-neutral-600: 30 17% 35%;    /* Primary text muted */
+    --gm-neutral-700: 30 17% 25%;    /* Primary text */
+    --gm-neutral-800: 30 17% 15%;    /* Headings */
+    --gm-neutral-900: 30 17% 10%;    /* Dark headings */
   }
 
   .dark {
@@ -99,5 +114,39 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .gm-neutral-25 {
+    background-color: hsl(var(--gm-neutral-25));
+  }
+  
+  .bg-gm-primary-500 {
+    background-color: hsl(var(--gm-primary-500));
+  }
+  
+  .text-gm-neutral-600 {
+    color: hsl(var(--gm-neutral-600));
+  }
+  
+  .text-gm-neutral-700 {
+    color: hsl(var(--gm-neutral-700));
+  }
+  
+  .text-gm-neutral-800 {
+    color: hsl(var(--gm-neutral-800));
+  }
+  
+  .text-gm-neutral-900 {
+    color: hsl(var(--gm-neutral-900));
+  }
+  
+  .border-gm-neutral-200 {
+    border-color: hsl(var(--gm-neutral-200));
+  }
+  
+  .bg-gm-neutral-50 {
+    background-color: hsl(var(--gm-neutral-50));
   }
 }
