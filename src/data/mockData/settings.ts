@@ -1,7 +1,5 @@
 
 export interface UserSettings {
-  id: string;
-  userId: string;
   theme: 'light' | 'dark' | 'auto';
   language: string;
   timezone: string;
@@ -23,56 +21,68 @@ export interface SystemSettings {
   sessionTimeout: number;
 }
 
+export interface ApiEndpoint {
+  id: string;
+  url: string;
+  method: string;
+  status: 'active' | 'warning' | 'error';
+  responseTime: number;
+  lastChecked: string;
+}
+
 export const mockUserSettings: UserSettings = {
-  id: '1',
-  userId: '1',
   theme: 'light',
   language: 'en',
   timezone: 'America/New_York',
   emailNotifications: true,
   pushNotifications: false,
-  twoFactorEnabled: true,
+  twoFactorEnabled: false,
   privacy: {
     profileVisibility: 'public',
     showEmail: false,
-    showLastSeen: true
-  }
+    showLastSeen: true,
+  },
 };
 
 export const mockSystemSettings: SystemSettings = {
   maintenanceMode: false,
   registrationEnabled: true,
-  maxFileSize: 10485760, // 10MB in bytes
-  allowedFileTypes: ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'],
-  sessionTimeout: 3600 // 1 hour in seconds
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  allowedFileTypes: ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.docx'],
+  sessionTimeout: 30 * 60, // 30 minutes
 };
 
-export const mockApiEndpoints = [
+export const mockApiEndpoints: ApiEndpoint[] = [
   {
     id: '1',
-    name: 'Users API',
-    url: '/api/users',
+    url: '/api/bookings',
     method: 'GET',
     status: 'active',
-    responseTime: 245,
-    lastChecked: '2024-06-24T12:00:00Z'
+    responseTime: 120,
+    lastChecked: '2024-06-24T10:30:00Z',
   },
   {
     id: '2',
-    name: 'Products API',
-    url: '/api/products',
-    method: 'GET',
+    url: '/api/customers',
+    method: 'POST',
     status: 'active',
-    responseTime: 180,
-    lastChecked: '2024-06-24T12:00:00Z'
+    responseTime: 95,
+    lastChecked: '2024-06-24T10:29:00Z',
   },
   {
     id: '3',
-    name: 'Analytics API',
-    url: '/api/analytics',
+    url: '/api/payments',
     method: 'POST',
     status: 'warning',
-    responseTime: 890,
-    lastChecked: '2024-06-24T11:55:00Z'
-  }
+    responseTime: 340,
+    lastChecked: '2024-06-24T10:28:00Z',
+  },
+  {
+    id: '4',
+    url: '/api/notifications',
+    method: 'GET',
+    status: 'error',
+    responseTime: 0,
+    lastChecked: '2024-06-24T10:25:00Z',
+  },
 ];

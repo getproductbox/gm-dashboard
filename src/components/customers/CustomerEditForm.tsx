@@ -1,16 +1,16 @@
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, X } from "lucide-react";
-import { Customer } from "@/data/mockData/customers";
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Customer } from '@/data/mockData/customers';
+import { useToast } from '@/hooks/use-toast';
 
 interface CustomerEditFormProps {
-  customer: Customer & { notes?: string; emailConsent?: boolean; smsConsent?: boolean };
+  customer: Customer;
   onSave: (customer: Customer) => void;
   onCancel: () => void;
 }
@@ -21,12 +21,12 @@ export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFor
     lastName: customer.lastName,
     email: customer.email,
     phone: customer.phone,
-    notes: customer.notes || '',
-    emailConsent: customer.emailConsent !== false,
-    smsConsent: customer.smsConsent !== false,
+    notes: '',
+    emailConsent: true,
+    smsConsent: false,
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { toast } = useToast();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -41,12 +41,12 @@ export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFor
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid';
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
+      newErrors.phone = 'Phone is required';
     }
 
     setErrors(newErrors);
@@ -56,24 +56,25 @@ export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFor
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      return;
+    if (validateForm()) {
+      const updatedCustomer: Customer = {
+        ...customer,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+      };
+
+      onSave(updatedCustomer);
+      toast({
+        title: "Customer updated",
+        description: "Customer information has been updated successfully.",
+      });
     }
-
-    const updatedCustomer: Customer = {
-      ...customer,
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
-    };
-
-    onSave(updatedCustomer);
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const updateField = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -81,129 +82,118 @@ export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFor
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Personal Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Personal Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <Card>
+      <CardHeader>
+        <CardTitle>Edit Customer</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="firstName">First Name *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
               <Input
                 id="firstName"
                 value={formData.firstName}
-                onChange={(e) => handleInputChange('firstName', e.target.value)}
+                onChange={(e) => updateField('firstName', e.target.value)}
                 className={errors.firstName ? 'border-red-500' : ''}
               />
               {errors.firstName && (
-                <p className="text-sm text-red-600 mt-1">{errors.firstName}</p>
+                <p className="text-sm text-red-500">{errors.firstName}</p>
               )}
             </div>
-            <div>
-              <Label htmlFor="lastName">Last Name *</Label>
+
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
               <Input
                 id="lastName"
                 value={formData.lastName}
-                onChange={(e) => handleInputChange('lastName', e.target.value)}
+                onChange={(e) => updateField('lastName', e.target.value)}
                 className={errors.lastName ? 'border-red-500' : ''}
               />
               {errors.lastName && (
-                <p className="text-sm text-red-600 mt-1">{errors.lastName}</p>
+                <p className="text-sm text-red-500">{errors.lastName}</p>
               )}
             </div>
           </div>
-          
-          <div>
-            <Label htmlFor="email">Email Address *</Label>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
               value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
+              onChange={(e) => updateField('email', e.target.value)}
               className={errors.email ? 'border-red-500' : ''}
             />
             {errors.email && (
-              <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+              <p className="text-sm text-red-500">{errors.email}</p>
             )}
           </div>
-          
-          <div>
-            <Label htmlFor="phone">Phone Number *</Label>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone</Label>
             <Input
               id="phone"
               value={formData.phone}
-              onChange={(e) => handleInputChange('phone', e.target.value)}
+              onChange={(e) => updateField('phone', e.target.value)}
               className={errors.phone ? 'border-red-500' : ''}
             />
             {errors.phone && (
-              <p className="text-sm text-red-600 mt-1">{errors.phone}</p>
+              <p className="text-sm text-red-500">{errors.phone}</p>
             )}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Contact Preferences */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Contact Preferences</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="emailConsent" className="text-sm font-medium">
-              Email Marketing
-            </Label>
-            <Switch 
-              id="emailConsent"
-              checked={formData.emailConsent}
-              onCheckedChange={(checked) => handleInputChange('emailConsent', checked)}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => updateField('notes', e.target.value)}
+              placeholder="Add any notes about this customer..."
+              rows={3}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="smsConsent" className="text-sm font-medium">
-              SMS Marketing
-            </Label>
-            <Switch 
-              id="smsConsent"
-              checked={formData.smsConsent}
-              onCheckedChange={(checked) => handleInputChange('smsConsent', checked)}
-            />
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium">Marketing Preferences</h4>
+            
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Email Marketing</Label>
+                <p className="text-sm text-muted-foreground">
+                  Send promotional emails and updates
+                </p>
+              </div>
+              <Switch
+                checked={formData.emailConsent}
+                onCheckedChange={(checked) => updateField('emailConsent', checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>SMS Marketing</Label>
+                <p className="text-sm text-muted-foreground">
+                  Send SMS notifications and reminders
+                </p>
+              </div>
+              <Switch
+                checked={formData.smsConsent}
+                onCheckedChange={(checked) => updateField('smsConsent', checked)}
+              />
+            </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Customer Notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Staff Notes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={formData.notes}
-            onChange={(e) => handleInputChange('notes', e.target.value)}
-            placeholder="Add notes about this customer..."
-            className="min-h-20 resize-none"
-          />
-        </CardContent>
-      </Card>
-
-      {/* Action Buttons */}
-      <div className="flex gap-2 pt-4">
-        <Button type="submit" className="flex-1 flex items-center gap-2">
-          <Save className="h-4 w-4" />
-          Save Changes
-        </Button>
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={onCancel}
-          className="flex items-center gap-2"
-        >
-          <X className="h-4 w-4" />
-          Cancel
-        </Button>
-      </div>
-    </form>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 };

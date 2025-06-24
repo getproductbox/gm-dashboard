@@ -6,7 +6,7 @@ import { CustomerInfo } from './CustomerInfo';
 import { BookingHistory } from './BookingHistory';
 import { CustomerActions } from './CustomerActions';
 import { CustomerEditForm } from './CustomerEditForm';
-import { Customer } from '@/data/mockData/customers';
+import { Customer, getDetailedCustomerData } from '@/data/mockData/customers';
 
 interface CustomerProfilePanelProps {
   customer: Customer | null;
@@ -25,13 +25,16 @@ export const CustomerProfilePanel = ({
 
   if (!customer) return null;
 
+  const customerName = `${customer.firstName} ${customer.lastName}`;
+  const detailedCustomer = getDetailedCustomerData(customer.id);
+
   const handleEdit = (updatedCustomer: Customer) => {
     onEdit(updatedCustomer);
     setIsEditing(false);
   };
 
   const handleCreateBooking = () => {
-    console.log('Create booking for customer:', customer.name);
+    console.log('Create booking for customer:', customerName);
   };
 
   const handleSendEmail = () => {
@@ -39,15 +42,15 @@ export const CustomerProfilePanel = ({
   };
 
   const handleArchiveCustomer = () => {
-    console.log('Archive customer:', customer.name);
+    console.log('Archive customer:', customerName);
   };
 
   const handleMergeDuplicate = () => {
-    console.log('Merge duplicate customer:', customer.name);
+    console.log('Merge duplicate customer:', customerName);
   };
 
   const handleViewAllBookings = () => {
-    console.log('View all bookings for:', customer.name);
+    console.log('View all bookings for:', customerName);
   };
 
   return (
@@ -71,7 +74,7 @@ export const CustomerProfilePanel = ({
           <div className="flex items-center justify-between p-6 border-b">
             <div>
               <h2 className="text-2xl font-bold text-gm-neutral-900">
-                {customer.name}
+                {customerName}
               </h2>
               <p className="text-gm-neutral-600">
                 Customer since {new Date(customer.customerSince).toLocaleDateString()}
@@ -98,8 +101,11 @@ export const CustomerProfilePanel = ({
                 />
               ) : (
                 <>
-                  <CustomerInfo customer={customer} />
-                  <BookingHistory customer={customer} />
+                  <CustomerInfo customer={detailedCustomer || customer} />
+                  <BookingHistory 
+                    bookings={detailedCustomer?.bookingHistory || []} 
+                    onViewAll={handleViewAllBookings}
+                  />
                 </>
               )}
             </div>

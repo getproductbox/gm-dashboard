@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,7 @@ interface CustomersTableProps {
 }
 
 export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: CustomersTableProps) => {
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   const formatDate = (dateString: string) => {
@@ -31,7 +30,7 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
 
   const handleViewProfile = (customer: Customer) => {
     console.log('View profile for:', customer.firstName, customer.lastName);
-    setSelectedCustomerId(customer.id);
+    setSelectedCustomer(customer);
     setIsPanelOpen(true);
   };
 
@@ -41,12 +40,13 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
 
   const handleClosePanel = () => {
     setIsPanelOpen(false);
-    setSelectedCustomerId(null);
+    setSelectedCustomer(null);
   };
 
   const handleCustomerUpdated = (updatedCustomer: Customer) => {
     console.log('Customer updated in table:', updatedCustomer);
     // In a real app, this would update the customers list
+    setSelectedCustomer(updatedCustomer);
   };
 
   return (
@@ -166,8 +166,8 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
       <CustomerProfilePanel
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
-        customerId={selectedCustomerId}
-        onCustomerUpdated={handleCustomerUpdated}
+        customer={selectedCustomer}
+        onEdit={handleCustomerUpdated}
       />
     </>
   );
