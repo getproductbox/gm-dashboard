@@ -17,9 +17,9 @@ export const BookingHistory = ({ bookings = [], onViewAll }: BookingHistoryProps
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GB', {
+    return new Intl.NumberFormat('en-AU', {
       style: 'currency',
-      currency: 'GBP'
+      currency: 'AUD'
     }).format(amount);
   };
 

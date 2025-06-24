@@ -25,9 +25,9 @@ export const BookingsTable = ({
 
   const formatCurrency = (amount: number | null) => {
     if (!amount) return '-';
-    return new Intl.NumberFormat('en-GB', {
+    return new Intl.NumberFormat('en-AU', {
       style: 'currency',
-      currency: 'GBP'
+      currency: 'AUD'
     }).format(amount);
   };
 

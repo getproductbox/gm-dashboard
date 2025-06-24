@@ -26,7 +26,7 @@ export const MetricCard = ({ title, value, icon: Icon, change, breakdown }: Metr
       <CardContent>
         <div className="text-2xl font-bold text-gm-neutral-900">
           {typeof value === 'number' && title.includes('Revenue') 
-            ? `£${value.toFixed(2)}` 
+            ? `$${value.toFixed(2)}` 
             : value}
         </div>
         

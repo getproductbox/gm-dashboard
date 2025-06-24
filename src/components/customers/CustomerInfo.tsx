@@ -19,9 +19,9 @@ export const CustomerInfo = ({ customer }: CustomerInfoProps) => {
   const detailedCustomer = isDetailedCustomer(customer) ? customer : null;
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GB', {
+    return new Intl.NumberFormat('en-AU', {
       style: 'currency',
-      currency: 'GBP'
+      currency: 'AUD'
     }).format(amount);
   };
 

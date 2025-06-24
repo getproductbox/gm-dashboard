@@ -420,7 +420,7 @@ export const CreateBookingForm = () => {
                       name="costPerTicket"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Cost per Ticket (£)</FormLabel>
+                          <FormLabel>Cost per Ticket ($)</FormLabel>
                           <FormControl>
                             <Input type="number" min="0" step="0.01" placeholder="e.g. 30.00" {...field} />
                           </FormControl>
@@ -434,7 +434,7 @@ export const CreateBookingForm = () => {
                       name="totalAmount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Total Amount (£)</FormLabel>
+                          <FormLabel>Total Amount ($)</FormLabel>
                           <FormControl>
                             <Input type="number" min="0" step="0.01" placeholder="e.g. 120.00" {...field} />
                           </FormControl>
@@ -451,7 +451,7 @@ export const CreateBookingForm = () => {
                 <div className="bg-gray-50 p-3 rounded-md">
                   <div className="text-sm text-gray-600">Total Cost</div>
                   <div className="text-lg font-semibold text-gray-900">
-                    £{calculateTotalAmount()}
+                    ${calculateTotalAmount()}
                   </div>
                 </div>
               )}
