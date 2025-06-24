@@ -49,7 +49,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2">
-        <div className="flex items-center justify-center group-data-[collapsible=icon]:justify-center">
+        <div className="flex items-center group-data-[collapsible=icon]:justify-center">
           <div className="w-8 h-8 bg-gm-primary-500 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">GM</span>
           </div>
