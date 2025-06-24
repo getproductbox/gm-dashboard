@@ -45,7 +45,7 @@ export default function Dashboard() {
   };
 
   const headerActions = (
-    <Button onClick={handleCreateBooking} className="bg-gm-primary-500 hover:bg-gm-primary-600">
+    <Button onClick={handleCreateBooking} className="bg-gm-primary-500 hover:bg-gm-primary-600 text-white font-medium">
       <Plus className="h-4 w-4" />
       Create New Booking
     </Button>
