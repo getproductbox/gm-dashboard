@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { BookingsFilters } from "./BookingsFilters";
 import { BookingsTable } from "./BookingsTable";
@@ -5,7 +6,7 @@ import { BookingsPagination } from "./BookingsPagination";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { mockBookings } from "@/data/mockData/bookings";
+import { mockExtendedBookings } from "@/data/mockData/bookings";
 
 export interface BookingFilters {
   dateFrom: string;
@@ -20,8 +21,8 @@ export const BookingsList = () => {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [sortBy, setSortBy] = useState<string>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<string>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState<BookingFilters>({
     dateFrom: '',
     dateTo: '',
@@ -31,13 +32,13 @@ export const BookingsList = () => {
   });
 
   const filteredBookings = useMemo(() => {
-    return mockBookings.filter(booking => {
+    return mockExtendedBookings.filter(booking => {
       const matchesDateFrom = !filters.dateFrom || booking.date >= filters.dateFrom;
       const matchesDateTo = !filters.dateTo || booking.date <= filters.dateTo;
       const matchesStatus = filters.status === 'all' || booking.status === filters.status;
       const matchesService = filters.service === 'all' || booking.service.toLowerCase().includes(filters.service.toLowerCase());
       const matchesSearch = !filters.search || 
-        booking.customerName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        booking.customer.name.toLowerCase().includes(filters.search.toLowerCase()) ||
         booking.reference.toLowerCase().includes(filters.search.toLowerCase());
 
       return matchesDateFrom && matchesDateTo && matchesStatus && matchesService && matchesSearch;
@@ -48,14 +49,14 @@ export const BookingsList = () => {
     const sorted = [...filteredBookings].sort((a, b) => {
       let aValue, bValue;
       
-      switch (sortBy) {
+      switch (sortField) {
         case 'reference':
           aValue = a.reference;
           bValue = b.reference;
           break;
         case 'customer':
-          aValue = a.customerName;
-          bValue = b.customerName;
+          aValue = a.customer.name;
+          bValue = b.customer.name;
           break;
         case 'service':
           aValue = a.service;
@@ -87,18 +88,18 @@ export const BookingsList = () => {
       }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
       }
       
       if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       }
       
       return 0;
     });
     
     return sorted;
-  }, [filteredBookings, sortBy, sortOrder]);
+  }, [filteredBookings, sortField, sortDirection]);
 
   const paginatedBookings = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -108,17 +109,17 @@ export const BookingsList = () => {
 
   const totalPages = Math.ceil(sortedBookings.length / itemsPerPage);
 
-  const handleFilterChange = (newFilters: Partial<BookingFilters>) => {
+  const handleFiltersChange = (newFilters: Partial<BookingFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
     setCurrentPage(1);
   };
 
-  const handleSort = (column: string) => {
-    if (sortBy === column) {
-      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+  const handleSort = (field: keyof any) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortBy(column);
-      setSortOrder('asc');
+      setSortField(field);
+      setSortDirection('asc');
     }
   };
 
@@ -150,14 +151,14 @@ export const BookingsList = () => {
 
       <BookingsFilters 
         filters={filters}
-        onFilterChange={handleFilterChange}
+        onFiltersChange={handleFiltersChange}
         onClearFilters={handleClearFilters}
       />
 
       <BookingsTable 
         bookings={paginatedBookings}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
+        sortField={sortField}
+        sortDirection={sortDirection}
         onSort={handleSort}
       />
 

@@ -1,4 +1,3 @@
-
 export interface Booking {
   id: string;
   time: string;
@@ -430,6 +429,8 @@ export const mockExtendedBookings: ExtendedBooking[] = [
     amount: 950.00
   }
 ];
+
+export const mockBookings = mockExtendedBookings;
 
 export const mockDashboardMetrics: DashboardMetrics = {
   todaysBookings: {
