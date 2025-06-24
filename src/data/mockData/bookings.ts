@@ -453,3 +453,10 @@ export const mockDashboardMetrics: DashboardMetrics = {
     total: 12
   }
 };
+
+export const mockBookingStats = {
+  totalBookings: mockExtendedBookings.length,
+  todayBookings: mockExtendedBookings.filter(booking => booking.date === '2024-06-24').length,
+  completedBookings: mockExtendedBookings.filter(booking => booking.status === 'confirmed').length,
+  pendingBookings: mockExtendedBookings.filter(booking => booking.status === 'pending').length,
+};

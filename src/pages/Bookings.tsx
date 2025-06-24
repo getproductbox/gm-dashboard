@@ -8,13 +8,13 @@ import { BookingsPagination } from "@/components/bookings/BookingsPagination";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Calendar, Clock, CheckCircle, AlertCircle } from "lucide-react";
-import { mockBookings, mockBookingStats, Booking } from "@/data/mockData/bookings";
+import { mockBookings, mockBookingStats, ExtendedBooking } from "@/data/mockData/bookings";
 
 const Bookings = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [viewMode, setViewMode] = useState<'table' | 'list'>('table');
-  const [sortField, setSortField] = useState<keyof Booking>('date');
+  const [sortField, setSortField] = useState<keyof ExtendedBooking>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState({
     search: '',
@@ -27,7 +27,7 @@ const Bookings = () => {
   const filteredBookings = useMemo(() => {
     return mockBookings.filter(booking => {
       const matchesSearch = !filters.search || 
-        booking.customerName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        booking.customer.name.toLowerCase().includes(filters.search.toLowerCase()) ||
         booking.service.toLowerCase().includes(filters.search.toLowerCase());
 
       const matchesStatus = filters.status === 'all' || booking.status === filters.status;
@@ -49,9 +49,9 @@ const Bookings = () => {
           aValue = new Date(a.date + ' ' + a.time);
           bValue = new Date(b.date + ' ' + b.time);
           break;
-        case 'customerName':
-          aValue = a.customerName;
-          bValue = b.customerName;
+        case 'customer':
+          aValue = a.customer.name;
+          bValue = b.customer.name;
           break;
         case 'service':
           aValue = a.service;
@@ -61,9 +61,9 @@ const Bookings = () => {
           aValue = a.status;
           bValue = b.status;
           break;
-        case 'price':
-          aValue = a.price;
-          bValue = b.price;
+        case 'amount':
+          aValue = a.amount;
+          bValue = b.amount;
           break;
         default:
           aValue = a.date;
@@ -101,7 +101,7 @@ const Bookings = () => {
     setCurrentPage(1);
   };
 
-  const handleSort = (field: keyof Booking) => {
+  const handleSort = (field: keyof ExtendedBooking) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -229,7 +229,7 @@ const Bookings = () => {
               onSort={handleSort}
             />
           ) : (
-            <BookingsList bookings={paginatedBookings} />
+            <BookingsList />
           )}
         </div>
 
