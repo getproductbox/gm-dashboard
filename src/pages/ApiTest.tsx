@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code, Play, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
+import { Code, Play, RefreshCw, AlertCircle, CheckCircle, CreditCard, Database } from "lucide-react";
 
 interface ApiTestResult {
   endpoint: string;
@@ -109,12 +109,37 @@ export default function ApiTest() {
     return "secondary";
   };
 
+  const setSquareTemplate = (template: 'sandbox-payments' | 'production-payments' | 'sandbox-auth-test') => {
+    const templates = {
+      'sandbox-payments': {
+        endpoint: 'https://connect.squareupsandbox.com/v2/payments',
+        method: 'GET',
+        headers: '{"Authorization": "Bearer YOUR_SANDBOX_ACCESS_TOKEN", "Square-Version": "2024-12-18"}',
+        body: ''
+      },
+      'production-payments': {
+        endpoint: 'https://connect.squareup.com/v2/payments',
+        method: 'GET',
+        headers: '{"Authorization": "Bearer YOUR_PRODUCTION_ACCESS_TOKEN", "Square-Version": "2024-12-18"}',
+        body: ''
+      },
+      'sandbox-auth-test': {
+        endpoint: 'https://connect.squareupsandbox.com/v2/locations',
+        method: 'GET',
+        headers: '{"Authorization": "Bearer YOUR_SANDBOX_ACCESS_TOKEN", "Square-Version": "2024-12-18"}',
+        body: ''
+      }
+    };
+
+    setCurrentTest(templates[template]);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gm-neutral-900">API Test Playground</h1>
-          <p className="text-gm-neutral-600">Test and debug third-party API integrations</p>
+          <p className="text-gm-neutral-600">Test Square APIs and other third-party integrations</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -253,10 +278,54 @@ export default function ApiTest() {
           </Card>
         </div>
 
-        {/* Quick Test Templates */}
+        {/* Square API Templates */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Test Templates</CardTitle>
+            <CardTitle className="flex items-center space-x-2">
+              <CreditCard className="h-5 w-5" />
+              <span>Square API Templates</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <Button
+                variant="outline"
+                onClick={() => setSquareTemplate('sandbox-payments')}
+                className="flex items-center space-x-2"
+              >
+                <CreditCard className="h-4 w-4" />
+                <span>Sandbox Payments</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSquareTemplate('production-payments')}
+                className="flex items-center space-x-2"
+              >
+                <CreditCard className="h-4 w-4" />
+                <span>Production Payments</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSquareTemplate('sandbox-auth-test')}
+                className="flex items-center space-x-2"
+              >
+                <Database className="h-4 w-4" />
+                <span>Auth Test (Locations)</span>
+              </Button>
+            </div>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Remember to replace YOUR_SANDBOX_ACCESS_TOKEN or YOUR_PRODUCTION_ACCESS_TOKEN with your actual Square API credentials before testing.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+
+        {/* General Test Templates */}
+        <Card>
+          <CardHeader>
+            <CardTitle>General API Templates</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

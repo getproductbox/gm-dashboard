@@ -114,6 +114,125 @@ export type Database = {
         }
         Relationships: []
       }
+      revenue_events: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          id: string
+          payment_date: string
+          payment_day_of_week: number
+          payment_hour: number
+          processed_at: string
+          revenue_type: string
+          square_payment_id: string
+          status: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payment_date: string
+          payment_day_of_week: number
+          payment_hour: number
+          processed_at?: string
+          revenue_type: string
+          square_payment_id: string
+          status?: string
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payment_date?: string
+          payment_day_of_week?: number
+          payment_hour?: number
+          processed_at?: string
+          revenue_type?: string
+          square_payment_id?: string
+          status?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_events_square_payment_id_fkey"
+            columns: ["square_payment_id"]
+            isOneToOne: false
+            referencedRelation: "square_payments_raw"
+            referencedColumns: ["square_payment_id"]
+          },
+        ]
+      }
+      square_payments_raw: {
+        Row: {
+          api_version: string | null
+          created_at: string
+          id: string
+          raw_response: Json
+          square_payment_id: string
+          sync_timestamp: string
+        }
+        Insert: {
+          api_version?: string | null
+          created_at?: string
+          id?: string
+          raw_response: Json
+          square_payment_id: string
+          sync_timestamp?: string
+        }
+        Update: {
+          api_version?: string | null
+          created_at?: string
+          id?: string
+          raw_response?: Json
+          square_payment_id?: string
+          sync_timestamp?: string
+        }
+        Relationships: []
+      }
+      square_sync_status: {
+        Row: {
+          created_at: string
+          environment: string
+          error_message: string | null
+          id: string
+          last_successful_sync: string | null
+          last_sync_attempt: string | null
+          payments_synced: number | null
+          sync_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          environment: string
+          error_message?: string | null
+          id?: string
+          last_successful_sync?: string | null
+          last_sync_attempt?: string | null
+          payments_synced?: number | null
+          sync_status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          error_message?: string | null
+          id?: string
+          last_successful_sync?: string | null
+          last_sync_attempt?: string | null
+          payments_synced?: number | null
+          sync_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_profiles: {
         Row: {
           created_at: string | null
