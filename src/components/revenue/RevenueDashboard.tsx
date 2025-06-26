@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -58,23 +57,26 @@ export const RevenueDashboard = () => {
 
       if (error) throw error;
       
-      setRevenueData(data || []);
-      setFilteredData(data || []);
+      // Type assertion to ensure data conforms to RevenueEvent interface
+      const typedData = (data || []) as RevenueEvent[];
+      
+      setRevenueData(typedData);
+      setFilteredData(typedData);
       
       // Calculate summary
-      if (data) {
-        const total = data.reduce((sum, event) => sum + event.amount_cents, 0);
-        const barTotal = data.filter(e => e.revenue_type === 'bar').reduce((sum, event) => sum + event.amount_cents, 0);
-        const doorTotal = data.filter(e => e.revenue_type === 'door').reduce((sum, event) => sum + event.amount_cents, 0);
-        const otherTotal = data.filter(e => e.revenue_type === 'other').reduce((sum, event) => sum + event.amount_cents, 0);
+      if (typedData.length > 0) {
+        const total = typedData.reduce((sum, event) => sum + event.amount_cents, 0);
+        const barTotal = typedData.filter(e => e.revenue_type === 'bar').reduce((sum, event) => sum + event.amount_cents, 0);
+        const doorTotal = typedData.filter(e => e.revenue_type === 'door').reduce((sum, event) => sum + event.amount_cents, 0);
+        const otherTotal = typedData.filter(e => e.revenue_type === 'other').reduce((sum, event) => sum + event.amount_cents, 0);
         
         setSummary({
           totalRevenue: total,
           barRevenue: barTotal,
           doorRevenue: doorTotal,
           otherRevenue: otherTotal,
-          totalTransactions: data.length,
-          averageTransaction: data.length > 0 ? total / data.length : 0
+          totalTransactions: typedData.length,
+          averageTransaction: typedData.length > 0 ? total / typedData.length : 0
         });
       }
     } catch (error) {
