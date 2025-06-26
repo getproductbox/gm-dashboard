@@ -17,6 +17,7 @@ import Customers from "./pages/Customers";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import ApiTest from "./pages/ApiTest";
+import Revenue from "./pages/Revenue";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,11 @@ const App = () => (
             <Route path="/customers" element={
               <ProtectedRoute>
                 <Customers />
+              </ProtectedRoute>
+            } />
+            <Route path="/revenue" element={
+              <ProtectedRoute>
+                <Revenue />
               </ProtectedRoute>
             } />
             <Route path="/reports" element={
