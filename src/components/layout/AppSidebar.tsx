@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import { Home, Calendar, Users, BarChart3, Settings } from "lucide-react";
+import { Home, Calendar, Users, BarChart3, Settings, Code } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const menuItems = [
@@ -43,6 +43,11 @@ const menuItems = [
     title: "Settings",
     url: "/settings",
     icon: Settings,
+  },
+  {
+    title: "API Test",
+    url: "/api-test",
+    icon: Code,
   },
 ];
 

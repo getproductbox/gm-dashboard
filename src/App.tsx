@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import Customers from "./pages/Customers";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
+import ApiTest from "./pages/ApiTest";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,11 @@ const App = () => (
             <Route path="/design" element={
               <ProtectedRoute>
                 <DesignSystem />
+              </ProtectedRoute>
+            } />
+            <Route path="/api-test" element={
+              <ProtectedRoute>
+                <ApiTest />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
