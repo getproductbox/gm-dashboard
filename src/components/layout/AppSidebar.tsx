@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import { Home, Calendar, Users, BarChart3, Settings, Code } from "lucide-react";
+import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, CreditCard, TestTube } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const menuItems = [
