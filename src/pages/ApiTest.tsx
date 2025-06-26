@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code, Play, RefreshCw, AlertCircle, CheckCircle, CreditCard, Database, Zap, Settings, TestTube } from "lucide-react";
+import { Code, Play, RefreshCw, AlertCircle, CheckCircle, CreditCard, Database, Zap, Settings } from "lucide-react";
 import { ManualSyncControls } from "@/components/square/ManualSyncControls";
 import { DataProcessingPlayground } from "@/components/square/DataProcessingPlayground";
 import { RawDataExplorer } from "@/components/square/RawDataExplorer";
@@ -137,31 +138,6 @@ export default function ApiTest() {
     setCurrentTest(templates[template]);
   };
 
-  const setSquareTemplate = (template: 'sandbox-payments' | 'production-payments' | 'sandbox-auth-test') => {
-    const templates = {
-      'sandbox-payments': {
-        endpoint: 'https://connect.squareupsandbox.com/v2/payments',
-        method: 'GET',
-        headers: '{"Authorization": "Bearer YOUR_SANDBOX_ACCESS_TOKEN", "Square-Version": "2024-12-18"}',
-        body: ''
-      },
-      'production-payments': {
-        endpoint: 'https://connect.squareup.com/v2/payments',
-        method: 'GET',
-        headers: '{"Authorization": "Bearer YOUR_PRODUCTION_ACCESS_TOKEN", "Square-Version": "2024-12-18"}',
-        body: ''
-      },
-      'sandbox-auth-test': {
-        endpoint: 'https://connect.squareupsandbox.com/v2/locations',
-        method: 'GET',
-        headers: '{"Authorization": "Bearer YOUR_SANDBOX_ACCESS_TOKEN", "Square-Version": "2024-12-18"}',
-        body: ''
-      }
-    };
-
-    setCurrentTest(templates[template]);
-  };
-
   const setAdvancedSquareTemplate = (template: 'payments-date-range' | 'payments-pagination' | 'location-details' | 'payment-error-test') => {
     const templates = {
       'payments-date-range': {
@@ -202,7 +178,7 @@ export default function ApiTest() {
         </div>
 
         <Tabs defaultValue="api-test" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="api-test" className="flex items-center space-x-2">
               <Code className="h-4 w-4" />
               <span>API Test</span>
@@ -216,16 +192,12 @@ export default function ApiTest() {
               <span>Production Sync</span>
             </TabsTrigger>
             <TabsTrigger value="data-playground" className="flex items-center space-x-2">
-              <TestTube className="h-4 w-4" />
+              <Database className="h-4 w-4" />
               <span>Data Playground</span>
             </TabsTrigger>
             <TabsTrigger value="raw-explorer" className="flex items-center space-x-2">
               <Database className="h-4 w-4" />
               <span>Raw Data</span>
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center space-x-2">
-              <TestTube className="h-4 w-4" />
-              <span>Analytics</span>
             </TabsTrigger>
           </TabsList>
 
@@ -366,12 +338,12 @@ export default function ApiTest() {
               </Card>
             </div>
 
-            {/* Enhanced Square API Templates */}
+            {/* Square Edge Functions Templates */}
             <Card className="border-green-200 bg-green-50">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Zap className="h-5 w-5 text-green-600" />
-                  <span>Square Edge Functions (Recommended)</span>
+                  <span>Square Edge Functions</span>
                 </CardTitle>
                 <p className="text-sm text-green-700 mt-2">
                   Test your Square integration through Supabase Edge Functions - bypasses CORS issues and tests your actual implementation.
@@ -451,8 +423,6 @@ export default function ApiTest() {
                 </Alert>
               </CardContent>
             </Card>
-
-            {/* Keep existing Square API Direct and General Templates sections */}
           </TabsContent>
 
           <TabsContent value="sync-controls">
@@ -469,27 +439,6 @@ export default function ApiTest() {
 
           <TabsContent value="raw-explorer">
             <RawDataExplorer />
-          </TabsContent>
-
-          <TabsContent value="analytics" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <TestTube className="h-5 w-5" />
-                  <span>Analytics Preview</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center text-gray-500 py-12">
-                  <TestTube className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">Analytics Preview Coming Soon</h3>
-                  <p className="text-sm">
-                    This section will show revenue analytics, trends, and insights based on your Square payment data.
-                    Complete the data sync process to see analytics here.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>
