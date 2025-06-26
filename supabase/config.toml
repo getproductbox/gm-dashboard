@@ -1,1 +1,20 @@
+
 project_id = "plksvatjdylpuhjitbfc"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[functions.square-sync]
+verify_jwt = false
+
+[functions.square-cron]
+verify_jwt = false
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
