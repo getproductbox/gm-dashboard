@@ -186,16 +186,21 @@ export class SquareService {
   }
 
   private async storeRawPayment(payment: SquarePayment): Promise<void> {
-    await supabase
+    // Convert SquarePayment to Json by casting it
+    const { error } = await supabase
       .from('square_payments_raw')
       .upsert({
         square_payment_id: payment.id,
-        raw_response: payment,
+        raw_response: payment as any, // Cast to any to satisfy Json type
         api_version: '2024-12-18',
         sync_timestamp: new Date().toISOString()
       }, {
         onConflict: 'square_payment_id'
       });
+
+    if (error) {
+      throw new Error(`Failed to store raw payment: ${error.message}`);
+    }
   }
 
   private async transformAndStorePayment(payment: SquarePayment, venue: string = 'default'): Promise<void> {
@@ -214,11 +219,15 @@ export class SquareService {
       status: payment.status.toLowerCase()
     };
 
-    await supabase
+    const { error } = await supabase
       .from('revenue_events')
       .upsert(revenueEvent, {
         onConflict: 'square_payment_id'
       });
+
+    if (error) {
+      throw new Error(`Failed to store revenue event: ${error.message}`);
+    }
   }
 
   private categorizePayment(payment: SquarePayment): 'bar' | 'door' | 'other' {
