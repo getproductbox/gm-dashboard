@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code, Play, RefreshCw, AlertCircle, CheckCircle, CreditCard, Database } from "lucide-react";
+import { Code, Play, RefreshCw, AlertCircle, CheckCircle, CreditCard, Database, Zap } from "lucide-react";
 
 interface ApiTestResult {
   endpoint: string;
@@ -107,6 +107,31 @@ export default function ApiTest() {
     if (status >= 200 && status < 300) return "default";
     if (status >= 400) return "destructive";
     return "secondary";
+  };
+
+  const setSquareEdgeFunctionTemplate = (template: 'square-sync-sandbox' | 'square-sync-production' | 'square-cron') => {
+    const templates = {
+      'square-sync-sandbox': {
+        endpoint: 'https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/square-sync',
+        method: 'POST',
+        headers: '{"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa3N2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NjQ5MzMsImV4cCI6MjA2NjM0MDkzM30.IdM8u1iq88C0ruwp7IkMB7PxwnfwmRyl6uLnBmZq5ys"}',
+        body: '{"environment": "sandbox"}'
+      },
+      'square-sync-production': {
+        endpoint: 'https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/square-sync',
+        method: 'POST',
+        headers: '{"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa3N2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NjQ5MzMsImV4cCI6MjA2NjM0MDkzM30.IdM8u1iq88C0ruwp7IkMB7PxwnfwmRyl6uLnBmZq5ys"}',
+        body: '{"environment": "production"}'
+      },
+      'square-cron': {
+        endpoint: 'https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/square-cron',
+        method: 'POST',
+        headers: '{"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa3N2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NjQ5MzMsImV4cCI6MjA2NjM0MDkzM30.IdM8u1iq88C0ruwp7IkMB7PxwnfwmRyl6uLnBmZq5ys"}',
+        body: '{}'
+      }
+    };
+
+    setCurrentTest(templates[template]);
   };
 
   const setSquareTemplate = (template: 'sandbox-payments' | 'production-payments' | 'sandbox-auth-test') => {
@@ -278,13 +303,63 @@ export default function ApiTest() {
           </Card>
         </div>
 
-        {/* Square API Templates */}
+        {/* Square Edge Function Templates - RECOMMENDED */}
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Zap className="h-5 w-5 text-green-600" />
+              <span>Square Edge Functions (Recommended)</span>
+            </CardTitle>
+            <p className="text-sm text-green-700 mt-2">
+              Test your Square integration through Supabase Edge Functions - bypasses CORS issues and tests your actual implementation.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setSquareEdgeFunctionTemplate('square-sync-sandbox')}
+                className="flex items-center space-x-2 border-green-300 hover:bg-green-100"
+              >
+                <Zap className="h-4 w-4" />
+                <span>Test Sandbox Sync</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSquareEdgeFunctionTemplate('square-sync-production')}
+                className="flex items-center space-x-2 border-green-300 hover:bg-green-100"
+              >
+                <Zap className="h-4 w-4" />
+                <span>Test Production Sync</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSquareEdgeFunctionTemplate('square-cron')}
+                className="flex items-center space-x-2 border-green-300 hover:bg-green-100"
+              >
+                <Zap className="h-4 w-4" />
+                <span>Test Cron Function</span>
+              </Button>
+            </div>
+            <Alert className="mt-4 border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700">
+                These templates test your actual Square integration and will work without CORS issues. They use your configured API keys from Supabase secrets.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+
+        {/* Square API Templates - Direct (Will have CORS issues) */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <CreditCard className="h-5 w-5" />
-              <span>Square API Templates</span>
+              <span>Square API Direct (CORS Limited)</span>
             </CardTitle>
+            <p className="text-sm text-gm-neutral-600 mt-2">
+              Direct Square API calls - will fail due to CORS when called from browser. Use Edge Function templates above instead.
+            </p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -316,7 +391,7 @@ export default function ApiTest() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Remember to replace YOUR_SANDBOX_ACCESS_TOKEN or YOUR_PRODUCTION_ACCESS_TOKEN with your actual Square API credentials before testing.
+                These direct API calls will fail due to CORS restrictions. Use the Edge Function templates above for actual testing.
               </AlertDescription>
             </Alert>
           </CardContent>
