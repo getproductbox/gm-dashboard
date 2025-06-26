@@ -99,6 +99,16 @@ interface SquarePaymentsResponse {
   }>;
 }
 
+interface SyncRequest {
+  environment?: 'sandbox' | 'production';
+  date_range?: {
+    start: string;
+    end: string;
+  };
+  limit?: number;
+  historical?: boolean;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -107,6 +117,16 @@ serve(async (req) => {
 
   try {
     console.log('Starting Square payments sync...');
+
+    // Parse request body for sync parameters
+    let syncParams: SyncRequest = {};
+    if (req.method === 'POST') {
+      try {
+        syncParams = await req.json();
+      } catch (e) {
+        console.log('No valid JSON body, using defaults');
+      }
+    }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -122,8 +142,8 @@ serve(async (req) => {
       throw new Error('No Square API tokens configured');
     }
 
-    // Determine which environment to sync (default to sandbox for safety)
-    const environment = req.url.includes('production') ? 'production' : 'sandbox';
+    // Determine which environment to sync
+    const environment = syncParams.environment || (req.url.includes('production') ? 'production' : 'sandbox');
     const accessToken = environment === 'production' ? productionToken : sandboxToken;
 
     if (!accessToken) {
@@ -132,7 +152,7 @@ serve(async (req) => {
 
     console.log(`Syncing ${environment} environment...`);
 
-    // Get last successful sync time
+    // Get sync status
     const { data: syncStatus, error: syncStatusError } = await supabase
       .from('square_sync_status')
       .select('last_successful_sync, id')
@@ -153,93 +173,146 @@ serve(async (req) => {
       })
       .eq('id', syncStatus.id);
 
-    // Calculate since time (default to 24 hours ago if no previous sync)
-    const sinceTime = syncStatus.last_successful_sync || 
-      new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Determine sync time range
+    let beginTime: string;
+    let endTime: string | undefined;
 
-    console.log(`Fetching payments since: ${sinceTime}`);
+    if (syncParams.date_range) {
+      // Historical sync with specific date range
+      beginTime = syncParams.date_range.start;
+      endTime = syncParams.date_range.end;
+      console.log(`Historical sync from ${beginTime} to ${endTime}`);
+    } else if (syncParams.historical) {
+      // Historical sync for last year
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      beginTime = oneYearAgo.toISOString();
+      endTime = new Date().toISOString();
+      console.log(`Historical sync for last year: ${beginTime} to ${endTime}`);
+    } else {
+      // Regular incremental sync
+      beginTime = syncStatus.last_successful_sync || 
+        new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      console.log(`Incremental sync since: ${beginTime}`);
+    }
 
     // Build Square API URL
     const baseUrl = environment === 'sandbox' 
       ? 'https://connect.squareupsandbox.com'
       : 'https://connect.squareup.com';
 
-    const url = new URL(`${baseUrl}/v2/payments`);
-    url.searchParams.append('begin_time', sinceTime);
-    url.searchParams.append('sort_order', 'ASC');
-    url.searchParams.append('limit', '100');
+    let allPayments: SquarePayment[] = [];
+    let cursor: string | undefined;
+    let totalFetched = 0;
+    const batchLimit = syncParams.limit || 100;
 
-    // Fetch payments from Square API
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Square-Version': '2024-12-18',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+    // Paginate through all payments
+    do {
+      const url = new URL(`${baseUrl}/v2/payments`);
+      url.searchParams.append('begin_time', beginTime);
+      if (endTime) {
+        url.searchParams.append('end_time', endTime);
       }
-    });
+      url.searchParams.append('sort_order', 'ASC');
+      url.searchParams.append('limit', batchLimit.toString());
+      if (cursor) {
+        url.searchParams.append('cursor', cursor);
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Square API Error (${response.status}): ${errorText}`);
-    }
+      console.log(`Fetching batch with cursor: ${cursor || 'none'}`);
 
-    const paymentsData: SquarePaymentsResponse = await response.json();
-    console.log(`Fetched ${paymentsData.payments?.length || 0} payments`);
+      // Fetch payments from Square API
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Square-Version': '2024-12-18',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Square API Error (${response.status}): ${errorText}`);
+      }
+
+      const paymentsData: SquarePaymentsResponse = await response.json();
+      
+      if (paymentsData.payments && paymentsData.payments.length > 0) {
+        allPayments.push(...paymentsData.payments);
+        totalFetched += paymentsData.payments.length;
+        console.log(`Fetched ${paymentsData.payments.length} payments (total: ${totalFetched})`);
+      }
+
+      cursor = paymentsData.cursor;
+      
+      // Add a small delay to respect rate limits
+      if (cursor) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+    } while (cursor && totalFetched < 1000); // Limit to 1000 payments per sync to avoid timeouts
+
+    console.log(`Total payments fetched: ${totalFetched}`);
 
     let paymentsProcessed = 0;
 
-    if (paymentsData.payments && paymentsData.payments.length > 0) {
+    if (allPayments.length > 0) {
       // Process each payment
-      for (const payment of paymentsData.payments) {
+      for (const payment of allPayments) {
         console.log(`Processing payment: ${payment.id}`);
 
-        // Store raw payment data
-        const { error: rawInsertError } = await supabase
-          .from('square_payments_raw')
-          .upsert({
+        try {
+          // Store raw payment data
+          const { error: rawInsertError } = await supabase
+            .from('square_payments_raw')
+            .upsert({
+              square_payment_id: payment.id,
+              raw_response: payment,
+              api_version: '2024-12-18',
+              sync_timestamp: new Date().toISOString()
+            }, {
+              onConflict: 'square_payment_id'
+            });
+
+          if (rawInsertError) {
+            console.error(`Error storing raw payment ${payment.id}:`, rawInsertError);
+            continue;
+          }
+
+          // Transform and store revenue event
+          const paymentDate = new Date(payment.created_at);
+          const revenueType = categorizePayment(payment);
+          
+          const revenueEvent = {
             square_payment_id: payment.id,
-            raw_response: payment,
-            api_version: '2024-12-18',
-            sync_timestamp: new Date().toISOString()
-          }, {
-            onConflict: 'square_payment_id'
-          });
+            venue: 'default',
+            revenue_type: revenueType,
+            amount_cents: payment.amount_money.amount,
+            currency: payment.amount_money.currency,
+            payment_date: payment.created_at,
+            payment_hour: paymentDate.getHours(),
+            payment_day_of_week: paymentDate.getDay(),
+            status: payment.status.toLowerCase()
+          };
 
-        if (rawInsertError) {
-          console.error(`Error storing raw payment ${payment.id}:`, rawInsertError);
+          const { error: revenueInsertError } = await supabase
+            .from('revenue_events')
+            .upsert(revenueEvent, {
+              onConflict: 'square_payment_id'
+            });
+
+          if (revenueInsertError) {
+            console.error(`Error storing revenue event for payment ${payment.id}:`, revenueInsertError);
+            continue;
+          }
+
+          paymentsProcessed++;
+        } catch (error) {
+          console.error(`Error processing payment ${payment.id}:`, error);
           continue;
         }
-
-        // Transform and store revenue event
-        const paymentDate = new Date(payment.created_at);
-        const revenueType = categorizePayment(payment);
-        
-        const revenueEvent = {
-          square_payment_id: payment.id,
-          venue: 'default', // You can customize this based on location_id
-          revenue_type: revenueType,
-          amount_cents: payment.amount_money.amount,
-          currency: payment.amount_money.currency,
-          payment_date: payment.created_at,
-          payment_hour: paymentDate.getHours(),
-          payment_day_of_week: paymentDate.getDay(),
-          status: payment.status.toLowerCase()
-        };
-
-        const { error: revenueInsertError } = await supabase
-          .from('revenue_events')
-          .upsert(revenueEvent, {
-            onConflict: 'square_payment_id'
-          });
-
-        if (revenueInsertError) {
-          console.error(`Error storing revenue event for payment ${payment.id}:`, revenueInsertError);
-          continue;
-        }
-
-        paymentsProcessed++;
       }
     }
 
@@ -261,6 +334,8 @@ serve(async (req) => {
         success: true,
         environment,
         paymentsProcessed,
+        totalFetched,
+        cursor: cursor || null,
         message: `Successfully synced ${paymentsProcessed} payments`
       }),
       {
@@ -291,7 +366,6 @@ serve(async (req) => {
 function categorizePayment(payment: SquarePayment): 'bar' | 'door' | 'other' {
   const amount = payment.amount_money.amount;
   
-  // Example categorization logic - customize based on your business rules
   if (amount <= 1500) { // $15 or less - likely door charge
     return 'door';
   } else if (amount <= 10000) { // $100 or less - likely bar sale

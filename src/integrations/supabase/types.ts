@@ -164,7 +164,7 @@ export type Database = {
           {
             foreignKeyName: "revenue_events_square_payment_id_fkey"
             columns: ["square_payment_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "square_payments_raw"
             referencedColumns: ["square_payment_id"]
           },

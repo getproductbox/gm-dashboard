@@ -11,6 +11,7 @@ import { Code, Play, RefreshCw, AlertCircle, CheckCircle, CreditCard, Database, 
 import { ManualSyncControls } from "@/components/square/ManualSyncControls";
 import { DataProcessingPlayground } from "@/components/square/DataProcessingPlayground";
 import { RawDataExplorer } from "@/components/square/RawDataExplorer";
+import { ProductionSyncControls } from "@/components/square/ProductionSyncControls";
 
 interface ApiTestResult {
   endpoint: string;
@@ -201,14 +202,18 @@ export default function ApiTest() {
         </div>
 
         <Tabs defaultValue="api-test" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="api-test" className="flex items-center space-x-2">
               <Code className="h-4 w-4" />
               <span>API Test</span>
             </TabsTrigger>
             <TabsTrigger value="sync-controls" className="flex items-center space-x-2">
               <Settings className="h-4 w-4" />
-              <span>Sync Controls</span>
+              <span>Manual Sync</span>
+            </TabsTrigger>
+            <TabsTrigger value="production-sync" className="flex items-center space-x-2">
+              <CreditCard className="h-4 w-4" />
+              <span>Production Sync</span>
             </TabsTrigger>
             <TabsTrigger value="data-playground" className="flex items-center space-x-2">
               <TestTube className="h-4 w-4" />
@@ -220,7 +225,7 @@ export default function ApiTest() {
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center space-x-2">
               <TestTube className="h-4 w-4" />
-              <span>Analytics Preview</span>
+              <span>Analytics</span>
             </TabsTrigger>
           </TabsList>
 
@@ -452,6 +457,10 @@ export default function ApiTest() {
 
           <TabsContent value="sync-controls">
             <ManualSyncControls />
+          </TabsContent>
+
+          <TabsContent value="production-sync">
+            <ProductionSyncControls />
           </TabsContent>
 
           <TabsContent value="data-playground">
