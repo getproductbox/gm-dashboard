@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, CreditCard, TestTube } from "lucide-react";
+import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, TestTube } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const menuItems = [
@@ -88,14 +88,6 @@ export function AppSidebar() {
                   <Link to="/customers">
                     <Users className="h-4 w-4" />
                     <span>Customers</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/square-sync">
-                    <CreditCard className="h-4 w-4" />
-                    <span>Square Sync</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
