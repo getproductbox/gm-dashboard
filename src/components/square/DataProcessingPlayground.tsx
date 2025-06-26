@@ -228,7 +228,7 @@ export const DataProcessingPlayground = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="text-sm text-gray-700">
-                      <p><strong>Criteria:</strong> > $100.00</p>
+                      <p><strong>Criteria:</strong> {'>'}$100.00</p>
                       <p><strong>Examples:</strong> Special events, merchandise</p>
                       <p><strong>Sample Amount:</strong> $150.00</p>
                     </div>
