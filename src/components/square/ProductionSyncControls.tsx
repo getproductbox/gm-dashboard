@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   AlertTriangle, 
   Calendar, 
@@ -15,7 +16,8 @@ import {
   Server, 
   TrendingUp,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -23,6 +25,7 @@ import { toast } from 'sonner';
 export const ProductionSyncControls = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [syncResult, setSyncResult] = useState<any>(null);
+  const [clearExisting, setClearExisting] = useState(false);
   const [dateRange, setDateRange] = useState({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ago
     end: new Date().toISOString().split('T')[0] // today
@@ -34,6 +37,11 @@ export const ProductionSyncControls = () => {
 
     try {
       let requestBody: any = { environment };
+
+      // Add clear_existing flag if checked
+      if (clearExisting) {
+        requestBody.clear_existing = true;
+      }
 
       switch (syncType) {
         case 'historical':
@@ -66,8 +74,10 @@ export const ProductionSyncControls = () => {
                           syncType === 'last-year' ? 'historical (last year)' : 
                           'historical (date range)';
 
-      toast.success(`${environment} ${syncTypeText} sync completed`, {
-        description: `Processed ${data.paymentsProcessed} payments`
+      const statusText = data.isComplete ? 'completed' : 'partially completed';
+      
+      toast.success(`${environment} ${syncTypeText} sync ${statusText}`, {
+        description: `Processed ${data.paymentsProcessed} payments in ${data.executionTimeSeconds}s`
       });
 
     } catch (error) {
@@ -90,6 +100,31 @@ export const ProductionSyncControls = () => {
           Use with caution and ensure you have proper data handling procedures in place.
         </AlertDescription>
       </Alert>
+
+      {/* Clear Data Option */}
+      <Card className="border-orange-200 bg-orange-50">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2 text-orange-800">
+            <Trash2 className="h-5 w-5" />
+            <span>Data Management</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="clear-existing"
+              checked={clearExisting}
+              onCheckedChange={(checked) => setClearExisting(checked as boolean)}
+            />
+            <Label htmlFor="clear-existing" className="text-sm">
+              Clear existing test data before sync (recommended for testing)
+            </Label>
+          </div>
+          <p className="text-xs text-orange-600 mt-2">
+            This will remove all existing payments from both raw and processed tables before starting the sync.
+          </p>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="production" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -225,7 +260,7 @@ export const ProductionSyncControls = () => {
           <CardContent>
             {syncResult.success ? (
               <div className="space-y-2">
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-4 flex-wrap">
                   <Badge variant="outline">{syncResult.environment}</Badge>
                   <span className="text-sm">
                     <strong>Processed:</strong> {syncResult.paymentsProcessed} payments
@@ -233,6 +268,12 @@ export const ProductionSyncControls = () => {
                   <span className="text-sm">
                     <strong>Total Fetched:</strong> {syncResult.totalFetched} payments
                   </span>
+                  <span className="text-sm">
+                    <strong>Time:</strong> {syncResult.executionTimeSeconds}s
+                  </span>
+                  {!syncResult.isComplete && (
+                    <Badge variant="secondary">Partial Sync</Badge>
+                  )}
                 </div>
                 <p className="text-sm text-green-700">{syncResult.message}</p>
                 {syncResult.cursor && (
@@ -257,7 +298,10 @@ export const ProductionSyncControls = () => {
           <CardContent className="py-4">
             <div className="flex items-center space-x-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              <span className="text-blue-700">Syncing payments... This may take a few minutes for large datasets.</span>
+              <span className="text-blue-700">
+                Syncing payments... This may take several minutes for large datasets. 
+                {clearExisting && " Clearing existing data first..."}
+              </span>
             </div>
           </CardContent>
         </Card>

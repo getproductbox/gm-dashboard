@@ -107,6 +107,7 @@ interface SyncRequest {
   };
   limit?: number;
   historical?: boolean;
+  clear_existing?: boolean;
 }
 
 serve(async (req) => {
@@ -114,6 +115,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const startTime = Date.now();
+  const MAX_EXECUTION_TIME = 8 * 60 * 1000; // 8 minutes to leave buffer before 9min timeout
 
   try {
     console.log('Starting Square payments sync...');
@@ -133,6 +137,35 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Clear existing data if requested
+    if (syncParams.clear_existing) {
+      console.log('Clearing existing test data...');
+      
+      // Clear revenue_events first (due to foreign key constraint)
+      const { error: revenueError } = await supabase
+        .from('revenue_events')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+      
+      if (revenueError) {
+        console.error('Error clearing revenue_events:', revenueError);
+      } else {
+        console.log('Cleared revenue_events table');
+      }
+
+      // Clear square_payments_raw
+      const { error: rawError } = await supabase
+        .from('square_payments_raw')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+      
+      if (rawError) {
+        console.error('Error clearing square_payments_raw:', rawError);
+      } else {
+        console.log('Cleared square_payments_raw table');
+      }
+    }
 
     // Get Square API credentials
     const sandboxToken = Deno.env.get('SQUARE_SANDBOX_ACCESS_TOKEN');
@@ -205,9 +238,16 @@ serve(async (req) => {
     let cursor: string | undefined;
     let totalFetched = 0;
     const batchLimit = syncParams.limit || 100;
+    const maxPayments = 5000; // Increased from 1000 to handle larger datasets
 
     // Paginate through all payments
     do {
+      // Check if we're approaching timeout
+      if (Date.now() - startTime > MAX_EXECUTION_TIME) {
+        console.log('Approaching timeout, stopping fetch and processing what we have...');
+        break;
+      }
+
       const url = new URL(`${baseUrl}/v2/payments`);
       url.searchParams.append('begin_time', beginTime);
       if (endTime) {
@@ -219,7 +259,7 @@ serve(async (req) => {
         url.searchParams.append('cursor', cursor);
       }
 
-      console.log(`Fetching batch with cursor: ${cursor || 'none'}`);
+      console.log(`Fetching batch with cursor: ${cursor || 'none'}, total so far: ${totalFetched}`);
 
       // Fetch payments from Square API
       const response = await fetch(url.toString(), {
@@ -247,87 +287,106 @@ serve(async (req) => {
 
       cursor = paymentsData.cursor;
       
-      // Add a small delay to respect rate limits
+      // Reduced delay for faster processing
       if (cursor) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
 
-    } while (cursor && totalFetched < 1000); // Limit to 1000 payments per sync to avoid timeouts
+    } while (cursor && totalFetched < maxPayments);
 
     console.log(`Total payments fetched: ${totalFetched}`);
 
     let paymentsProcessed = 0;
+    const batchSize = 50; // Process payments in batches for better performance
 
     if (allPayments.length > 0) {
-      // Process each payment
-      for (const payment of allPayments) {
-        console.log(`Processing payment: ${payment.id}`);
-
-        try {
-          // Store raw payment data
-          const { error: rawInsertError } = await supabase
-            .from('square_payments_raw')
-            .upsert({
-              square_payment_id: payment.id,
-              raw_response: payment,
-              api_version: '2024-12-18',
-              sync_timestamp: new Date().toISOString()
-            }, {
-              onConflict: 'square_payment_id'
-            });
-
-          if (rawInsertError) {
-            console.error(`Error storing raw payment ${payment.id}:`, rawInsertError);
-            continue;
-          }
-
-          // Transform and store revenue event
-          const paymentDate = new Date(payment.created_at);
-          const revenueType = categorizePayment(payment);
-          
-          const revenueEvent = {
-            square_payment_id: payment.id,
-            venue: 'default',
-            revenue_type: revenueType,
-            amount_cents: payment.amount_money.amount,
-            currency: payment.amount_money.currency,
-            payment_date: payment.created_at,
-            payment_hour: paymentDate.getHours(),
-            payment_day_of_week: paymentDate.getDay(),
-            status: payment.status.toLowerCase()
-          };
-
-          const { error: revenueInsertError } = await supabase
-            .from('revenue_events')
-            .upsert(revenueEvent, {
-              onConflict: 'square_payment_id'
-            });
-
-          if (revenueInsertError) {
-            console.error(`Error storing revenue event for payment ${payment.id}:`, revenueInsertError);
-            continue;
-          }
-
-          paymentsProcessed++;
-        } catch (error) {
-          console.error(`Error processing payment ${payment.id}:`, error);
-          continue;
+      // Process payments in batches
+      for (let i = 0; i < allPayments.length; i += batchSize) {
+        // Check timeout before each batch
+        if (Date.now() - startTime > MAX_EXECUTION_TIME) {
+          console.log(`Timeout approaching, processed ${paymentsProcessed} of ${allPayments.length} payments`);
+          break;
         }
+
+        const batch = allPayments.slice(i, i + batchSize);
+        console.log(`Processing batch ${Math.floor(i / batchSize) + 1}, payments ${i + 1}-${Math.min(i + batchSize, allPayments.length)} of ${allPayments.length}`);
+
+        // Process each payment in the batch
+        for (const payment of batch) {
+          try {
+            // Store raw payment data
+            const { error: rawInsertError } = await supabase
+              .from('square_payments_raw')
+              .upsert({
+                square_payment_id: payment.id,
+                raw_response: payment,
+                api_version: '2024-12-18',
+                sync_timestamp: new Date().toISOString()
+              }, {
+                onConflict: 'square_payment_id'
+              });
+
+            if (rawInsertError) {
+              console.error(`Error storing raw payment ${payment.id}:`, rawInsertError);
+              continue;
+            }
+
+            // Transform and store revenue event
+            const paymentDate = new Date(payment.created_at);
+            const revenueType = categorizePayment(payment);
+            
+            const revenueEvent = {
+              square_payment_id: payment.id,
+              venue: 'default',
+              revenue_type: revenueType,
+              amount_cents: payment.amount_money.amount,
+              currency: payment.amount_money.currency,
+              payment_date: payment.created_at,
+              payment_hour: paymentDate.getHours(),
+              payment_day_of_week: paymentDate.getDay(),
+              status: payment.status.toLowerCase()
+            };
+
+            const { error: revenueInsertError } = await supabase
+              .from('revenue_events')
+              .upsert(revenueEvent, {
+                onConflict: 'square_payment_id'
+              });
+
+            if (revenueInsertError) {
+              console.error(`Error storing revenue event for payment ${payment.id}:`, revenueInsertError);
+              continue;
+            }
+
+            paymentsProcessed++;
+          } catch (error) {
+            console.error(`Error processing payment ${payment.id}:`, error);
+            continue;
+          }
+        }
+
+        // Log progress every batch
+        console.log(`Batch complete. Total processed: ${paymentsProcessed}/${allPayments.length}`);
       }
     }
 
-    // Update sync status to success
+    // Determine final status
+    const isComplete = paymentsProcessed === allPayments.length && !cursor;
+    const finalStatus = isComplete ? 'success' : 'partial';
+
+    // Update sync status
     await supabase
       .from('square_sync_status')
       .update({
-        last_successful_sync: new Date().toISOString(),
-        sync_status: 'success',
+        last_successful_sync: isComplete ? new Date().toISOString() : syncStatus.last_successful_sync,
+        sync_status: finalStatus,
         payments_synced: paymentsProcessed,
-        error_message: null
+        error_message: isComplete ? null : `Partial sync: processed ${paymentsProcessed} of ${totalFetched} fetched payments`
       })
       .eq('id', syncStatus.id);
 
-    console.log(`Sync completed successfully. Processed ${paymentsProcessed} payments.`);
+    const executionTime = Math.round((Date.now() - startTime) / 1000);
+    console.log(`Sync completed in ${executionTime}s. Processed ${paymentsProcessed} payments. Status: ${finalStatus}`);
 
     return new Response(
       JSON.stringify({
@@ -336,7 +395,11 @@ serve(async (req) => {
         paymentsProcessed,
         totalFetched,
         cursor: cursor || null,
-        message: `Successfully synced ${paymentsProcessed} payments`
+        isComplete,
+        executionTimeSeconds: executionTime,
+        message: isComplete 
+          ? `Successfully synced ${paymentsProcessed} payments`
+          : `Partial sync: processed ${paymentsProcessed} of ${totalFetched} payments. Use cursor to continue.`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
