@@ -16,6 +16,11 @@ interface FeatureFlagsContextType {
   getDefaultValue: (key: string) => boolean;
   hasUserOverride: (key: string) => boolean;
   resetFlagToDefault: (key: string) => void;
+  updateDefaultValue: (key: string, enabled: boolean) => void;
+  getPersonalValue: (key: string) => boolean;
+  hasPersonalOverride: (key: string) => boolean;
+  setPersonalOverride: (key: string, enabled: boolean) => void;
+  resetPersonalOverride: (key: string) => void;
 }
 
 const FeatureFlagsContext = createContext<FeatureFlagsContextType | undefined>(undefined);
@@ -94,7 +99,8 @@ const DEFAULT_FLAGS: FeatureFlag[] = [
   }
 ];
 
-const STORAGE_KEY = 'featureFlags';
+const DEFAULTS_OVERRIDE_KEY = 'defaultsOverride';
+const PERSONAL_OVERRIDE_KEY = 'personalOverride';
 
 interface FeatureFlagsProviderProps {
   children: ReactNode;
@@ -102,23 +108,46 @@ interface FeatureFlagsProviderProps {
 
 export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
   const [flags, setFlags] = useState<FeatureFlag[]>(DEFAULT_FLAGS);
+  const [defaultsOverride, setDefaultsOverride] = useState<Record<string, boolean>>({});
+  const [personalOverride, setPersonalOverrideState] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    // Load user overrides from localStorage
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
+    // Load default overrides from localStorage
+    const storedDefaults = localStorage.getItem(DEFAULTS_OVERRIDE_KEY);
+    if (storedDefaults) {
       try {
-        const userOverrides = JSON.parse(stored);
-        const updatedFlags = DEFAULT_FLAGS.map(flag => ({
-          ...flag,
-          enabled: userOverrides.hasOwnProperty(flag.key) ? userOverrides[flag.key] : flag.enabled
-        }));
-        setFlags(updatedFlags);
+        const parsed = JSON.parse(storedDefaults);
+        setDefaultsOverride(parsed);
       } catch (error) {
-        console.error('Error loading feature flags from localStorage:', error);
+        console.error('Error loading default overrides:', error);
+      }
+    }
+
+    // Load personal overrides from localStorage
+    const storedPersonal = localStorage.getItem(PERSONAL_OVERRIDE_KEY);
+    if (storedPersonal) {
+      try {
+        const parsed = JSON.parse(storedPersonal);
+        setPersonalOverrideState(parsed);
+      } catch (error) {
+        console.error('Error loading personal overrides:', error);
       }
     }
   }, []);
+
+  // Update flags whenever overrides change
+  useEffect(() => {
+    const updatedFlags = DEFAULT_FLAGS.map(flag => {
+      const currentDefault = defaultsOverride.hasOwnProperty(flag.key) ? defaultsOverride[flag.key] : flag.enabled;
+      const finalValue = personalOverride.hasOwnProperty(flag.key) ? personalOverride[flag.key] : currentDefault;
+      
+      return {
+        ...flag,
+        enabled: finalValue
+      };
+    });
+    setFlags(updatedFlags);
+  }, [defaultsOverride, personalOverride]);
 
   const isFeatureEnabled = (key: string): boolean => {
     const flag = flags.find(f => f.key === key);
@@ -126,78 +155,102 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
   };
 
   const getDefaultValue = (key: string): boolean => {
+    // Check if there's a default override first, then fall back to original default
+    if (defaultsOverride.hasOwnProperty(key)) {
+      return defaultsOverride[key];
+    }
     const defaultFlag = DEFAULT_FLAGS.find(f => f.key === key);
     return defaultFlag ? defaultFlag.enabled : false;
   };
 
+  const getPersonalValue = (key: string): boolean => {
+    if (personalOverride.hasOwnProperty(key)) {
+      return personalOverride[key];
+    }
+    return getDefaultValue(key);
+  };
+
   const hasUserOverride = (key: string): boolean => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return false;
+    return personalOverride.hasOwnProperty(key);
+  };
+
+  const hasPersonalOverride = (key: string): boolean => {
+    return personalOverride.hasOwnProperty(key);
+  };
+
+  const updateDefaultValue = (key: string, enabled: boolean) => {
+    const originalDefault = DEFAULT_FLAGS.find(f => f.key === key)?.enabled ?? false;
     
-    try {
-      const userOverrides = JSON.parse(stored);
-      return userOverrides.hasOwnProperty(key);
-    } catch {
-      return false;
+    const newDefaultsOverride = { ...defaultsOverride };
+    
+    if (enabled === originalDefault) {
+      // If setting back to original default, remove the override
+      delete newDefaultsOverride[key];
+    } else {
+      // Otherwise, set the override
+      newDefaultsOverride[key] = enabled;
+    }
+    
+    setDefaultsOverride(newDefaultsOverride);
+    
+    // Save to localStorage
+    if (Object.keys(newDefaultsOverride).length === 0) {
+      localStorage.removeItem(DEFAULTS_OVERRIDE_KEY);
+    } else {
+      localStorage.setItem(DEFAULTS_OVERRIDE_KEY, JSON.stringify(newDefaultsOverride));
     }
   };
 
-  const resetFlagToDefault = (key: string) => {
-    const defaultFlag = DEFAULT_FLAGS.find(f => f.key === key);
-    if (!defaultFlag) return;
+  const setPersonalOverride = (key: string, enabled: boolean) => {
+    const currentDefault = getDefaultValue(key);
+    
+    const newPersonalOverride = { ...personalOverride };
+    
+    if (enabled === currentDefault) {
+      // If setting to match current default, remove personal override
+      delete newPersonalOverride[key];
+    } else {
+      // Otherwise, set the personal override
+      newPersonalOverride[key] = enabled;
+    }
+    
+    setPersonalOverrideState(newPersonalOverride);
+    
+    // Save to localStorage
+    if (Object.keys(newPersonalOverride).length === 0) {
+      localStorage.removeItem(PERSONAL_OVERRIDE_KEY);
+    } else {
+      localStorage.setItem(PERSONAL_OVERRIDE_KEY, JSON.stringify(newPersonalOverride));
+    }
+  };
 
-    setFlags(prev => {
-      const updated = prev.map(flag => 
-        flag.key === key ? { ...flag, enabled: defaultFlag.enabled } : flag
-      );
-      
-      // Remove this flag from user overrides
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          const userOverrides = JSON.parse(stored);
-          delete userOverrides[key];
-          
-          if (Object.keys(userOverrides).length === 0) {
-            localStorage.removeItem(STORAGE_KEY);
-          } else {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(userOverrides));
-          }
-        } catch (error) {
-          console.error('Error updating user overrides:', error);
-        }
-      }
-      
-      return updated;
-    });
+  const resetPersonalOverride = (key: string) => {
+    const newPersonalOverride = { ...personalOverride };
+    delete newPersonalOverride[key];
+    
+    setPersonalOverrideState(newPersonalOverride);
+    
+    if (Object.keys(newPersonalOverride).length === 0) {
+      localStorage.removeItem(PERSONAL_OVERRIDE_KEY);
+    } else {
+      localStorage.setItem(PERSONAL_OVERRIDE_KEY, JSON.stringify(newPersonalOverride));
+    }
   };
 
   const toggleFeature = (key: string) => {
-    const defaultFlag = DEFAULT_FLAGS.find(f => f.key === key);
-    if (!defaultFlag) return;
+    const currentValue = isFeatureEnabled(key);
+    setPersonalOverride(key, !currentValue);
+  };
 
-    setFlags(prev => {
-      const updated = prev.map(flag => 
-        flag.key === key ? { ...flag, enabled: !flag.enabled } : flag
-      );
-      
-      // Save user overrides to localStorage
-      const userOverrides: Record<string, boolean> = {};
-      updated.forEach(flag => {
-        const defaultValue = DEFAULT_FLAGS.find(f => f.key === flag.key)?.enabled ?? false;
-        if (flag.enabled !== defaultValue) {
-          userOverrides[flag.key] = flag.enabled;
-        }
-      });
-      
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userOverrides));
-      return updated;
-    });
+  const resetFlagToDefault = (key: string) => {
+    resetPersonalOverride(key);
   };
 
   const resetToDefaults = () => {
-    setFlags(DEFAULT_FLAGS);
-    localStorage.removeItem(STORAGE_KEY);
+    setDefaultsOverride({});
+    setPersonalOverrideState({});
+    localStorage.removeItem(DEFAULTS_OVERRIDE_KEY);
+    localStorage.removeItem(PERSONAL_OVERRIDE_KEY);
   };
 
   return (
@@ -208,7 +261,12 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
       resetToDefaults,
       getDefaultValue,
       hasUserOverride,
-      resetFlagToDefault
+      resetFlagToDefault,
+      updateDefaultValue,
+      getPersonalValue,
+      hasPersonalOverride,
+      setPersonalOverride,
+      resetPersonalOverride
     }}>
       {children}
     </FeatureFlagsContext.Provider>

@@ -7,10 +7,19 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useFeatureFlagsContext } from '@/contexts/FeatureFlagsContext';
-import { Settings, Search, RefreshCw, Info, RotateCcw } from 'lucide-react';
+import { Settings, Search, RefreshCw, Info, RotateCcw, Users, User } from 'lucide-react';
 
 export default function FeatureFlags() {
-  const { flags, toggleFeature, resetToDefaults, getDefaultValue, hasUserOverride, resetFlagToDefault } = useFeatureFlagsContext();
+  const { 
+    flags, 
+    resetToDefaults, 
+    getDefaultValue, 
+    updateDefaultValue,
+    getPersonalValue,
+    hasPersonalOverride,
+    setPersonalOverride,
+    resetPersonalOverride
+  } = useFeatureFlagsContext();
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredFlags = flags.filter(flag =>
@@ -26,25 +35,6 @@ export default function FeatureFlags() {
       case 'experimental': return 'bg-orange-100 text-orange-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const getStatusBadge = (flag: any) => {
-    const isOverridden = hasUserOverride(flag.key);
-    const defaultValue = getDefaultValue(flag.key);
-    
-    if (!isOverridden) {
-      return (
-        <Badge variant="outline" className="bg-gray-50 text-gray-600">
-          Default
-        </Badge>
-      );
-    }
-    
-    return (
-      <Badge variant="outline" className="bg-blue-50 text-blue-600">
-        Override
-      </Badge>
-    );
   };
 
   const groupedFlags = filteredFlags.reduce((acc, flag) => {
@@ -66,7 +56,7 @@ export default function FeatureFlags() {
               Feature Flags
             </h1>
             <p className="text-gm-neutral-600">
-              Toggle experimental features and UI components on/off
+              Manage default settings for all users and your personal testing overrides
             </p>
           </div>
           <Button
@@ -75,7 +65,7 @@ export default function FeatureFlags() {
             className="flex items-center gap-2"
           >
             <RefreshCw className="h-4 w-4" />
-            Reset All to Defaults
+            Reset All
           </Button>
         </div>
 
@@ -84,15 +74,15 @@ export default function FeatureFlags() {
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
               <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <p className="text-sm font-medium text-blue-900">
-                  Feature Flag Management
+                  Dual Toggle System
                 </p>
-                <p className="text-sm text-blue-700">
-                  <strong>Default:</strong> Using the system default value. 
-                  <strong className="ml-4">Override:</strong> You've customized this flag's behavior.
-                  Changes are saved locally and persist across sessions.
-                </p>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p><strong>Default (All Users):</strong> Sets what new users see by default</p>
+                  <p><strong>Personal Toggle:</strong> Your personal override for testing - doesn't affect other users</p>
+                  <p>Personal toggles take precedence over defaults when set.</p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -127,17 +117,19 @@ export default function FeatureFlags() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {categoryFlags.map((flag) => {
-                    const isOverridden = hasUserOverride(flag.key);
                     const defaultValue = getDefaultValue(flag.key);
+                    const personalValue = getPersonalValue(flag.key);
+                    const hasPersonalOverrideActive = hasPersonalOverride(flag.key);
                     
                     return (
                       <div
                         key={flag.key}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gm-neutral-50 transition-colors"
+                        className="border rounded-lg p-4 space-y-4"
                       >
-                        <div className="flex-1">
+                        {/* Flag Info */}
+                        <div>
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-medium text-gm-neutral-900">
                               {flag.name}
@@ -145,38 +137,93 @@ export default function FeatureFlags() {
                             <Badge variant="outline" className={getCategoryColor(flag.category)}>
                               {flag.category}
                             </Badge>
-                            {getStatusBadge(flag)}
                           </div>
                           <p className="text-sm text-gm-neutral-600 mb-2">
                             {flag.description}
                           </p>
-                          <div className="flex items-center gap-4">
-                            <code className="text-xs bg-gm-neutral-100 px-2 py-1 rounded">
-                              {flag.key}
-                            </code>
-                            <span className="text-xs text-gm-neutral-500">
-                              Default: {defaultValue ? 'On' : 'Off'}
-                            </span>
+                          <code className="text-xs bg-gm-neutral-100 px-2 py-1 rounded">
+                            {flag.key}
+                          </code>
+                        </div>
+
+                        {/* Controls */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Default Setting */}
+                          <div className="p-3 border rounded-lg bg-gm-neutral-50/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4 text-gm-neutral-600" />
+                                <span className="text-sm font-medium text-gm-neutral-700">
+                                  Default (All Users)
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={defaultValue}
+                                  onCheckedChange={(checked) => updateDefaultValue(flag.key, checked)}
+                                />
+                                <span className="text-xs text-gm-neutral-500 min-w-[2rem]">
+                                  {defaultValue ? 'On' : 'Off'}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-gm-neutral-500">
+                              What new users see by default
+                            </p>
+                          </div>
+
+                          {/* Personal Setting */}
+                          <div className="p-3 border rounded-lg bg-blue-50/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-medium text-blue-700">
+                                  Personal Toggle
+                                </span>
+                                {hasPersonalOverrideActive && (
+                                  <Badge variant="outline" className="bg-blue-100 text-blue-700 text-xs">
+                                    Override
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {hasPersonalOverrideActive && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => resetPersonalOverride(flag.key)}
+                                    className="h-6 w-6 p-0"
+                                    title="Reset to default"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                <Switch
+                                  checked={personalValue}
+                                  onCheckedChange={(checked) => setPersonalOverride(flag.key, checked)}
+                                />
+                                <span className="text-xs text-gm-neutral-500 min-w-[2rem]">
+                                  {personalValue ? 'On' : 'Off'}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-gm-neutral-500">
+                              {hasPersonalOverrideActive 
+                                ? 'Your personal override is active' 
+                                : 'Following default setting'
+                              }
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {isOverridden && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => resetFlagToDefault(flag.key)}
-                              className="h-8 w-8 p-0"
-                              title="Reset to default"
-                            >
-                              <RotateCcw className="h-3 w-3" />
-                            </Button>
-                          )}
-                          <Switch
-                            checked={flag.enabled}
-                            onCheckedChange={() => toggleFeature(flag.key)}
-                          />
-                          <span className="text-sm text-gm-neutral-500 min-w-[2rem]">
-                            {flag.enabled ? 'On' : 'Off'}
+
+                        {/* Status Summary */}
+                        <div className="flex items-center gap-4 text-xs text-gm-neutral-500 pt-2 border-t">
+                          <span>
+                            <strong>Currently Active:</strong> {flag.enabled ? 'On' : 'Off'}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            <strong>Source:</strong> {hasPersonalOverrideActive ? 'Personal Override' : 'Default Setting'}
                           </span>
                         </div>
                       </div>
