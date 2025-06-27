@@ -9,7 +9,29 @@ interface SyncStatus {
   last_successful_sync: string | null;
   last_sync_attempt: string | null;
   payments_synced: number | null;
+  payments_fetched: number | null;
+  progress_percentage: number | null;
   error_message: string | null;
+  sync_session_id: string | null;
+  cursor_position: string | null;
+  is_continuation: boolean | null;
+  last_heartbeat: string | null;
+  total_estimated: number | null;
+}
+
+interface SyncResult {
+  success: boolean;
+  environment: string;
+  paymentsProcessed: number;
+  totalFetched: number;
+  cursor: string | null;
+  isComplete: boolean;
+  executionTimeSeconds: number;
+  sessionId: string | null;
+  canContinue: boolean;
+  progressPercentage: number;
+  message: string;
+  error?: string;
 }
 
 export const useSquareSync = () => {
@@ -31,26 +53,127 @@ export const useSquareSync = () => {
     }
   }, []);
 
-  const triggerSync = useCallback(async (environment: 'sandbox' | 'production' = 'sandbox') => {
+  const triggerSync = useCallback(async (
+    environment: 'sandbox' | 'production' = 'sandbox',
+    options?: {
+      historical?: boolean;
+      dateRange?: { start: string; end: string };
+      clearExisting?: boolean;
+    }
+  ) => {
     setIsLoading(true);
     try {
+      const requestBody: any = { 
+        environment,
+        ...options
+      };
+
+      console.log('Triggering cursor-based sync with params:', requestBody);
+
       const { data, error } = await supabase.functions.invoke('square-sync', {
-        body: { environment }
+        body: requestBody
       });
 
       if (error) throw error;
 
-      toast.success(`Square sync completed for ${environment}`, {
-        description: `Processed ${data.paymentsProcessed} payments`
-      });
+      const result = data as SyncResult;
 
-      // Refresh sync status after successful sync
+      if (result.success) {
+        if (result.isComplete) {
+          toast.success(`${environment} sync completed successfully`, {
+            description: `Processed ${result.paymentsProcessed} payments in ${result.executionTimeSeconds}s`
+          });
+        } else {
+          toast.success(`${environment} sync partially completed`, {
+            description: `Processed ${result.paymentsProcessed} payments. ${result.progressPercentage}% complete. Session ${result.sessionId} can be continued.`
+          });
+        }
+      } else {
+        throw new Error(result.error || 'Sync failed');
+      }
+
+      // Refresh sync status after sync
       await fetchSyncStatus();
+      
+      return result;
     } catch (error) {
-      console.error('Error triggering sync:', error);
-      toast.error('Failed to trigger Square sync');
+      console.error('Sync error:', error);
+      toast.error('Sync failed', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+      throw error;
     } finally {
       setIsLoading(false);
+    }
+  }, [fetchSyncStatus]);
+
+  const continueSync = useCallback(async (
+    environment: 'sandbox' | 'production',
+    sessionId: string
+  ) => {
+    setIsLoading(true);
+    try {
+      console.log(`Continuing sync session ${sessionId} for ${environment}`);
+
+      const { data, error } = await supabase.functions.invoke('square-sync', {
+        body: { 
+          environment,
+          continue_session: sessionId
+        }
+      });
+
+      if (error) throw error;
+
+      const result = data as SyncResult;
+
+      if (result.success) {
+        if (result.isComplete) {
+          toast.success(`${environment} sync completed`, {
+            description: `Total processed: ${result.paymentsProcessed} payments`
+          });
+        } else {
+          toast.success(`${environment} sync continued`, {
+            description: `Processed ${result.paymentsProcessed} payments so far. ${result.progressPercentage}% complete.`
+          });
+        }
+      } else {
+        throw new Error(result.error || 'Continue sync failed');
+      }
+
+      // Refresh sync status
+      await fetchSyncStatus();
+      
+      return result;
+    } catch (error) {
+      console.error('Continue sync error:', error);
+      toast.error('Failed to continue sync', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchSyncStatus]);
+
+  const resetSyncSession = useCallback(async (environment: 'sandbox' | 'production') => {
+    try {
+      await supabase
+        .from('square_sync_status')
+        .update({
+          sync_status: 'pending',
+          sync_session_id: null,
+          cursor_position: null,
+          is_continuation: false,
+          progress_percentage: 0,
+          error_message: null
+        })
+        .eq('environment', environment);
+
+      toast.success(`${environment} sync session reset`);
+      await fetchSyncStatus();
+    } catch (error) {
+      console.error('Reset sync session error:', error);
+      toast.error('Failed to reset sync session');
     }
   }, [fetchSyncStatus]);
 
@@ -63,10 +186,17 @@ export const useSquareSync = () => {
       ? new Date(status.last_sync_attempt).toLocaleString()
       : 'Never';
 
+    const lastHeartbeat = status.last_heartbeat
+      ? new Date(status.last_heartbeat).toLocaleString()
+      : 'Never';
+
     return {
       ...status,
       lastSyncFormatted: lastSync,
-      lastAttemptFormatted: lastAttempt
+      lastAttemptFormatted: lastAttempt,
+      lastHeartbeatFormatted: lastHeartbeat,
+      canContinue: status.sync_session_id && status.cursor_position && status.sync_status === 'partial',
+      progressText: status.progress_percentage ? `${status.progress_percentage}%` : 'Unknown'
     };
   }, []);
 
@@ -75,6 +205,8 @@ export const useSquareSync = () => {
     syncStatus,
     fetchSyncStatus,
     triggerSync,
+    continueSync,
+    resetSyncSession,
     getFormattedSyncStatus
   };
 };

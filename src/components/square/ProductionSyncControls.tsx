@@ -8,86 +8,104 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { 
   AlertTriangle, 
   Calendar, 
   Clock, 
-  Download, 
   Server, 
   TrendingUp,
   CheckCircle,
   AlertCircle,
-  Trash2
+  Trash2,
+  PlayCircle,
+  RefreshCw
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useSquareSync } from '@/hooks/useSquareSync';
 import { toast } from 'sonner';
 
+interface SyncResult {
+  success: boolean;
+  environment: string;
+  paymentsProcessed: number;
+  totalFetched: number;
+  cursor: string | null;
+  isComplete: boolean;
+  executionTimeSeconds: number;
+  sessionId: string | null;
+  canContinue: boolean;
+  progressPercentage: number;
+  message: string;
+  error?: string;
+}
+
 export const ProductionSyncControls = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [syncResult, setSyncResult] = useState<any>(null);
+  const { triggerSync, continueSync, isLoading } = useSquareSync();
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [clearExisting, setClearExisting] = useState(false);
   const [dateRange, setDateRange] = useState({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ago
     end: new Date().toISOString().split('T')[0] // today
   });
 
-  const triggerSync = async (syncType: 'incremental' | 'historical' | 'last-year', environment: 'sandbox' | 'production' = 'production') => {
-    setIsLoading(true);
+  const handleSync = async (
+    syncType: 'incremental' | 'historical' | 'last-year', 
+    environment: 'sandbox' | 'production' = 'production'
+  ) => {
     setSyncResult(null);
 
     try {
-      let requestBody: any = { environment };
-
-      // Add clear_existing flag if checked
-      if (clearExisting) {
-        requestBody.clear_existing = true;
-      }
+      let options: any = {
+        clearExisting
+      };
 
       switch (syncType) {
         case 'historical':
-          requestBody.date_range = {
+          options.dateRange = {
             start: new Date(dateRange.start).toISOString(),
             end: new Date(dateRange.end + 'T23:59:59').toISOString()
           };
           break;
         case 'last-year':
-          requestBody.historical = true;
+          options.historical = true;
           break;
         case 'incremental':
           // No additional parameters needed
           break;
       }
 
-      console.log('Triggering sync with params:', requestBody);
+      console.log('Triggering cursor-based sync with params:', { environment, ...options });
 
-      const { data, error } = await supabase.functions.invoke('square-sync', {
-        body: requestBody
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      setSyncResult(data);
-      
-      const syncTypeText = syncType === 'incremental' ? 'incremental' : 
-                          syncType === 'last-year' ? 'historical (last year)' : 
-                          'historical (date range)';
-
-      const statusText = data.isComplete ? 'completed' : 'partially completed';
-      
-      toast.success(`${environment} ${syncTypeText} sync ${statusText}`, {
-        description: `Processed ${data.paymentsProcessed} payments in ${data.executionTimeSeconds}s`
-      });
+      const result = await triggerSync(environment, options);
+      setSyncResult(result);
 
     } catch (error) {
       console.error('Sync error:', error);
-      toast.error('Sync failed', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      setSyncResult({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        environment,
+        paymentsProcessed: 0,
+        totalFetched: 0,
+        cursor: null,
+        isComplete: false,
+        executionTimeSeconds: 0,
+        sessionId: null,
+        canContinue: false,
+        progressPercentage: 0,
+        message: 'Sync failed'
       });
-      setSyncResult({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
-    } finally {
-      setIsLoading(false);
+    }
+  };
+
+  const handleContinueSync = async (environment: 'sandbox' | 'production') => {
+    if (!syncResult?.sessionId) return;
+    
+    try {
+      const result = await continueSync(environment, syncResult.sessionId);
+      setSyncResult(result);
+    } catch (error) {
+      console.error('Continue sync error:', error);
     }
   };
 
@@ -97,7 +115,7 @@ export const ProductionSyncControls = () => {
         <AlertTriangle className="h-4 w-4 text-red-600" />
         <AlertDescription className="text-red-700">
           <strong>Production Environment:</strong> These controls will sync real payment data from your production Square account. 
-          Use with caution and ensure you have proper data handling procedures in place.
+          The new cursor-based system can handle high-volume single-day transactions efficiently.
         </AlertDescription>
       </Alert>
 
@@ -143,7 +161,7 @@ export const ProductionSyncControls = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Button
-                  onClick={() => triggerSync('incremental', 'production')}
+                  onClick={() => handleSync('incremental', 'production')}
                   disabled={isLoading}
                   className="flex items-center space-x-2"
                 >
@@ -152,7 +170,7 @@ export const ProductionSyncControls = () => {
                 </Button>
 
                 <Button
-                  onClick={() => triggerSync('last-year', 'production')}
+                  onClick={() => handleSync('last-year', 'production')}
                   disabled={isLoading}
                   variant="outline"
                   className="flex items-center space-x-2"
@@ -162,7 +180,7 @@ export const ProductionSyncControls = () => {
                 </Button>
 
                 <Button
-                  onClick={() => triggerSync('historical', 'production')}
+                  onClick={() => handleSync('historical', 'production')}
                   disabled={isLoading}
                   variant="outline"
                   className="flex items-center space-x-2"
@@ -210,7 +228,7 @@ export const ProductionSyncControls = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Button
-                  onClick={() => triggerSync('incremental', 'sandbox')}
+                  onClick={() => handleSync('incremental', 'sandbox')}
                   disabled={isLoading}
                   variant="outline"
                   className="flex items-center space-x-2"
@@ -220,7 +238,7 @@ export const ProductionSyncControls = () => {
                 </Button>
 
                 <Button
-                  onClick={() => triggerSync('last-year', 'sandbox')}
+                  onClick={() => handleSync('last-year', 'sandbox')}
                   disabled={isLoading}
                   variant="outline"
                   className="flex items-center space-x-2"
@@ -230,7 +248,7 @@ export const ProductionSyncControls = () => {
                 </Button>
 
                 <Button
-                  onClick={() => triggerSync('historical', 'sandbox')}
+                  onClick={() => handleSync('historical', 'sandbox')}
                   disabled={isLoading}
                   variant="outline"
                   className="flex items-center space-x-2"
@@ -254,12 +272,23 @@ export const ProductionSyncControls = () => {
               ) : (
                 <AlertCircle className="h-5 w-5 text-red-600" />
               )}
-              <span>Sync Results</span>
+              <span>Cursor-Based Sync Results</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             {syncResult.success ? (
-              <div className="space-y-2">
+              <div className="space-y-4">
+                {/* Progress Bar */}
+                {syncResult.progressPercentage > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progress</span>
+                      <span>{syncResult.progressPercentage}%</span>
+                    </div>
+                    <Progress value={syncResult.progressPercentage} className="h-2" />
+                  </div>
+                )}
+
                 <div className="flex items-center space-x-4 flex-wrap">
                   <Badge variant="outline">{syncResult.environment}</Badge>
                   <span className="text-sm">
@@ -275,11 +304,23 @@ export const ProductionSyncControls = () => {
                     <Badge variant="secondary">Partial Sync</Badge>
                   )}
                 </div>
+                
                 <p className="text-sm text-green-700">{syncResult.message}</p>
-                {syncResult.cursor && (
-                  <p className="text-xs text-gray-600">
-                    More data available (pagination cursor available for continuation)
-                  </p>
+                
+                {syncResult.canContinue && syncResult.sessionId && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Button
+                      onClick={() => handleContinueSync(syncResult.environment as 'sandbox' | 'production')}
+                      disabled={isLoading}
+                      size="sm"
+                    >
+                      <PlayCircle className="h-4 w-4 mr-2" />
+                      Continue Sync
+                    </Button>
+                    <span className="text-xs text-gray-600">
+                      Session: {syncResult.sessionId}
+                    </span>
+                  </div>
                 )}
               </div>
             ) : (
@@ -297,9 +338,9 @@ export const ProductionSyncControls = () => {
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="py-4">
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
               <span className="text-blue-700">
-                Syncing payments... This may take several minutes for large datasets. 
+                Processing cursor-based sync... This can handle high-volume single-day transactions efficiently.
                 {clearExisting && " Clearing existing data first..."}
               </span>
             </div>

@@ -108,6 +108,21 @@ interface SyncRequest {
   limit?: number;
   historical?: boolean;
   clear_existing?: boolean;
+  continue_session?: string;
+}
+
+interface SyncSession {
+  id: string;
+  environment: string;
+  sync_status: string;
+  cursor_position?: string;
+  current_date_range_start?: string;
+  current_date_range_end?: string;
+  total_estimated: number;
+  progress_percentage: number;
+  payments_fetched: number;
+  payments_synced: number;
+  is_continuation: boolean;
 }
 
 serve(async (req) => {
@@ -117,10 +132,12 @@ serve(async (req) => {
   }
 
   const startTime = Date.now();
-  const MAX_EXECUTION_TIME = 8 * 60 * 1000; // 8 minutes to leave buffer before 9min timeout
+  const MAX_EXECUTION_TIME = 7.5 * 60 * 1000; // 7.5 minutes to leave buffer
+  const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+  const BATCH_SIZE = 25; // Smaller batches for better progress tracking
 
   try {
-    console.log('Starting Square payments sync...');
+    console.log('Starting robust cursor-based Square payments sync...');
 
     // Parse request body for sync parameters
     let syncParams: SyncRequest = {};
@@ -135,133 +152,177 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Clear existing data if requested
-    if (syncParams.clear_existing) {
-      console.log('Clearing existing test data...');
-      
-      // Clear revenue_events first (due to foreign key constraint)
-      const { error: revenueError } = await supabase
-        .from('revenue_events')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
-      
-      if (revenueError) {
-        console.error('Error clearing revenue_events:', revenueError);
-      } else {
-        console.log('Cleared revenue_events table');
-      }
+    // Reset any stuck sync states first
+    await supabase.rpc('reset_stuck_sync_states');
 
-      // Clear square_payments_raw
-      const { error: rawError } = await supabase
-        .from('square_payments_raw')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
-      
-      if (rawError) {
-        console.error('Error clearing square_payments_raw:', rawError);
-      } else {
-        console.log('Cleared square_payments_raw table');
-      }
-    }
-
+    // Determine environment
+    const environment = syncParams.environment || 'sandbox';
+    
     // Get Square API credentials
     const sandboxToken = Deno.env.get('SQUARE_SANDBOX_ACCESS_TOKEN');
     const productionToken = Deno.env.get('SQUARE_PRODUCTION_ACCESS_TOKEN');
-
-    if (!sandboxToken && !productionToken) {
-      throw new Error('No Square API tokens configured');
-    }
-
-    // Determine which environment to sync
-    const environment = syncParams.environment || (req.url.includes('production') ? 'production' : 'sandbox');
     const accessToken = environment === 'production' ? productionToken : sandboxToken;
 
     if (!accessToken) {
       throw new Error(`No access token configured for ${environment} environment`);
     }
 
-    console.log(`Syncing ${environment} environment...`);
+    console.log(`Syncing ${environment} environment with cursor-based chunking...`);
 
-    // Get sync status
-    const { data: syncStatus, error: syncStatusError } = await supabase
-      .from('square_sync_status')
-      .select('last_successful_sync, id')
-      .eq('environment', environment)
-      .single();
+    // Get or create sync session
+    let syncSession: SyncSession;
+    
+    if (syncParams.continue_session) {
+      // Continue existing session
+      const { data: existingSession, error: sessionError } = await supabase
+        .from('square_sync_status')
+        .select('*')
+        .eq('sync_session_id', syncParams.continue_session)
+        .eq('environment', environment)
+        .single();
 
-    if (syncStatusError) {
-      console.error('Error fetching sync status:', syncStatusError);
-      throw new Error('Failed to fetch sync status');
+      if (sessionError || !existingSession) {
+        throw new Error('Cannot find sync session to continue');
+      }
+
+      syncSession = {
+        id: existingSession.sync_session_id,
+        environment: existingSession.environment,
+        sync_status: 'running',
+        cursor_position: existingSession.cursor_position,
+        current_date_range_start: existingSession.current_date_range_start,
+        current_date_range_end: existingSession.current_date_range_end,
+        total_estimated: existingSession.total_estimated || 0,
+        progress_percentage: existingSession.progress_percentage || 0,
+        payments_fetched: existingSession.payments_fetched || 0,
+        payments_synced: existingSession.payments_synced || 0,
+        is_continuation: true
+      };
+
+      console.log(`Continuing sync session ${syncSession.id}, progress: ${syncSession.progress_percentage}%`);
+    } else {
+      // Start new session
+      const sessionId = crypto.randomUUID();
+      
+      // Clear existing data if requested
+      if (syncParams.clear_existing) {
+        console.log('Clearing existing data...');
+        await supabase.from('revenue_events').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('square_payments_raw').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      }
+
+      // Determine date range
+      let beginTime: string;
+      let endTime: string | undefined;
+
+      if (syncParams.date_range) {
+        beginTime = syncParams.date_range.start;
+        endTime = syncParams.date_range.end;
+      } else if (syncParams.historical) {
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        beginTime = oneYearAgo.toISOString();
+        endTime = new Date().toISOString();
+      } else {
+        // Get last successful sync
+        const { data: lastSync } = await supabase
+          .from('square_sync_status')
+          .select('last_successful_sync')
+          .eq('environment', environment)
+          .single();
+        
+        beginTime = lastSync?.last_successful_sync || 
+          new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      syncSession = {
+        id: sessionId,
+        environment,
+        sync_status: 'running',
+        cursor_position: undefined,
+        current_date_range_start: beginTime,
+        current_date_range_end: endTime,
+        total_estimated: 0,
+        progress_percentage: 0,
+        payments_fetched: 0,
+        payments_synced: 0,
+        is_continuation: false
+      };
+
+      console.log(`Starting new sync session ${sessionId} from ${beginTime} to ${endTime || 'now'}`);
     }
 
-    // Update sync status to running
+    // Update sync status with session info
     await supabase
       .from('square_sync_status')
-      .update({
+      .upsert({
+        environment,
         sync_status: 'running',
-        last_sync_attempt: new Date().toISOString()
-      })
-      .eq('id', syncStatus.id);
+        sync_session_id: syncSession.id,
+        cursor_position: syncSession.cursor_position,
+        current_date_range_start: syncSession.current_date_range_start,
+        current_date_range_end: syncSession.current_date_range_end,
+        total_estimated: syncSession.total_estimated,
+        progress_percentage: syncSession.progress_percentage,
+        payments_fetched: syncSession.payments_fetched,
+        payments_synced: syncSession.payments_synced,
+        is_continuation: syncSession.is_continuation,
+        last_sync_attempt: new Date().toISOString(),
+        last_heartbeat: new Date().toISOString(),
+        error_message: null
+      }, {
+        onConflict: 'environment',
+        ignoreDuplicates: false
+      });
 
-    // Determine sync time range
-    let beginTime: string;
-    let endTime: string | undefined;
-
-    if (syncParams.date_range) {
-      // Historical sync with specific date range
-      beginTime = syncParams.date_range.start;
-      endTime = syncParams.date_range.end;
-      console.log(`Historical sync from ${beginTime} to ${endTime}`);
-    } else if (syncParams.historical) {
-      // Historical sync for last year
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      beginTime = oneYearAgo.toISOString();
-      endTime = new Date().toISOString();
-      console.log(`Historical sync for last year: ${beginTime} to ${endTime}`);
-    } else {
-      // Regular incremental sync
-      beginTime = syncStatus.last_successful_sync || 
-        new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      console.log(`Incremental sync since: ${beginTime}`);
-    }
-
-    // Build Square API URL
+    // Build Square API base URL
     const baseUrl = environment === 'sandbox' 
       ? 'https://connect.squareupsandbox.com'
       : 'https://connect.squareup.com';
 
-    let allPayments: SquarePayment[] = [];
-    let cursor: string | undefined;
-    let totalFetched = 0;
-    const batchLimit = syncParams.limit || 100;
-    const maxPayments = 5000; // Increased from 1000 to handle larger datasets
+    let totalPaymentsProcessed = syncSession.payments_synced;
+    let totalPaymentsFetched = syncSession.payments_fetched;
+    let cursor = syncSession.cursor_position;
+    let lastHeartbeat = Date.now();
 
-    // Paginate through all payments
-    do {
-      // Check if we're approaching timeout
+    // Streaming processing loop
+    while (true) {
+      // Check timeout
       if (Date.now() - startTime > MAX_EXECUTION_TIME) {
-        console.log('Approaching timeout, stopping fetch and processing what we have...');
+        console.log('Approaching timeout, saving progress and stopping...');
         break;
       }
 
+      // Send heartbeat periodically
+      if (Date.now() - lastHeartbeat > HEARTBEAT_INTERVAL) {
+        await supabase
+          .from('square_sync_status')
+          .update({
+            last_heartbeat: new Date().toISOString(),
+            payments_fetched: totalPaymentsFetched,
+            payments_synced: totalPaymentsProcessed
+          })
+          .eq('environment', environment);
+        lastHeartbeat = Date.now();
+      }
+
+      // Build API request
       const url = new URL(`${baseUrl}/v2/payments`);
-      url.searchParams.append('begin_time', beginTime);
-      if (endTime) {
-        url.searchParams.append('end_time', endTime);
+      url.searchParams.append('begin_time', syncSession.current_date_range_start!);
+      if (syncSession.current_date_range_end) {
+        url.searchParams.append('end_time', syncSession.current_date_range_end);
       }
       url.searchParams.append('sort_order', 'ASC');
-      url.searchParams.append('limit', batchLimit.toString());
+      url.searchParams.append('limit', '100');
       if (cursor) {
         url.searchParams.append('cursor', cursor);
       }
 
-      console.log(`Fetching batch with cursor: ${cursor || 'none'}, total so far: ${totalFetched}`);
+      console.log(`Fetching batch with cursor: ${cursor || 'none'}, processed: ${totalPaymentsProcessed}`);
 
-      // Fetch payments from Square API
+      // Fetch from Square API
       const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
@@ -279,43 +340,22 @@ serve(async (req) => {
 
       const paymentsData: SquarePaymentsResponse = await response.json();
       
-      if (paymentsData.payments && paymentsData.payments.length > 0) {
-        allPayments.push(...paymentsData.payments);
-        totalFetched += paymentsData.payments.length;
-        console.log(`Fetched ${paymentsData.payments.length} payments (total: ${totalFetched})`);
+      if (!paymentsData.payments || paymentsData.payments.length === 0) {
+        console.log('No more payments to fetch');
+        break;
       }
 
-      cursor = paymentsData.cursor;
-      
-      // Reduced delay for faster processing
-      if (cursor) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
+      totalPaymentsFetched += paymentsData.payments.length;
+      console.log(`Fetched ${paymentsData.payments.length} payments (total fetched: ${totalPaymentsFetched})`);
 
-    } while (cursor && totalFetched < maxPayments);
-
-    console.log(`Total payments fetched: ${totalFetched}`);
-
-    let paymentsProcessed = 0;
-    const batchSize = 50; // Process payments in batches for better performance
-
-    if (allPayments.length > 0) {
-      // Process payments in batches
-      for (let i = 0; i < allPayments.length; i += batchSize) {
-        // Check timeout before each batch
-        if (Date.now() - startTime > MAX_EXECUTION_TIME) {
-          console.log(`Timeout approaching, processed ${paymentsProcessed} of ${allPayments.length} payments`);
-          break;
-        }
-
-        const batch = allPayments.slice(i, i + batchSize);
-        console.log(`Processing batch ${Math.floor(i / batchSize) + 1}, payments ${i + 1}-${Math.min(i + batchSize, allPayments.length)} of ${allPayments.length}`);
-
-        // Process each payment in the batch
+      // Process payments in smaller batches
+      for (let i = 0; i < paymentsData.payments.length; i += BATCH_SIZE) {
+        const batch = paymentsData.payments.slice(i, i + BATCH_SIZE);
+        
         for (const payment of batch) {
           try {
             // Store raw payment data
-            const { error: rawInsertError } = await supabase
+            await supabase
               .from('square_payments_raw')
               .upsert({
                 square_payment_id: payment.id,
@@ -325,11 +365,6 @@ serve(async (req) => {
               }, {
                 onConflict: 'square_payment_id'
               });
-
-            if (rawInsertError) {
-              console.error(`Error storing raw payment ${payment.id}:`, rawInsertError);
-              continue;
-            }
 
             // Transform and store revenue event
             const paymentDate = new Date(payment.created_at);
@@ -347,59 +382,86 @@ serve(async (req) => {
               status: payment.status.toLowerCase()
             };
 
-            const { error: revenueInsertError } = await supabase
+            await supabase
               .from('revenue_events')
               .upsert(revenueEvent, {
                 onConflict: 'square_payment_id'
               });
 
-            if (revenueInsertError) {
-              console.error(`Error storing revenue event for payment ${payment.id}:`, revenueInsertError);
-              continue;
-            }
-
-            paymentsProcessed++;
+            totalPaymentsProcessed++;
           } catch (error) {
             console.error(`Error processing payment ${payment.id}:`, error);
             continue;
           }
         }
 
-        // Log progress every batch
-        console.log(`Batch complete. Total processed: ${paymentsProcessed}/${allPayments.length}`);
+        // Update progress after each batch
+        const progressPercentage = syncSession.total_estimated > 0 
+          ? Math.min(95, Math.round((totalPaymentsProcessed / syncSession.total_estimated) * 100))
+          : Math.min(95, Math.round((totalPaymentsFetched / 1000) * 100)); // Rough estimate
+
+        await supabase
+          .from('square_sync_status')
+          .update({
+            payments_fetched: totalPaymentsFetched,
+            payments_synced: totalPaymentsProcessed,
+            progress_percentage: progressPercentage,
+            cursor_position: paymentsData.cursor
+          })
+          .eq('environment', environment);
       }
+
+      cursor = paymentsData.cursor;
+      
+      // Break if no more data
+      if (!cursor) {
+        console.log('Reached end of data');
+        break;
+      }
+
+      // Small delay to prevent overwhelming the API
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
     // Determine final status
-    const isComplete = paymentsProcessed === allPayments.length && !cursor;
+    const isComplete = !cursor;
     const finalStatus = isComplete ? 'success' : 'partial';
 
-    // Update sync status
+    // Update final sync status
     await supabase
       .from('square_sync_status')
       .update({
-        last_successful_sync: isComplete ? new Date().toISOString() : syncStatus.last_successful_sync,
+        last_successful_sync: isComplete ? new Date().toISOString() : syncSession.current_date_range_start,
         sync_status: finalStatus,
-        payments_synced: paymentsProcessed,
-        error_message: isComplete ? null : `Partial sync: processed ${paymentsProcessed} of ${totalFetched} fetched payments`
+        payments_synced: totalPaymentsProcessed,
+        payments_fetched: totalPaymentsFetched,
+        progress_percentage: isComplete ? 100 : Math.min(95, Math.round((totalPaymentsFetched / 1000) * 100)),
+        cursor_position: cursor,
+        sync_session_id: isComplete ? null : syncSession.id,
+        is_continuation: false,
+        last_heartbeat: new Date().toISOString(),
+        error_message: isComplete ? null : `Partial sync: processed ${totalPaymentsProcessed} payments. Use session ${syncSession.id} to continue.`
       })
-      .eq('id', syncStatus.id);
+      .eq('environment', environment);
 
     const executionTime = Math.round((Date.now() - startTime) / 1000);
-    console.log(`Sync completed in ${executionTime}s. Processed ${paymentsProcessed} payments. Status: ${finalStatus}`);
+    console.log(`Sync completed in ${executionTime}s. Processed ${totalPaymentsProcessed} payments. Status: ${finalStatus}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         environment,
-        paymentsProcessed,
-        totalFetched,
+        paymentsProcessed: totalPaymentsProcessed,
+        totalFetched: totalPaymentsFetched,
         cursor: cursor || null,
         isComplete,
         executionTimeSeconds: executionTime,
+        sessionId: isComplete ? null : syncSession.id,
+        canContinue: !isComplete,
+        progressPercentage: isComplete ? 100 : Math.min(95, Math.round((totalPaymentsFetched / 1000) * 100)),
         message: isComplete 
-          ? `Successfully synced ${paymentsProcessed} payments`
-          : `Partial sync: processed ${paymentsProcessed} of ${totalFetched} payments. Use cursor to continue.`
+          ? `Successfully synced ${totalPaymentsProcessed} payments`
+          : `Partial sync: processed ${totalPaymentsProcessed} payments. Session ${syncSession.id} can be continued.`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -411,6 +473,24 @@ serve(async (req) => {
     console.error('Square sync error:', error);
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Update sync status with error
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      await supabase
+        .from('square_sync_status')
+        .update({
+          sync_status: 'error',
+          error_message: errorMessage,
+          last_heartbeat: new Date().toISOString()
+        })
+        .eq('environment', (req as any).environment || 'sandbox');
+    } catch (updateError) {
+      console.error('Failed to update error status:', updateError);
+    }
 
     return new Response(
       JSON.stringify({

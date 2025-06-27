@@ -227,35 +227,62 @@ export type Database = {
       square_sync_status: {
         Row: {
           created_at: string
+          current_date_range_end: string | null
+          current_date_range_start: string | null
+          cursor_position: string | null
           environment: string
           error_message: string | null
           id: string
+          is_continuation: boolean | null
+          last_heartbeat: string | null
           last_successful_sync: string | null
           last_sync_attempt: string | null
+          payments_fetched: number | null
           payments_synced: number | null
+          progress_percentage: number | null
+          sync_session_id: string | null
           sync_status: string
+          total_estimated: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          current_date_range_end?: string | null
+          current_date_range_start?: string | null
+          cursor_position?: string | null
           environment: string
           error_message?: string | null
           id?: string
+          is_continuation?: boolean | null
+          last_heartbeat?: string | null
           last_successful_sync?: string | null
           last_sync_attempt?: string | null
+          payments_fetched?: number | null
           payments_synced?: number | null
+          progress_percentage?: number | null
+          sync_session_id?: string | null
           sync_status?: string
+          total_estimated?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          current_date_range_end?: string | null
+          current_date_range_start?: string | null
+          cursor_position?: string | null
           environment?: string
           error_message?: string | null
           id?: string
+          is_continuation?: boolean | null
+          last_heartbeat?: string | null
           last_successful_sync?: string | null
           last_sync_attempt?: string | null
+          payments_fetched?: number | null
           payments_synced?: number | null
+          progress_percentage?: number | null
+          sync_session_id?: string | null
           sync_status?: string
+          total_estimated?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -289,7 +316,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      reset_stuck_sync_states: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
