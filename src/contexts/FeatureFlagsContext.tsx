@@ -1,10 +1,12 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { featureFlagService } from '@/services/featureFlagService';
 
 export interface FeatureFlag {
   key: string;
   name: string;
   description: string;
-  enabled: boolean; // default state for all users
+  enabled: boolean; // current effective state
   category: 'ui' | 'pages' | 'experimental';
 }
 
@@ -13,19 +15,20 @@ interface FeatureFlagsContextType {
   isFeatureEnabled: (key: string) => boolean;
   toggleFeature: (key: string) => void;
   resetToDefaults: () => void;
-  getDefaultValue: (key: string) => boolean;
+  getGlobalDefault: (key: string) => boolean;
   hasUserOverride: (key: string) => boolean;
   resetFlagToDefault: (key: string) => void;
-  updateDefaultValue: (key: string, enabled: boolean) => void;
+  updateGlobalDefault: (key: string, enabled: boolean) => Promise<boolean>;
   getPersonalValue: (key: string) => boolean;
   hasPersonalOverride: (key: string) => boolean;
   setPersonalOverride: (key: string, enabled: boolean) => void;
   resetPersonalOverride: (key: string) => void;
+  isLoading: boolean;
 }
 
 const FeatureFlagsContext = createContext<FeatureFlagsContextType | undefined>(undefined);
 
-// Default feature flags that apply to all users
+// Hardcoded flag definitions with original defaults (fallback values)
 const DEFAULT_FLAGS: FeatureFlag[] = [
   {
     key: 'showCalendar',
@@ -99,7 +102,6 @@ const DEFAULT_FLAGS: FeatureFlag[] = [
   }
 ];
 
-const DEFAULTS_OVERRIDE_KEY = 'defaultsOverride';
 const PERSONAL_OVERRIDE_KEY = 'personalOverride';
 
 interface FeatureFlagsProviderProps {
@@ -108,38 +110,48 @@ interface FeatureFlagsProviderProps {
 
 export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
   const [flags, setFlags] = useState<FeatureFlag[]>(DEFAULT_FLAGS);
-  const [defaultsOverride, setDefaultsOverride] = useState<Record<string, boolean>>({});
+  const [globalDefaults, setGlobalDefaults] = useState<Record<string, boolean>>({});
   const [personalOverride, setPersonalOverrideState] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Load global defaults from database and personal overrides from localStorage
   useEffect(() => {
-    // Load default overrides from localStorage
-    const storedDefaults = localStorage.getItem(DEFAULTS_OVERRIDE_KEY);
-    if (storedDefaults) {
+    const loadData = async () => {
       try {
-        const parsed = JSON.parse(storedDefaults);
-        setDefaultsOverride(parsed);
-      } catch (error) {
-        console.error('Error loading default overrides:', error);
-      }
-    }
+        // Load global defaults from database
+        const dbDefaults = await featureFlagService.getGlobalDefaults();
+        setGlobalDefaults(dbDefaults);
 
-    // Load personal overrides from localStorage
-    const storedPersonal = localStorage.getItem(PERSONAL_OVERRIDE_KEY);
-    if (storedPersonal) {
-      try {
-        const parsed = JSON.parse(storedPersonal);
-        setPersonalOverrideState(parsed);
+        // Load personal overrides from localStorage
+        const storedPersonal = localStorage.getItem(PERSONAL_OVERRIDE_KEY);
+        if (storedPersonal) {
+          try {
+            const parsed = JSON.parse(storedPersonal);
+            setPersonalOverrideState(parsed);
+          } catch (error) {
+            console.error('Error loading personal overrides:', error);
+          }
+        }
       } catch (error) {
-        console.error('Error loading personal overrides:', error);
+        console.error('Error loading feature flag data:', error);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    loadData();
   }, []);
 
-  // Update flags whenever overrides change
+  // Update flags whenever global defaults or personal overrides change
   useEffect(() => {
     const updatedFlags = DEFAULT_FLAGS.map(flag => {
-      const currentDefault = defaultsOverride.hasOwnProperty(flag.key) ? defaultsOverride[flag.key] : flag.enabled;
-      const finalValue = personalOverride.hasOwnProperty(flag.key) ? personalOverride[flag.key] : currentDefault;
+      const globalDefault = globalDefaults.hasOwnProperty(flag.key) 
+        ? globalDefaults[flag.key] 
+        : flag.enabled; // Fallback to hardcoded default
+      
+      const finalValue = personalOverride.hasOwnProperty(flag.key) 
+        ? personalOverride[flag.key] 
+        : globalDefault;
       
       return {
         ...flag,
@@ -147,18 +159,18 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
       };
     });
     setFlags(updatedFlags);
-  }, [defaultsOverride, personalOverride]);
+  }, [globalDefaults, personalOverride]);
 
   const isFeatureEnabled = (key: string): boolean => {
     const flag = flags.find(f => f.key === key);
     return flag ? flag.enabled : false;
   };
 
-  const getDefaultValue = (key: string): boolean => {
-    // Check if there's a default override first, then fall back to original default
-    if (defaultsOverride.hasOwnProperty(key)) {
-      return defaultsOverride[key];
+  const getGlobalDefault = (key: string): boolean => {
+    if (globalDefaults.hasOwnProperty(key)) {
+      return globalDefaults[key];
     }
+    // Fallback to hardcoded default
     const defaultFlag = DEFAULT_FLAGS.find(f => f.key === key);
     return defaultFlag ? defaultFlag.enabled : false;
   };
@@ -167,7 +179,7 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
     if (personalOverride.hasOwnProperty(key)) {
       return personalOverride[key];
     }
-    return getDefaultValue(key);
+    return getGlobalDefault(key);
   };
 
   const hasUserOverride = (key: string): boolean => {
@@ -178,36 +190,27 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
     return personalOverride.hasOwnProperty(key);
   };
 
-  const updateDefaultValue = (key: string, enabled: boolean) => {
-    const originalDefault = DEFAULT_FLAGS.find(f => f.key === key)?.enabled ?? false;
+  const updateGlobalDefault = async (key: string, enabled: boolean): Promise<boolean> => {
+    const success = await featureFlagService.updateGlobalDefault(key, enabled);
     
-    const newDefaultsOverride = { ...defaultsOverride };
-    
-    if (enabled === originalDefault) {
-      // If setting back to original default, remove the override
-      delete newDefaultsOverride[key];
-    } else {
-      // Otherwise, set the override
-      newDefaultsOverride[key] = enabled;
+    if (success) {
+      // Update local state immediately for better UX
+      setGlobalDefaults(prev => ({
+        ...prev,
+        [key]: enabled
+      }));
     }
     
-    setDefaultsOverride(newDefaultsOverride);
-    
-    // Save to localStorage
-    if (Object.keys(newDefaultsOverride).length === 0) {
-      localStorage.removeItem(DEFAULTS_OVERRIDE_KEY);
-    } else {
-      localStorage.setItem(DEFAULTS_OVERRIDE_KEY, JSON.stringify(newDefaultsOverride));
-    }
+    return success;
   };
 
   const setPersonalOverride = (key: string, enabled: boolean) => {
-    const currentDefault = getDefaultValue(key);
+    const currentGlobalDefault = getGlobalDefault(key);
     
     const newPersonalOverride = { ...personalOverride };
     
-    if (enabled === currentDefault) {
-      // If setting to match current default, remove personal override
+    if (enabled === currentGlobalDefault) {
+      // If setting to match current global default, remove personal override
       delete newPersonalOverride[key];
     } else {
       // Otherwise, set the personal override
@@ -246,11 +249,19 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
     resetPersonalOverride(key);
   };
 
-  const resetToDefaults = () => {
-    setDefaultsOverride({});
+  const resetToDefaults = async () => {
+    // Reset personal overrides
     setPersonalOverrideState({});
-    localStorage.removeItem(DEFAULTS_OVERRIDE_KEY);
     localStorage.removeItem(PERSONAL_OVERRIDE_KEY);
+    
+    // Reset global defaults to hardcoded defaults
+    for (const flag of DEFAULT_FLAGS) {
+      await featureFlagService.updateGlobalDefault(flag.key, flag.enabled);
+    }
+    
+    // Reload global defaults from database
+    const dbDefaults = await featureFlagService.getGlobalDefaults();
+    setGlobalDefaults(dbDefaults);
   };
 
   return (
@@ -259,14 +270,15 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
       isFeatureEnabled,
       toggleFeature,
       resetToDefaults,
-      getDefaultValue,
+      getGlobalDefault,
       hasUserOverride,
       resetFlagToDefault,
-      updateDefaultValue,
+      updateGlobalDefault,
       getPersonalValue,
       hasPersonalOverride,
       setPersonalOverride,
-      resetPersonalOverride
+      resetPersonalOverride,
+      isLoading
     }}>
       {children}
     </FeatureFlagsContext.Provider>

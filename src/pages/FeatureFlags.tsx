@@ -7,20 +7,25 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useFeatureFlagsContext } from '@/contexts/FeatureFlagsContext';
-import { Settings, Search, RefreshCw, Info, RotateCcw, Users, User } from 'lucide-react';
+import { Settings, Search, RefreshCw, Info, RotateCcw, Users, User, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function FeatureFlags() {
   const { 
     flags, 
     resetToDefaults, 
-    getDefaultValue, 
-    updateDefaultValue,
+    getGlobalDefault, 
+    updateGlobalDefault,
     getPersonalValue,
     hasPersonalOverride,
     setPersonalOverride,
-    resetPersonalOverride
+    resetPersonalOverride,
+    isLoading
   } = useFeatureFlagsContext();
+  
   const [searchTerm, setSearchTerm] = useState('');
+  const [updatingFlags, setUpdatingFlags] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
   const filteredFlags = flags.filter(flag =>
     flag.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -37,6 +42,39 @@ export default function FeatureFlags() {
     }
   };
 
+  const handleGlobalDefaultChange = async (flagKey: string, enabled: boolean) => {
+    setUpdatingFlags(prev => new Set(prev).add(flagKey));
+    
+    try {
+      const success = await updateGlobalDefault(flagKey, enabled);
+      
+      if (success) {
+        toast({
+          title: "Global Default Updated",
+          description: `${flagKey} global default has been updated for all users.`,
+        });
+      } else {
+        toast({
+          title: "Update Failed",
+          description: "Failed to update global default. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "An error occurred while updating the global default.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingFlags(prev => {
+        const next = new Set(prev);
+        next.delete(flagKey);
+        return next;
+      });
+    }
+  };
+
   const groupedFlags = filteredFlags.reduce((acc, flag) => {
     if (!acc[flag.category]) {
       acc[flag.category] = [];
@@ -44,6 +82,17 @@ export default function FeatureFlags() {
     acc[flag.category].push(flag);
     return acc;
   }, {} as Record<string, typeof flags>);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading feature flags...</span>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -56,7 +105,7 @@ export default function FeatureFlags() {
               Feature Flags
             </h1>
             <p className="text-gm-neutral-600">
-              Manage default settings for all users and your personal testing overrides
+              Manage global defaults for all users and your personal testing overrides
             </p>
           </div>
           <Button
@@ -76,12 +125,12 @@ export default function FeatureFlags() {
               <Info className="h-5 w-5 text-blue-600 mt-0.5" />
               <div className="space-y-2">
                 <p className="text-sm font-medium text-blue-900">
-                  Dual Toggle System
+                  Database-Backed Global Defaults
                 </p>
                 <div className="text-sm text-blue-700 space-y-1">
-                  <p><strong>Default (All Users):</strong> Sets what new users see by default</p>
+                  <p><strong>Global Defaults:</strong> Stored in database and affect all users immediately</p>
                   <p><strong>Personal Toggle:</strong> Your personal override for testing - doesn't affect other users</p>
-                  <p>Personal toggles take precedence over defaults when set.</p>
+                  <p>Personal toggles take precedence over global defaults when set.</p>
                 </div>
               </div>
             </div>
@@ -119,9 +168,10 @@ export default function FeatureFlags() {
               <CardContent>
                 <div className="space-y-6">
                   {categoryFlags.map((flag) => {
-                    const defaultValue = getDefaultValue(flag.key);
+                    const globalDefault = getGlobalDefault(flag.key);
                     const personalValue = getPersonalValue(flag.key);
                     const hasPersonalOverrideActive = hasPersonalOverride(flag.key);
+                    const isUpdating = updatingFlags.has(flag.key);
                     
                     return (
                       <div
@@ -148,27 +198,29 @@ export default function FeatureFlags() {
 
                         {/* Controls */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Default Setting */}
+                          {/* Global Default Setting */}
                           <div className="p-3 border rounded-lg bg-gm-neutral-50/50">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <Users className="h-4 w-4 text-gm-neutral-600" />
                                 <span className="text-sm font-medium text-gm-neutral-700">
-                                  Default (All Users)
+                                  Global Default (All Users)
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
+                                {isUpdating && <Loader2 className="h-3 w-3 animate-spin" />}
                                 <Switch
-                                  checked={defaultValue}
-                                  onCheckedChange={(checked) => updateDefaultValue(flag.key, checked)}
+                                  checked={globalDefault}
+                                  onCheckedChange={(checked) => handleGlobalDefaultChange(flag.key, checked)}
+                                  disabled={isUpdating}
                                 />
                                 <span className="text-xs text-gm-neutral-500 min-w-[2rem]">
-                                  {defaultValue ? 'On' : 'Off'}
+                                  {globalDefault ? 'On' : 'Off'}
                                 </span>
                               </div>
                             </div>
                             <p className="text-xs text-gm-neutral-500">
-                              What new users see by default
+                              Changes affect all users immediately
                             </p>
                           </div>
 
@@ -193,7 +245,7 @@ export default function FeatureFlags() {
                                     size="sm"
                                     onClick={() => resetPersonalOverride(flag.key)}
                                     className="h-6 w-6 p-0"
-                                    title="Reset to default"
+                                    title="Reset to global default"
                                   >
                                     <RotateCcw className="h-3 w-3" />
                                   </Button>
@@ -210,7 +262,7 @@ export default function FeatureFlags() {
                             <p className="text-xs text-gm-neutral-500">
                               {hasPersonalOverrideActive 
                                 ? 'Your personal override is active' 
-                                : 'Following default setting'
+                                : 'Following global default'
                               }
                             </p>
                           </div>
@@ -223,7 +275,7 @@ export default function FeatureFlags() {
                           </span>
                           <span>•</span>
                           <span>
-                            <strong>Source:</strong> {hasPersonalOverrideActive ? 'Personal Override' : 'Default Setting'}
+                            <strong>Source:</strong> {hasPersonalOverrideActive ? 'Personal Override' : 'Global Default'}
                           </span>
                         </div>
                       </div>

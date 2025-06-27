@@ -114,6 +114,33 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_flag_defaults: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          flag_key: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled: boolean
+          flag_key: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          flag_key?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       revenue_events: {
         Row: {
           amount_cents: number
