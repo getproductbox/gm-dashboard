@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export interface FeatureFlag {
@@ -14,6 +13,9 @@ interface FeatureFlagsContextType {
   isFeatureEnabled: (key: string) => boolean;
   toggleFeature: (key: string) => void;
   resetToDefaults: () => void;
+  getDefaultValue: (key: string) => boolean;
+  hasUserOverride: (key: string) => boolean;
+  resetFlagToDefault: (key: string) => void;
 }
 
 const FeatureFlagsContext = createContext<FeatureFlagsContextType | undefined>(undefined);
@@ -123,6 +125,53 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
     return flag ? flag.enabled : false;
   };
 
+  const getDefaultValue = (key: string): boolean => {
+    const defaultFlag = DEFAULT_FLAGS.find(f => f.key === key);
+    return defaultFlag ? defaultFlag.enabled : false;
+  };
+
+  const hasUserOverride = (key: string): boolean => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return false;
+    
+    try {
+      const userOverrides = JSON.parse(stored);
+      return userOverrides.hasOwnProperty(key);
+    } catch {
+      return false;
+    }
+  };
+
+  const resetFlagToDefault = (key: string) => {
+    const defaultFlag = DEFAULT_FLAGS.find(f => f.key === key);
+    if (!defaultFlag) return;
+
+    setFlags(prev => {
+      const updated = prev.map(flag => 
+        flag.key === key ? { ...flag, enabled: defaultFlag.enabled } : flag
+      );
+      
+      // Remove this flag from user overrides
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          const userOverrides = JSON.parse(stored);
+          delete userOverrides[key];
+          
+          if (Object.keys(userOverrides).length === 0) {
+            localStorage.removeItem(STORAGE_KEY);
+          } else {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(userOverrides));
+          }
+        } catch (error) {
+          console.error('Error updating user overrides:', error);
+        }
+      }
+      
+      return updated;
+    });
+  };
+
   const toggleFeature = (key: string) => {
     const defaultFlag = DEFAULT_FLAGS.find(f => f.key === key);
     if (!defaultFlag) return;
@@ -156,7 +205,10 @@ export function FeatureFlagsProvider({ children }: FeatureFlagsProviderProps) {
       flags,
       isFeatureEnabled,
       toggleFeature,
-      resetToDefaults
+      resetToDefaults,
+      getDefaultValue,
+      hasUserOverride,
+      resetFlagToDefault
     }}>
       {children}
     </FeatureFlagsContext.Provider>
