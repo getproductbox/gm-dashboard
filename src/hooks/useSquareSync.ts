@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -68,15 +67,23 @@ export const useSquareSync = () => {
         ...options
       };
 
-      console.log('Triggering cursor-based sync with params:', requestBody);
+      console.log('🚀 Triggering cursor-based sync with detailed params:', {
+        environment,
+        ...options,
+        timestamp: new Date().toISOString()
+      });
 
       const { data, error } = await supabase.functions.invoke('square-sync', {
         body: requestBody
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase function invoke error:', error);
+        throw error;
+      }
 
       const result = data as SyncResult;
+      console.log('📊 Sync result received:', result);
 
       if (result.success) {
         if (result.isComplete) {
@@ -97,7 +104,13 @@ export const useSquareSync = () => {
       
       return result;
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('Sync error details:', {
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
+      
       toast.error('Sync failed', {
         description: error instanceof Error ? error.message : 'Unknown error occurred'
       });
@@ -106,6 +119,51 @@ export const useSquareSync = () => {
       setIsLoading(false);
     }
   }, [fetchSyncStatus]);
+
+  const testDateRangeSync = useCallback(async (
+    environment: 'sandbox' | 'production',
+    startDate: string,
+    endDate: string,
+    clearExisting = false
+  ) => {
+    console.log('🔍 Testing specific date range sync:', {
+      environment,
+      startDate,
+      endDate,
+      clearExisting,
+      startDateParsed: new Date(startDate).toISOString(),
+      endDateParsed: new Date(endDate).toISOString()
+    });
+
+    return triggerSync(environment, {
+      dateRange: { start: startDate, end: endDate },
+      clearExisting
+    });
+  }, [triggerSync]);
+
+  const syncLastDays = useCallback(async (
+    environment: 'sandbox' | 'production',
+    days: number,
+    clearExisting = false
+  ) => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    console.log('📅 Syncing last', days, 'days:', {
+      environment,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      clearExisting
+    });
+
+    return testDateRangeSync(
+      environment,
+      startDate.toISOString(),
+      endDate.toISOString(),
+      clearExisting
+    );
+  }, [testDateRangeSync]);
 
   const continueSync = useCallback(async (
     environment: 'sandbox' | 'production',
@@ -205,6 +263,8 @@ export const useSquareSync = () => {
     syncStatus,
     fetchSyncStatus,
     triggerSync,
+    testDateRangeSync,
+    syncLastDays,
     continueSync,
     resetSyncSession,
     getFormattedSyncStatus

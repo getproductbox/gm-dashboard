@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { RefreshCw, Play, CheckCircle, XCircle, Clock, AlertTriangle, PlayCircle, RotateCcw } from 'lucide-react';
 import { useSquareSync } from '@/hooks/useSquareSync';
+import { SquareSyncDebugControls } from './SquareSyncDebugControls';
 
 export const SquareSyncDashboard = () => {
   const { 
@@ -93,6 +93,9 @@ export const SquareSyncDashboard = () => {
           </Button>
         </div>
       </div>
+
+      {/* Add Debug Controls */}
+      <SquareSyncDebugControls />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {syncStatus.map((status) => {
@@ -210,6 +213,7 @@ export const SquareSyncDashboard = () => {
             <p>• <strong>Heartbeat Monitoring:</strong> Active syncs send periodic status updates</p>
             <p>• <strong>Error Recovery:</strong> Failed syncs can be reset and restarted safely</p>
             <p>• <strong>High Volume Support:</strong> Optimized for single-day high-volume transactions (5000+ payments)</p>
+            <p>• <strong>Debug Mode:</strong> Use the debug controls above to test specific date ranges and troubleshoot sync issues</p>
           </div>
         </CardContent>
       </Card>
