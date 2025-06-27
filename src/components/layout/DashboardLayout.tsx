@@ -37,10 +37,12 @@ export function DashboardLayout({ children, headerActions }: DashboardLayoutProp
     if (path === '/bookings') return ['Bookings'];
     if (path === '/bookings/create') return ['Bookings', 'Create'];
     if (path === '/customers') return ['Customers'];
+    if (path === '/revenue') return ['Revenue'];
     if (path === '/reports') return ['Reports'];
     if (path === '/settings') return ['Settings'];
     if (path === '/design') return ['Design System'];
     if (path === '/api-test') return ['API Test'];
+    if (path === '/feature-flags') return ['Feature Flags'];
     
     // Fallback for any other routes
     return [path.charAt(1).toUpperCase() + path.slice(2)];
