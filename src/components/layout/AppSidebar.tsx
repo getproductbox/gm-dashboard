@@ -12,46 +12,76 @@ import {
 } from "@/components/ui/sidebar";
 import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, TestTube, DollarSign } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useFeatureFlag } from "@/hooks/useFeatureFlag";
 
 const menuItems = [
   {
     title: "Dashboard",
     url: "/dashboard",
     icon: Home,
+    flagKey: null, // Dashboard is always visible
   },
   {
     title: "Calendar",
     url: "/calendar",
     icon: Calendar,
+    flagKey: "showCalendar",
   },
   {
     title: "Bookings",
     url: "/bookings",
-    icon: Calendar,
+    icon: CalendarDays,
+    flagKey: "showBookings",
   },
   {
     title: "Customers",
     url: "/customers",
     icon: Users,
+    flagKey: "showCustomers",
   },
   {
-    title: "Reports",
-    url: "/reports",
-    icon: BarChart3,
+    title: "Revenue",
+    url: "/revenue",
+    icon: DollarSign,
+    flagKey: "showRevenue",
   },
   {
-    title: "Settings",
+    title: "Developer Tools",
+    url: "/api-test",
+    icon: TestTube,
+    flagKey: "showDeveloperTools",
+  },
+  {
+    title: "Settings", 
     url: "/settings",
     icon: Settings,
-  },
-  {
-    title: "API Test",
-    url: "/api-test",
-    icon: Code,
+    flagKey: "showSettings",
   },
 ];
 
 export function AppSidebar() {
+  const showCalendar = useFeatureFlag('showCalendar');
+  const showBookings = useFeatureFlag('showBookings');
+  const showCustomers = useFeatureFlag('showCustomers');
+  const showRevenue = useFeatureFlag('showRevenue');
+  const showDeveloperTools = useFeatureFlag('showDeveloperTools');
+  const showSettings = useFeatureFlag('showSettings');
+
+  // Filter menu items based on feature flags
+  const visibleMenuItems = menuItems.filter(item => {
+    if (!item.flagKey) return true; // Always show items without flags (like Dashboard)
+    
+    switch (item.flagKey) {
+      case 'showCalendar': return showCalendar;
+      case 'showBookings': return showBookings;
+      case 'showCustomers': return showCustomers;
+      case 'showRevenue': return showRevenue;
+      case 'showDeveloperTools': return showDeveloperTools;
+      case 'showSettings': return showSettings;
+      default: return true;
+    }
+  });
+
   return (
     <Sidebar>
       <SidebarContent>
@@ -59,62 +89,16 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/">
-                    <Home className="h-4 w-4" />
-                    <span>Dashboard</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/calendar">
-                    <Calendar className="h-4 w-4" />
-                    <span>Calendar</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/bookings">
-                    <CalendarDays className="h-4 w-4" />
-                    <span>Bookings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/customers">
-                    <Users className="h-4 w-4" />
-                    <span>Customers</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/revenue">
-                    <DollarSign className="h-4 w-4" />
-                    <span>Revenue</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/api-test">
-                    <TestTube className="h-4 w-4" />
-                    <span>Developer Tools</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/settings">
-                    <Settings className="h-4 w-4" />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {visibleMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <Link to={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

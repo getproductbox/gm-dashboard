@@ -21,6 +21,48 @@ const FeatureFlagsContext = createContext<FeatureFlagsContextType | undefined>(u
 // Default feature flags that apply to all users
 const DEFAULT_FLAGS: FeatureFlag[] = [
   {
+    key: 'showCalendar',
+    name: 'Calendar Navigation',
+    description: 'Show Calendar tab in navigation sidebar',
+    enabled: true,
+    category: 'pages'
+  },
+  {
+    key: 'showBookings',
+    name: 'Bookings Navigation',
+    description: 'Show Bookings tab in navigation sidebar',
+    enabled: true,
+    category: 'pages'
+  },
+  {
+    key: 'showCustomers',
+    name: 'Customers Navigation',
+    description: 'Show Customers tab in navigation sidebar',
+    enabled: true,
+    category: 'pages'
+  },
+  {
+    key: 'showRevenue',
+    name: 'Revenue Navigation',
+    description: 'Show Revenue tab in navigation sidebar',
+    enabled: true,
+    category: 'pages'
+  },
+  {
+    key: 'showDeveloperTools',
+    name: 'Developer Tools Navigation',
+    description: 'Show Developer Tools tab in navigation sidebar',
+    enabled: true,
+    category: 'pages'
+  },
+  {
+    key: 'showSettings',
+    name: 'Settings Navigation',
+    description: 'Show Settings tab in navigation sidebar',
+    enabled: true,
+    category: 'pages'
+  },
+  {
     key: 'newRevenueCharts',
     name: 'New Revenue Charts',
     description: 'Enhanced chart designs on the Revenue page',
