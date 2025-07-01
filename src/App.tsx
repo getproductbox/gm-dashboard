@@ -20,7 +20,6 @@ import Auth from "./pages/Auth";
 import ApiTest from "./pages/ApiTest";
 import Revenue from "./pages/Revenue";
 import FeatureFlags from "./pages/FeatureFlags";
-import SquareSync from "./pages/SquareSync";
 
 const queryClient = new QueryClient();
 
@@ -87,11 +86,6 @@ const App = () => (
               <Route path="/api-test" element={
                 <ProtectedRoute>
                   <ApiTest />
-                </ProtectedRoute>
-              } />
-              <Route path="/square-sync" element={
-                <ProtectedRoute>
-                  <SquareSync />
                 </ProtectedRoute>
               } />
               <Route path="/feature-flags" element={

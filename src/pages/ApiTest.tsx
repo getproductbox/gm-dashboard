@@ -2,11 +2,9 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Code, ExternalLink } from "lucide-react";
+import { Activity, Code } from "lucide-react";
 import { ApiConnectionStatus } from "@/components/api/ApiConnectionStatus";
 import { GenericApiTester } from "@/components/api/GenericApiTester";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 
 export default function ApiTest() {
   return (
@@ -17,12 +15,6 @@ export default function ApiTest() {
             <h1 className="text-3xl font-bold text-gm-neutral-900">API Connections</h1>
             <p className="text-gm-neutral-600">Monitor API health and test connections to your integrated services</p>
           </div>
-          <Button asChild variant="outline">
-            <Link to="/square-sync" className="flex items-center space-x-2">
-              <ExternalLink className="h-4 w-4" />
-              <span>Manage Square Sync</span>
-            </Link>
-          </Button>
         </div>
 
         <Tabs defaultValue="status" className="w-full">
