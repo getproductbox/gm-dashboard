@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-const { Client: SquareClient } = require('squareup');
-const { createClient } = require('@supabase/supabase-js');
+import { Client as SquareClient } from 'squareup';
+import { createClient } from '@supabase/supabase-js';
 
-// Configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Configuration from environment variables
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://plksvatjdylpuhjitbfc.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN;
 const squareEnvironment = process.env.SQUARE_ENVIRONMENT || 'production';
@@ -277,12 +277,14 @@ async function runBackfill() {
 
 // Validate environment variables
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase configuration. Please check your .env.local file.');
+  console.error('Missing Supabase configuration. Please check your environment variables.');
+  console.error('Required: SUPABASE_SERVICE_ROLE_KEY');
   process.exit(1);
 }
 
 if (!squareAccessToken) {
-  console.error('Missing Square access token. Please check your .env.local file.');
+  console.error('Missing Square access token. Please check your environment variables.');
+  console.error('Required: SQUARE_ACCESS_TOKEN');
   process.exit(1);
 }
 

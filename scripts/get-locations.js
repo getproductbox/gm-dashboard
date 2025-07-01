@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { Client: SquareClient } = require('squareup');
+import { Client as SquareClient } from 'squareup';
 
 const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN;
 const squareEnvironment = process.env.SQUARE_ENVIRONMENT || 'production';
