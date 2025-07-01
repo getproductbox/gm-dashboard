@@ -35,38 +35,53 @@ interface ApiService {
 }
 
 const apiServices: Record<string, ApiService> = {
-  supabaseBackfill: {
-    name: 'Square Backfill (Supabase)',
-    baseUrl: 'https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/square-backfill',
+  supabaseSync: {
+    name: 'Square Sync (Supabase)',
+    baseUrl: 'https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/square-sync',
     endpoints: [
-      { name: 'Test Connection', method: 'GET', path: '/test-connection' },
       { 
-        name: 'Backfill (Dry Run)', 
+        name: 'Historical Backfill', 
         method: 'POST', 
-        path: '/backfill',
+        path: '',
         sampleBody: {
-          startDate: '2025-06-22',
-          endDate: '2025-06-27',
-          dryRun: true
+          environment: 'sandbox',
+          historical: true,
+          clear_existing: true
         }
       },
       { 
-        name: 'Backfill (Real)', 
+        name: 'Date Range Sync', 
         method: 'POST', 
-        path: '/backfill',
+        path: '',
         sampleBody: {
-          startDate: '2025-06-22',
-          endDate: '2025-06-27'
+          environment: 'sandbox',
+          date_range: {
+            start: '2025-06-22T00:00:00Z',
+            end: '2025-06-27T23:59:59Z'
+          },
+          clear_existing: false
         }
       },
-      { name: 'Get Status', method: 'GET', path: '/status' }
+      { 
+        name: 'Incremental Sync', 
+        method: 'POST', 
+        path: '',
+        sampleBody: {
+          environment: 'sandbox'
+        }
+      },
+      { 
+        name: 'Check Status', 
+        method: 'GET', 
+        path: '' 
+      }
     ],
     headers: {
-      'Authorization': 'Bearer YOUR_ANON_KEY_HERE',
+      'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa3N2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NjQ5MzMsImV4cCI6MjA2NjM0MDkzM30.IdM8u1iq88C0ruwp7IkMB7PxwnfwmRyl6uLnBmZq5ys',
       'Content-Type': 'application/json'
     },
-    apiKeyLabel: 'Supabase Anon Key',
-    instructions: 'Get your Supabase anon key from: Settings > API in your Supabase dashboard'
+    apiKeyLabel: 'Supabase Anon Key (pre-filled)',
+    instructions: 'This service syncs Square payments through the Supabase edge function. The anon key is pre-filled. Change environment to "production" for live data.'
   },
   square: {
     name: 'Square API Direct',
@@ -100,9 +115,9 @@ const apiServices: Record<string, ApiService> = {
 export const GenericApiTester = () => {
   const [testResults, setTestResults] = useState<ApiTestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedService, setSelectedService] = useState<string>('supabaseBackfill');
+  const [selectedService, setSelectedService] = useState<string>('supabaseSync');
   const [selectedEndpoint, setSelectedEndpoint] = useState<number>(0);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa3N2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NjQ5MzMsImV4cCI6MjA2NjM0MDkzM30.IdM8u1iq88C0ruwp7IkMB7PxwnfwmRyl6uLnBmZq5ys');
   const [customHeaders, setCustomHeaders] = useState('');
   const [requestBody, setRequestBody] = useState('');
 
@@ -112,7 +127,14 @@ export const GenericApiTester = () => {
   const handleServiceChange = (serviceKey: string) => {
     setSelectedService(serviceKey);
     setSelectedEndpoint(0);
-    setApiKey('');
+    
+    // Set default API key based on service
+    if (serviceKey === 'supabaseSync') {
+      setApiKey('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa3N2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NjQ5MzMsImV4cCI6MjA2NjM0MDkzM30.IdM8u1iq88C0ruwp7IkMB7PxwnfwmRyl6uLnBmZq5ys');
+    } else {
+      setApiKey('');
+    }
+    
     setRequestBody('');
     setCustomHeaders('');
   };
@@ -146,7 +168,7 @@ export const GenericApiTester = () => {
       
       // Update Authorization header with API key
       if (apiKey && headers['Authorization']) {
-        headers['Authorization'] = headers['Authorization'].replace(/YOUR_\w+_HERE|Bearer\s+\w+/, `Bearer ${apiKey}`);
+        headers['Authorization'] = headers['Authorization'].replace(/YOUR_\w+_HERE|Bearer\s+[\w.-]+/, `Bearer ${apiKey}`);
       }
 
       // Add custom headers
