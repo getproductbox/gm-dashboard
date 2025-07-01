@@ -197,6 +197,39 @@ export type Database = {
           },
         ]
       }
+      square_backfill_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          end_date: string
+          error_message: string | null
+          id: string
+          payments_processed: number | null
+          start_date: string
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          end_date: string
+          error_message?: string | null
+          id?: string
+          payments_processed?: number | null
+          start_date: string
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          end_date?: string
+          error_message?: string | null
+          id?: string
+          payments_processed?: number | null
+          start_date?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       square_payments_raw: {
         Row: {
           api_version: string | null
@@ -316,6 +349,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_revenue_type_from_payment: {
+        Args: { payment_data: Json }
+        Returns: string
+      }
+      get_venue_from_payment: {
+        Args: { payment_data: Json }
+        Returns: string
+      }
+      process_payment_to_revenue: {
+        Args: { payment_id: string }
+        Returns: boolean
+      }
       reset_stuck_sync_states: {
         Args: Record<PropertyKey, never>
         Returns: undefined

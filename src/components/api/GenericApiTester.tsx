@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Play, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { Code, Play, RefreshCw, AlertCircle, CheckCircle, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ApiTestResult {
   endpoint: string;
@@ -19,46 +20,157 @@ interface ApiTestResult {
   duration: number;
 }
 
+interface ApiService {
+  name: string;
+  baseUrl: string;
+  endpoints: Array<{
+    name: string;
+    method: string;
+    path: string;
+    sampleBody?: any;
+  }>;
+  headers: Record<string, string>;
+  apiKeyLabel?: string;
+  instructions?: string;
+}
+
+const apiServices: Record<string, ApiService> = {
+  supabaseBackfill: {
+    name: 'Square Backfill (Supabase)',
+    baseUrl: 'https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/square-backfill',
+    endpoints: [
+      { name: 'Test Connection', method: 'GET', path: '/test-connection' },
+      { 
+        name: 'Backfill (Dry Run)', 
+        method: 'POST', 
+        path: '/backfill',
+        sampleBody: {
+          startDate: '2025-06-22',
+          endDate: '2025-06-27',
+          dryRun: true
+        }
+      },
+      { 
+        name: 'Backfill (Real)', 
+        method: 'POST', 
+        path: '/backfill',
+        sampleBody: {
+          startDate: '2025-06-22',
+          endDate: '2025-06-27'
+        }
+      },
+      { name: 'Get Status', method: 'GET', path: '/status' }
+    ],
+    headers: {
+      'Authorization': 'Bearer YOUR_ANON_KEY_HERE',
+      'Content-Type': 'application/json'
+    },
+    apiKeyLabel: 'Supabase Anon Key',
+    instructions: 'Get your Supabase anon key from: Settings > API in your Supabase dashboard'
+  },
+  square: {
+    name: 'Square API Direct',
+    baseUrl: 'https://connect.squareup.com/v2',
+    endpoints: [
+      { name: 'List Locations', method: 'GET', path: '/locations' },
+      { name: 'List Payments', method: 'GET', path: '/payments' },
+      { name: 'Get Application', method: 'GET', path: '/oauth2/token/status' }
+    ],
+    headers: {
+      'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+      'Content-Type': 'application/json',
+      'Square-Version': '2024-12-18'
+    },
+    apiKeyLabel: 'Square Access Token',
+    instructions: 'Get your access token from Square Developer Dashboard'
+  },
+  custom: {
+    name: 'Custom API',
+    baseUrl: 'https://api.example.com',
+    endpoints: [
+      { name: 'GET Request', method: 'GET', path: '/endpoint' },
+      { name: 'POST Request', method: 'POST', path: '/endpoint' }
+    ],
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+};
+
 export const GenericApiTester = () => {
   const [testResults, setTestResults] = useState<ApiTestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentTest, setCurrentTest] = useState({
-    endpoint: '',
-    method: 'GET',
-    headers: '',
-    body: ''
-  });
+  const [selectedService, setSelectedService] = useState<string>('supabaseBackfill');
+  const [selectedEndpoint, setSelectedEndpoint] = useState<number>(0);
+  const [apiKey, setApiKey] = useState('');
+  const [customHeaders, setCustomHeaders] = useState('');
+  const [requestBody, setRequestBody] = useState('');
+
+  const currentService = apiServices[selectedService];
+  const currentEndpoint = currentService.endpoints[selectedEndpoint];
+
+  const handleServiceChange = (serviceKey: string) => {
+    setSelectedService(serviceKey);
+    setSelectedEndpoint(0);
+    setApiKey('');
+    setRequestBody('');
+    setCustomHeaders('');
+  };
+
+  const handleEndpointChange = (endpointIndex: number) => {
+    setSelectedEndpoint(endpointIndex);
+    const endpoint = currentService.endpoints[endpointIndex];
+    
+    // Auto-fill request body if available
+    if (endpoint.sampleBody) {
+      setRequestBody(JSON.stringify(endpoint.sampleBody, null, 2));
+    } else {
+      setRequestBody('');
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard');
+  };
 
   const runApiTest = async () => {
-    if (!currentTest.endpoint) return;
+    if (!currentEndpoint) return;
 
     setIsLoading(true);
     const startTime = Date.now();
 
     try {
-      let headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
+      // Build headers
+      let headers: Record<string, string> = { ...currentService.headers };
+      
+      // Update Authorization header with API key
+      if (apiKey && headers['Authorization']) {
+        headers['Authorization'] = headers['Authorization'].replace(/YOUR_\w+_HERE|Bearer\s+\w+/, `Bearer ${apiKey}`);
+      }
 
-      if (currentTest.headers) {
+      // Add custom headers
+      if (customHeaders) {
         try {
-          const customHeaders = JSON.parse(currentTest.headers);
-          headers = { ...headers, ...customHeaders };
+          const customHeadersObj = JSON.parse(customHeaders);
+          headers = { ...headers, ...customHeadersObj };
         } catch (e) {
-          console.warn('Invalid headers JSON, using defaults');
+          console.warn('Invalid custom headers JSON, using defaults');
         }
       }
 
+      const url = `${currentService.baseUrl}${currentEndpoint.path}`;
+      
       const options: RequestInit = {
-        method: currentTest.method,
+        method: currentEndpoint.method,
         headers
       };
 
-      if (currentTest.method !== 'GET' && currentTest.body) {
-        options.body = currentTest.body;
+      if (currentEndpoint.method !== 'GET' && requestBody) {
+        options.body = requestBody;
       }
 
-      const response = await fetch(currentTest.endpoint, options);
+      const response = await fetch(url, options);
       const responseData = await response.text();
       let parsedResponse;
 
@@ -69,8 +181,8 @@ export const GenericApiTester = () => {
       }
 
       const result: ApiTestResult = {
-        endpoint: currentTest.endpoint,
-        method: currentTest.method,
+        endpoint: url,
+        method: currentEndpoint.method,
         status: response.status,
         response: parsedResponse,
         error: null,
@@ -79,10 +191,16 @@ export const GenericApiTester = () => {
       };
 
       setTestResults(prev => [result, ...prev]);
+      
+      if (response.ok) {
+        toast.success(`${currentEndpoint.name} successful`);
+      } else {
+        toast.error(`${currentEndpoint.name} failed`);
+      }
     } catch (error) {
       const result: ApiTestResult = {
-        endpoint: currentTest.endpoint,
-        method: currentTest.method,
+        endpoint: `${currentService.baseUrl}${currentEndpoint.path}`,
+        method: currentEndpoint.method,
         status: null,
         response: null,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -91,6 +209,7 @@ export const GenericApiTester = () => {
       };
 
       setTestResults(prev => [result, ...prev]);
+      toast.error(`${currentEndpoint.name} failed`);
     } finally {
       setIsLoading(false);
     }
@@ -113,34 +232,81 @@ export const GenericApiTester = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Code className="h-5 w-5" />
-            <span>Generic API Tester</span>
+            <span>API Service Tester</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Service Selection */}
           <div className="space-y-2">
-            <Label htmlFor="endpoint">Endpoint URL</Label>
+            <Label htmlFor="service">API Service</Label>
+            <select
+              id="service"
+              className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md"
+              value={selectedService}
+              onChange={(e) => handleServiceChange(e.target.value)}
+            >
+              {Object.entries(apiServices).map(([key, service]) => (
+                <option key={key} value={key}>{service.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Instructions */}
+          {currentService.instructions && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                {currentService.instructions}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* API Key */}
+          <div className="space-y-2">
+            <Label htmlFor="apiKey">
+              {currentService.apiKeyLabel || 'API Key'}
+            </Label>
             <Input
-              id="endpoint"
-              placeholder="https://api.example.com/endpoint"
-              value={currentTest.endpoint}
-              onChange={(e) => setCurrentTest(prev => ({ ...prev, endpoint: e.target.value }))}
+              id="apiKey"
+              type="password"
+              placeholder="Enter your API key"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
             />
           </div>
 
+          {/* Endpoint Selection */}
           <div className="space-y-2">
-            <Label htmlFor="method">HTTP Method</Label>
+            <Label htmlFor="endpoint">Endpoint</Label>
             <select
-              id="method"
+              id="endpoint"
               className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md"
-              value={currentTest.method}
-              onChange={(e) => setCurrentTest(prev => ({ ...prev, method: e.target.value }))}
+              value={selectedEndpoint}
+              onChange={(e) => handleEndpointChange(Number(e.target.value))}
             >
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
-              <option value="PATCH">PATCH</option>
+              {currentService.endpoints.map((endpoint, index) => (
+                <option key={index} value={index}>
+                  {endpoint.method} - {endpoint.name}
+                </option>
+              ))}
             </select>
+          </div>
+
+          {/* Full URL Display */}
+          <div className="space-y-2">
+            <Label>Full URL</Label>
+            <div className="flex items-center space-x-2">
+              <code className="flex-1 p-2 bg-gray-100 rounded text-sm break-all">
+                {currentService.baseUrl}{currentEndpoint.path}
+              </code>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => copyToClipboard(`${currentService.baseUrl}${currentEndpoint.path}`)}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <Tabs defaultValue="headers" className="w-full">
@@ -148,36 +314,49 @@ export const GenericApiTester = () => {
               <TabsTrigger value="headers">Headers</TabsTrigger>
               <TabsTrigger value="body">Body</TabsTrigger>
             </TabsList>
+            
             <TabsContent value="headers" className="space-y-2">
-              <Label htmlFor="headers">Headers (JSON format)</Label>
+              <Label htmlFor="headers">Additional Headers (JSON format)</Label>
               <textarea
                 id="headers"
                 className="w-full min-h-[100px] px-3 py-2 border border-input bg-background rounded-md font-mono text-sm"
-                placeholder='{"Authorization": "Bearer token", "Custom-Header": "value"}'
-                value={currentTest.headers}
-                onChange={(e) => setCurrentTest(prev => ({ ...prev, headers: e.target.value }))}
+                placeholder='{"Custom-Header": "value"}'
+                value={customHeaders}
+                onChange={(e) => setCustomHeaders(e.target.value)}
               />
             </TabsContent>
+            
             <TabsContent value="body" className="space-y-2">
-              <Label htmlFor="body">Request Body</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="body">Request Body</Label>
+                {currentEndpoint.sampleBody && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setRequestBody(JSON.stringify(currentEndpoint.sampleBody, null, 2))}
+                  >
+                    Use Sample
+                  </Button>
+                )}
+              </div>
               <textarea
                 id="body"
                 className="w-full min-h-[100px] px-3 py-2 border border-input bg-background rounded-md font-mono text-sm"
                 placeholder='{"key": "value"}'
-                value={currentTest.body}
-                onChange={(e) => setCurrentTest(prev => ({ ...prev, body: e.target.value }))}
+                value={requestBody}
+                onChange={(e) => setRequestBody(e.target.value)}
               />
             </TabsContent>
           </Tabs>
 
           <div className="flex space-x-2">
-            <Button onClick={runApiTest} disabled={isLoading || !currentTest.endpoint}>
+            <Button onClick={runApiTest} disabled={isLoading || !currentEndpoint}>
               {isLoading ? (
                 <RefreshCw className="h-4 w-4 animate-spin" />
               ) : (
                 <Play className="h-4 w-4" />
               )}
-              {isLoading ? 'Testing...' : 'Run Test'}
+              {isLoading ? 'Testing...' : `Run ${currentEndpoint?.name || 'Test'}`}
             </Button>
             <Button variant="outline" onClick={clearResults}>
               Clear Results
