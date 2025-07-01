@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { Client as SquareClient } from 'squareup';
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration from environment variables
@@ -9,27 +8,25 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN;
 const squareEnvironment = process.env.SQUARE_ENVIRONMENT || 'production';
 
-// Initialize clients
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-const squareClient = new SquareClient({
-  accessToken: squareAccessToken,
-  environment: squareEnvironment === 'production' ? 'production' : 'sandbox'
-});
+// Square API base URL
+const SQUARE_BASE_URL = squareEnvironment === 'production' 
+  ? 'https://connect.squareup.com' 
+  : 'https://connect.squareupsandbox.com';
 
-// Venue mapping based on location IDs
+// Initialize Supabase client
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Venue mapping based on location IDs - UPDATE THESE WITH YOUR ACTUAL LOCATION IDs
 const VENUE_MAPPING = {
-  // You'll need to replace these with your actual Square location IDs
-  'LOCATION_ID_MANOR': 'manor',
-  'LOCATION_ID_HIPPIE': 'hippie'
+  // Replace these with your actual Square location IDs from get-locations script
+  'YOUR_MANOR_LOCATION_ID': 'manor',
+  'YOUR_HIPPIE_LOCATION_ID': 'hippie'
 };
 
-// Revenue type classification based on payment metadata
+// Revenue type classification
 function classifyRevenueType(payment) {
-  // This logic will need to be customized based on your business rules
-  // You might use note field, source application, or other metadata
-  
   const note = payment.note?.toLowerCase() || '';
-  const appName = payment.source_type?.toLowerCase() || '';
+  const sourceType = payment.source_type?.toLowerCase() || '';
   
   if (note.includes('door') || note.includes('entry') || note.includes('ticket')) {
     return 'door';
@@ -39,12 +36,57 @@ function classifyRevenueType(payment) {
     return 'bar';
   }
   
-  // Default classification - you might want to make this more sophisticated
   return 'other';
 }
 
 function getVenueFromLocationId(locationId) {
-  return VENUE_MAPPING[locationId] || 'manor'; // Default to manor
+  return VENUE_MAPPING[locationId] || 'manor';
+}
+
+// Square API helper functions
+async function makeSquareRequest(endpoint, method = 'GET', body = null) {
+  const url = `${SQUARE_BASE_URL}/v2${endpoint}`;
+  
+  const options = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${squareAccessToken}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2024-06-04'
+    }
+  };
+  
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+  
+  const response = await fetch(url, options);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Square API error: ${response.status} - ${errorText}`);
+  }
+  
+  return response.json();
+}
+
+async function getLocations() {
+  return makeSquareRequest('/locations');
+}
+
+async function getPayments(beginTime, endTime, cursor = null, limit = 100) {
+  const params = new URLSearchParams({
+    begin_time: beginTime,
+    end_time: endTime,
+    sort_order: 'ASC',
+    limit: limit.toString()
+  });
+  
+  if (cursor) {
+    params.append('cursor', cursor);
+  }
+  
+  return makeSquareRequest(`/payments?${params}`);
 }
 
 async function updateBackfillSession(sessionId, updates) {
@@ -66,7 +108,7 @@ async function savePaymentToDatabase(payment, sessionId) {
       .upsert({
         square_payment_id: payment.id,
         raw_response: payment,
-        api_version: '2024-06-04', // Update this to match the API version you're using
+        api_version: '2024-06-04',
         sync_timestamp: new Date().toISOString()
       }, {
         onConflict: 'square_payment_id'
@@ -93,7 +135,7 @@ async function savePaymentToDatabase(payment, sessionId) {
         payment_date: paymentDate.toISOString(),
         payment_hour: paymentDate.getHours(),
         payment_day_of_week: paymentDate.getDay(),
-        status: payment.status === 'COMPLETED' ? 'completed' : payment.status.toLowerCase()
+        status: payment.status === 'COMPLETED' ? 'completed' : payment.status?.toLowerCase() || 'unknown'
       }, {
         onConflict: 'square_payment_id'
       });
@@ -114,7 +156,7 @@ async function fetchPaymentsInDateRange(startDate, endDate, sessionId) {
   let cursor;
   let totalProcessed = 0;
   let totalFetched = 0;
-  const batchSize = 100; // Square API limit
+  const batchSize = 100;
   
   console.log(`Starting backfill from ${startDate.toISOString()} to ${endDate.toISOString()}`);
   
@@ -122,25 +164,24 @@ async function fetchPaymentsInDateRange(startDate, endDate, sessionId) {
     do {
       console.log(`Fetching batch... (processed so far: ${totalFetched})`);
       
-      const response = await squareClient.paymentsApi.listPayments({
-        beginTime: startDate.toISOString(),
-        endTime: endDate.toISOString(),
-        sortOrder: 'ASC',
-        cursor: cursor,
-        limit: batchSize
-      });
+      const response = await getPayments(
+        startDate.toISOString(),
+        endDate.toISOString(),
+        cursor,
+        batchSize
+      );
 
-      if (!response.result || !response.result.payments) {
+      if (!response.payments || response.payments.length === 0) {
         console.log('No more payments found');
         break;
       }
 
-      const payments = response.result.payments;
+      const payments = response.payments;
       totalFetched += payments.length;
       
       console.log(`Processing ${payments.length} payments...`);
       
-      // Process payments in smaller batches to avoid overwhelming the database
+      // Process payments in smaller batches
       for (let i = 0; i < payments.length; i += 10) {
         const batch = payments.slice(i, i + 10);
         const promises = batch.map(payment => savePaymentToDatabase(payment, sessionId));
@@ -160,7 +201,7 @@ async function fetchPaymentsInDateRange(startDate, endDate, sessionId) {
         status: 'running'
       });
       
-      cursor = response.result.cursor;
+      cursor = response.cursor;
       
       // Small delay to be respectful of API limits
       if (cursor) {
@@ -199,8 +240,8 @@ async function runBackfill() {
       // Optionally create a new session for a specific date range
       const createNew = process.argv.includes('--create-session');
       if (createNew) {
-        const startDate = new Date('2024-01-01T00:00:00Z'); // Adjust as needed
-        const endDate = new Date(); // Now
+        const startDate = new Date('2024-01-01T00:00:00Z');
+        const endDate = new Date();
         
         const { data: newSession, error: createError } = await supabase
           .from('square_backfill_sessions')
