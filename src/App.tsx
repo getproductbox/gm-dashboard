@@ -88,6 +88,11 @@ const App = () => (
                   <ApiTest />
                 </ProtectedRoute>
               } />
+              <Route path="/square-sync" element={
+                <ProtectedRoute>
+                  <SquareSync />
+                </ProtectedRoute>
+              } />
               <Route path="/feature-flags" element={
                 <ProtectedRoute>
                   <FeatureFlags />

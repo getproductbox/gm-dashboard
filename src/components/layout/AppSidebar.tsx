@@ -46,7 +46,7 @@ const menuItems = [
     flagKey: "showRevenue",
   },
   {
-    title: "Developer Tools",
+    title: "API Connections",
     url: "/api-test",
     icon: TestTube,
     flagKey: "showDeveloperTools",
