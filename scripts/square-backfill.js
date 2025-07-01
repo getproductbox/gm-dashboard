@@ -1,3 +1,4 @@
+
 #!/usr/bin/env node
 
 const { Client: SquareClient } = require('squareup');
