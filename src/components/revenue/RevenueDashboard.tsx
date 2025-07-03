@@ -94,10 +94,10 @@ export const RevenueDashboard = () => {
     
     const totalRevenue = events.reduce((sum, event) => sum + event.amount_cents, 0);
     
-    // For now, treat all 'other' revenue as bar revenue since that's what the data contains
-    // In the future, this categorization should be handled in the Square sync process
-    const barRevenue = events.filter(e => e.revenue_type === 'other').reduce((sum, event) => sum + event.amount_cents, 0);
-    const doorRevenue = events.filter(e => e.revenue_type === 'door').reduce((sum, event) => sum + event.amount_cents, 0);
+    // For now, show all revenue as "bar" revenue since we don't have proper categorization
+    // This will be fixed when the Square sync properly categorizes payments
+    const barRevenue = totalRevenue;
+    const doorRevenue = 0;
 
     console.log(`Period metrics: total=${totalRevenue}, bar=${barRevenue}, door=${doorRevenue}`);
     return { totalRevenue, barRevenue, doorRevenue };
