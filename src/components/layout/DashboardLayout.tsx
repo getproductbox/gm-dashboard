@@ -59,12 +59,12 @@ export function DashboardLayout({ children, headerActions }: DashboardLayoutProp
               <nav className="flex items-center space-x-2 text-sm text-gm-neutral-500">
                 <span>GM Staff Portal</span>
                 {getBreadcrumb().map((crumb, index) => (
-                  <React.Fragment key={index}>
+                  <span key={index} className="flex items-center space-x-2">
                     <span>/</span>
                     <span className={index === getBreadcrumb().length - 1 ? "text-gm-neutral-900" : "text-gm-neutral-500"}>
                       {crumb}
                     </span>
-                  </React.Fragment>
+                  </span>
                 ))}
               </nav>
             </div>
