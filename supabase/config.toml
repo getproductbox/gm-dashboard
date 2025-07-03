@@ -14,6 +14,9 @@ verify_jwt = false
 [functions.square-cron]
 verify_jwt = false
 
+[functions.reprocess-venues]
+verify_jwt = false
+
 [db]
 port = 54322
 shadow_port = 54320
