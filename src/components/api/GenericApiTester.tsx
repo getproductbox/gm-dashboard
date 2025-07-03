@@ -20,20 +20,26 @@ interface ApiTestResult {
 
 const squareTests = [
   {
-    name: 'Test Connection Status',
-    method: 'GET',
-    description: 'Check if the Square API connection is working',
-    endpoint: '/functions/v1/square-sync'
+    name: 'List Locations',
+    method: 'POST',
+    description: 'Test Square Locations API - fetches all locations for your account',
+    body: {
+      test: 'locations',
+      environment: 'sandbox'
+    },
+    expectedEndpoint: 'https://connect.squareup.com/v2/locations'
   },
   {
-    name: 'Test Connection Only',
+    name: 'Get Recent Payments',
     method: 'POST',
-    description: 'Test Square API credentials without syncing data',
-    endpoint: '/functions/v1/square-sync',
+    description: 'Test Square Payments API - fetches recent payment transactions',
     body: {
+      test: 'payments',
       environment: 'sandbox',
-      test_connection_only: true
-    }
+      begin_time: '2025-06-20T00:00:00Z',
+      limit: 10
+    },
+    expectedEndpoint: 'https://connect.squareup.com/v2/payments?begin_time=2025-06-20T00:00:00Z&limit=10'
   }
 ];
 
@@ -49,55 +55,36 @@ export const GenericApiTester = () => {
     const startTime = Date.now();
 
     try {
-      let response: any;
+      console.log('Running Square API test:', currentTest.name);
+      console.log('Test body:', currentTest.body);
+
+      const { data, error } = await supabase.functions.invoke('square-api-test', {
+        body: currentTest.body
+      });
+
+      const executionTime = Date.now() - startTime;
+
       let result: ApiTestResult;
 
-      if (currentTest.method === 'GET') {
-        // Use direct fetch for GET requests to the edge function
-        const res = await fetch(`https://plksvatjdylpuhjitbfc.supabase.co${currentTest.endpoint}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa3N2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NjQ5MzMsImV4cCI6MjA2NjM0MDkzM30.IdM8u1iq88C0ruwp7IkMB7PxwnfwmRyl6uLnBmZq5ys`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        const responseData = await res.text();
-        let parsedResponse;
-
-        try {
-          parsedResponse = JSON.parse(responseData);
-        } catch {
-          parsedResponse = responseData;
-        }
-
+      if (error) {
         result = {
-          endpoint: `Supabase Edge Function: ${currentTest.endpoint}`,
+          endpoint: `Square API Test: ${currentTest.name}`,
           method: currentTest.method,
-          status: res.status,
-          response: parsedResponse,
-          error: null,
+          status: null,
+          response: null,
+          error: error.message,
           timestamp: new Date(),
-          duration: Date.now() - startTime
+          duration: executionTime
         };
-
-        if (!res.ok) {
-          result.error = `HTTP ${res.status}: ${res.statusText}`;
-        }
       } else {
-        // Use Supabase client for POST requests
-        const { data, error } = await supabase.functions.invoke('square-sync', {
-          body: currentTest.body
-        });
-
         result = {
-          endpoint: `Supabase Edge Function: ${currentTest.endpoint}`,
-          method: currentTest.method,
-          status: error ? null : 200,
+          endpoint: data?.url || currentTest.expectedEndpoint,
+          method: 'GET', // The actual method used by the edge function
+          status: data?.status || null,
           response: data,
-          error: error?.message || null,
+          error: data?.success === false ? (data?.error || 'Test failed') : null,
           timestamp: new Date(),
-          duration: Date.now() - startTime
+          duration: executionTime
         };
       }
 
@@ -110,7 +97,7 @@ export const GenericApiTester = () => {
       }
     } catch (error) {
       const result: ApiTestResult = {
-        endpoint: `Supabase Edge Function: ${currentTest.endpoint}`,
+        endpoint: `Square API Test: ${currentTest.name}`,
         method: currentTest.method,
         status: null,
         response: null,
@@ -143,15 +130,15 @@ export const GenericApiTester = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Code className="h-5 w-5" />
-            <span>Square API Connection Tester</span>
+            <span>Square API Endpoint Tester</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              These tests use your Supabase Edge Function to securely test the Square API connection. 
-              The Square access tokens are stored as Supabase secrets and accessed server-side.
+              These tests make actual calls to Square's API through your Supabase edge function. 
+              Your Square access tokens are securely stored as Supabase secrets.
             </AlertDescription>
           </Alert>
 
@@ -165,7 +152,7 @@ export const GenericApiTester = () => {
             >
               {squareTests.map((test, index) => (
                 <option key={index} value={index}>
-                  {test.method} - {test.name}
+                  {test.name}
                 </option>
               ))}
             </select>
@@ -179,25 +166,26 @@ export const GenericApiTester = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>Endpoint</Label>
+            <Label>Square API Endpoint</Label>
             <code className="block p-2 bg-gray-100 rounded text-sm break-all">
-              {currentTest.endpoint}
+              {currentTest.expectedEndpoint}
             </code>
           </div>
 
-          {currentTest.body && (
-            <div className="space-y-2">
-              <Label>Request Body</Label>
-              <div className="bg-gray-100 rounded p-2 text-sm font-mono">
-                <pre>{JSON.stringify(currentTest.body, null, 2)}</pre>
-              </div>
+          <div className="space-y-2">
+            <Label>Request Parameters</Label>
+            <div className="bg-gray-100 rounded p-2 text-sm font-mono">
+              <pre>{JSON.stringify(currentTest.body, null, 2)}</pre>
             </div>
-          )}
+          </div>
 
           <div className="space-y-2">
-            <Label>Authentication</Label>
-            <div className="text-sm text-gm-neutral-600 p-2 bg-blue-50 rounded">
-              Uses Supabase authentication with stored Square API tokens
+            <Label>Headers (Applied by Edge Function)</Label>
+            <div className="bg-gray-100 rounded p-2 text-sm font-mono space-y-1">
+              <div>Authorization: Bearer [SQUARE_TOKEN]</div>
+              <div>Square-Version: 2024-12-18</div>
+              <div>Content-Type: application/json</div>
+              <div>Accept: application/json</div>
             </div>
           </div>
 
@@ -208,7 +196,7 @@ export const GenericApiTester = () => {
               ) : (
                 <Play className="h-4 w-4" />
               )}
-              {isLoading ? 'Testing...' : `Run ${currentTest.name}`}
+              {isLoading ? 'Testing...' : `Test ${currentTest.name}`}
             </Button>
             <Button variant="outline" onClick={clearResults}>
               Clear Results
