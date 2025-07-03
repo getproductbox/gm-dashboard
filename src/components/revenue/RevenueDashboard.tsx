@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DollarSign, ArrowUp, ArrowDown, Minus, CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface RevenueEvent {
   id: string;
@@ -28,6 +32,8 @@ interface ComparisonMetrics {
 
 
 export const RevenueDashboard = () => {
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | undefined>(new Date(2024, 7, 1)); // August 1, 2024
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | undefined>(new Date(2024, 7, 7)); // August 7, 2024
   const [currentWeek, setCurrentWeek] = useState<PeriodMetrics>({ totalRevenue: 0, barRevenue: 0, doorRevenue: 0 });
   const [lastWeekComparison, setLastWeekComparison] = useState<ComparisonMetrics>({ totalVariance: 0, barVariance: 0, doorVariance: 0 });
   const [lastMonthComparison, setLastMonthComparison] = useState<ComparisonMetrics>({ totalVariance: 0, barVariance: 0, doorVariance: 0 });
@@ -35,31 +41,35 @@ export const RevenueDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const getDateRanges = () => {
-    const now = new Date();
-    const currentWeekStart = new Date(now);
-    currentWeekStart.setDate(now.getDate() - now.getDay()); // Start of current week (Sunday)
+    // Use selected dates or default to current week if not selected
+    const currentStart = selectedStartDate || new Date();
+    const currentEnd = selectedEndDate || new Date();
+    
+    // Ensure start is beginning of day, end is end of day
+    const currentWeekStart = new Date(currentStart);
     currentWeekStart.setHours(0, 0, 0, 0);
-
-    const currentWeekEnd = new Date(currentWeekStart);
-    currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+    const currentWeekEnd = new Date(currentEnd);
     currentWeekEnd.setHours(23, 59, 59, 999);
 
+    // Calculate comparison periods based on the length of selected period
+    const periodLengthDays = Math.ceil((currentWeekEnd.getTime() - currentWeekStart.getTime()) / (1000 * 60 * 60 * 24));
+    
     const lastWeekStart = new Date(currentWeekStart);
-    lastWeekStart.setDate(currentWeekStart.getDate() - 7);
+    lastWeekStart.setDate(currentWeekStart.getDate() - periodLengthDays - 1);
     const lastWeekEnd = new Date(lastWeekStart);
-    lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+    lastWeekEnd.setDate(lastWeekStart.getDate() + periodLengthDays);
     lastWeekEnd.setHours(23, 59, 59, 999);
 
     const lastMonthStart = new Date(currentWeekStart);
     lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
     const lastMonthEnd = new Date(lastMonthStart);
-    lastMonthEnd.setDate(lastMonthStart.getDate() + 6);
+    lastMonthEnd.setDate(lastMonthStart.getDate() + periodLengthDays);
     lastMonthEnd.setHours(23, 59, 59, 999);
 
     const lastYearStart = new Date(currentWeekStart);
     lastYearStart.setFullYear(lastYearStart.getFullYear() - 1);
     const lastYearEnd = new Date(lastYearStart);
-    lastYearEnd.setDate(lastYearStart.getDate() + 6);
+    lastYearEnd.setDate(lastYearStart.getDate() + periodLengthDays);
     lastYearEnd.setHours(23, 59, 59, 999);
 
     return {
@@ -144,7 +154,7 @@ export const RevenueDashboard = () => {
 
   useEffect(() => {
     fetchAllMetrics();
-  }, []);
+  }, [selectedStartDate, selectedEndDate]);
 
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -195,9 +205,86 @@ export const RevenueDashboard = () => {
         <h1 className="text-3xl font-bold">Revenue Dashboard</h1>
       </div>
 
-      {/* Current Week Section */}
+      {/* Date Filter */}
+      <div className="bg-card p-4 rounded-lg border">
+        <h3 className="text-sm font-medium mb-3">Select Date Range</h3>
+        <div className="flex gap-4 items-center">
+          <div className="flex flex-col">
+            <label className="text-xs text-muted-foreground mb-1">Start Date</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[180px] justify-start text-left font-normal",
+                    !selectedStartDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedStartDate ? format(selectedStartDate, "MMM d, yyyy") : <span>Pick start date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedStartDate}
+                  onSelect={setSelectedStartDate}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs text-muted-foreground mb-1">End Date</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[180px] justify-start text-left font-normal",
+                    !selectedEndDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedEndDate ? format(selectedEndDate, "MMM d, yyyy") : <span>Pick end date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedEndDate}
+                  onSelect={setSelectedEndDate}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="flex flex-col">
+            <div className="text-xs text-muted-foreground mb-1">&nbsp;</div>
+            <Button 
+              onClick={fetchAllMetrics}
+              disabled={!selectedStartDate || !selectedEndDate}
+            >
+              Update
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Current Period Section */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Current Week</h2>
+        <h2 className="text-xl font-semibold mb-4">
+          Selected Period
+          {selectedStartDate && selectedEndDate && (
+            <span className="text-sm font-normal text-muted-foreground ml-2">
+              ({format(selectedStartDate, "MMM d")} - {format(selectedEndDate, "MMM d, yyyy")})
+            </span>
+          )}
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
