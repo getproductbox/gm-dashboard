@@ -84,13 +84,22 @@ export const RevenueDashboard = () => {
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw error;
+    }
 
     const events = (data || []) as RevenueEvent[];
+    console.log(`Found ${events.length} events for period ${startDate.toISOString()} to ${endDate.toISOString()}, location: ${location}`);
+    
     const totalRevenue = events.reduce((sum, event) => sum + event.amount_cents, 0);
-    const barRevenue = events.filter(e => e.revenue_type === 'bar').reduce((sum, event) => sum + event.amount_cents, 0);
+    
+    // For now, treat all 'other' revenue as bar revenue since that's what the data contains
+    // In the future, this categorization should be handled in the Square sync process
+    const barRevenue = events.filter(e => e.revenue_type === 'other').reduce((sum, event) => sum + event.amount_cents, 0);
     const doorRevenue = events.filter(e => e.revenue_type === 'door').reduce((sum, event) => sum + event.amount_cents, 0);
 
+    console.log(`Period metrics: total=${totalRevenue}, bar=${barRevenue}, door=${doorRevenue}`);
     return { totalRevenue, barRevenue, doorRevenue };
   };
 
@@ -150,6 +159,7 @@ export const RevenueDashboard = () => {
   };
 
   const formatPercentage = (value: number) => {
+    if (currentWeek.totalRevenue === 0) return 0;
     return Math.round((value / currentWeek.totalRevenue) * 100);
   };
 
