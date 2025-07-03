@@ -141,6 +141,235 @@ export type Database = {
         }
         Relationships: []
       }
+      locations: {
+        Row: {
+          address: Json | null
+          business_hours: Json | null
+          created_at: string
+          id: string
+          name: string
+          square_location_id: string
+          status: string | null
+          timezone: string | null
+          updated_at: string
+          venue_type: string | null
+        }
+        Insert: {
+          address?: Json | null
+          business_hours?: Json | null
+          created_at?: string
+          id?: string
+          name: string
+          square_location_id: string
+          status?: string | null
+          timezone?: string | null
+          updated_at?: string
+          venue_type?: string | null
+        }
+        Update: {
+          address?: Json | null
+          business_hours?: Json | null
+          created_at?: string
+          id?: string
+          name?: string
+          square_location_id?: string
+          status?: string | null
+          timezone?: string | null
+          updated_at?: string
+          venue_type?: string | null
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          base_price_cents: number | null
+          created_at: string
+          id: string
+          modifiers: Json | null
+          name: string
+          order_id: string | null
+          quantity: number | null
+          total_price_cents: number | null
+          variation_name: string | null
+        }
+        Insert: {
+          base_price_cents?: number | null
+          created_at?: string
+          id?: string
+          modifiers?: Json | null
+          name: string
+          order_id?: string | null
+          quantity?: number | null
+          total_price_cents?: number | null
+          variation_name?: string | null
+        }
+        Update: {
+          base_price_cents?: number | null
+          created_at?: string
+          id?: string
+          modifiers?: Json | null
+          name?: string
+          order_id?: string | null
+          quantity?: number | null
+          total_price_cents?: number | null
+          variation_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          dining_option: string | null
+          discount_amount_cents: number | null
+          fulfillment_type: string | null
+          id: string
+          location_id: string | null
+          service_charge_amount_cents: number | null
+          square_order_id: string
+          status: string | null
+          tax_amount_cents: number | null
+          total_amount_cents: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dining_option?: string | null
+          discount_amount_cents?: number | null
+          fulfillment_type?: string | null
+          id?: string
+          location_id?: string | null
+          service_charge_amount_cents?: number | null
+          square_order_id: string
+          status?: string | null
+          tax_amount_cents?: number | null
+          total_amount_cents?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dining_option?: string | null
+          discount_amount_cents?: number | null
+          fulfillment_type?: string | null
+          id?: string
+          location_id?: string | null
+          service_charge_amount_cents?: number | null
+          square_order_id?: string
+          status?: string | null
+          tax_amount_cents?: number | null
+          total_amount_cents?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount_cents: number
+          card_brand: string | null
+          card_last_4: string | null
+          created_at: string
+          currency: string
+          device_id: string | null
+          device_name: string | null
+          entry_method: string | null
+          id: string
+          location_id: string | null
+          note: string | null
+          payment_date: string
+          payment_method: string | null
+          processing_fee_cents: number | null
+          receipt_number: string | null
+          receipt_url: string | null
+          reference_id: string | null
+          source_type: string | null
+          square_order_id: string | null
+          square_payment_id: string
+          status: string
+          team_member_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          card_brand?: string | null
+          card_last_4?: string | null
+          created_at?: string
+          currency?: string
+          device_id?: string | null
+          device_name?: string | null
+          entry_method?: string | null
+          id?: string
+          location_id?: string | null
+          note?: string | null
+          payment_date: string
+          payment_method?: string | null
+          processing_fee_cents?: number | null
+          receipt_number?: string | null
+          receipt_url?: string | null
+          reference_id?: string | null
+          source_type?: string | null
+          square_order_id?: string | null
+          square_payment_id: string
+          status: string
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          card_brand?: string | null
+          card_last_4?: string | null
+          created_at?: string
+          currency?: string
+          device_id?: string | null
+          device_name?: string | null
+          entry_method?: string | null
+          id?: string
+          location_id?: string | null
+          note?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          processing_fee_cents?: number | null
+          receipt_number?: string | null
+          receipt_url?: string | null
+          reference_id?: string | null
+          source_type?: string | null
+          square_order_id?: string | null
+          square_payment_id?: string
+          status?: string
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_events: {
         Row: {
           amount_cents: number
@@ -227,6 +456,60 @@ export type Database = {
           payments_processed?: number | null
           start_date?: string
           status?: string | null
+        }
+        Relationships: []
+      }
+      square_locations_raw: {
+        Row: {
+          api_version: string | null
+          created_at: string
+          id: string
+          raw_response: Json
+          square_location_id: string
+          sync_timestamp: string
+        }
+        Insert: {
+          api_version?: string | null
+          created_at?: string
+          id?: string
+          raw_response: Json
+          square_location_id: string
+          sync_timestamp?: string
+        }
+        Update: {
+          api_version?: string | null
+          created_at?: string
+          id?: string
+          raw_response?: Json
+          square_location_id?: string
+          sync_timestamp?: string
+        }
+        Relationships: []
+      }
+      square_orders_raw: {
+        Row: {
+          api_version: string | null
+          created_at: string
+          id: string
+          raw_response: Json
+          square_order_id: string
+          sync_timestamp: string
+        }
+        Insert: {
+          api_version?: string | null
+          created_at?: string
+          id?: string
+          raw_response: Json
+          square_order_id: string
+          sync_timestamp?: string
+        }
+        Update: {
+          api_version?: string | null
+          created_at?: string
+          id?: string
+          raw_response?: Json
+          square_order_id?: string
+          sync_timestamp?: string
         }
         Relationships: []
       }
@@ -320,6 +603,33 @@ export type Database = {
         }
         Relationships: []
       }
+      square_team_members_raw: {
+        Row: {
+          api_version: string | null
+          created_at: string
+          id: string
+          raw_response: Json
+          square_team_member_id: string
+          sync_timestamp: string
+        }
+        Insert: {
+          api_version?: string | null
+          created_at?: string
+          id?: string
+          raw_response: Json
+          square_team_member_id: string
+          sync_timestamp?: string
+        }
+        Update: {
+          api_version?: string | null
+          created_at?: string
+          id?: string
+          raw_response?: Json
+          square_team_member_id?: string
+          sync_timestamp?: string
+        }
+        Relationships: []
+      }
       staff_profiles: {
         Row: {
           created_at: string | null
@@ -341,6 +651,48 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          assigned_locations: string[] | null
+          created_at: string
+          email: string | null
+          family_name: string | null
+          full_name: string | null
+          given_name: string | null
+          id: string
+          phone: string | null
+          square_team_member_id: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_locations?: string[] | null
+          created_at?: string
+          email?: string | null
+          family_name?: string | null
+          full_name?: string | null
+          given_name?: string | null
+          id?: string
+          phone?: string | null
+          square_team_member_id: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_locations?: string[] | null
+          created_at?: string
+          email?: string | null
+          family_name?: string | null
+          full_name?: string | null
+          given_name?: string | null
+          id?: string
+          phone?: string | null
+          square_team_member_id?: string
+          status?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
