@@ -25,10 +25,9 @@ interface ComparisonMetrics {
   doorVariance: number;
 }
 
-type LocationFilter = 'all' | 'hippie' | 'manor';
+
 
 export const RevenueDashboard = () => {
-  const [selectedLocation, setSelectedLocation] = useState<LocationFilter>('all');
   const [currentWeek, setCurrentWeek] = useState<PeriodMetrics>({ totalRevenue: 0, barRevenue: 0, doorRevenue: 0 });
   const [lastWeekComparison, setLastWeekComparison] = useState<ComparisonMetrics>({ totalVariance: 0, barVariance: 0, doorVariance: 0 });
   const [lastMonthComparison, setLastMonthComparison] = useState<ComparisonMetrics>({ totalVariance: 0, barVariance: 0, doorVariance: 0 });
@@ -71,17 +70,13 @@ export const RevenueDashboard = () => {
     };
   };
 
-  const fetchPeriodMetrics = async (startDate: Date, endDate: Date, location: LocationFilter): Promise<PeriodMetrics> => {
+  const fetchPeriodMetrics = async (startDate: Date, endDate: Date): Promise<PeriodMetrics> => {
     let query = supabase
       .from('revenue_events')
       .select('*')
       .eq('status', 'completed')
       .gte('payment_date', startDate.toISOString())
       .lte('payment_date', endDate.toISOString());
-
-    if (location !== 'all') {
-      query = query.eq('venue', location);
-    }
 
     const { data, error } = await query;
     if (error) {
@@ -90,7 +85,7 @@ export const RevenueDashboard = () => {
     }
 
     const events = (data || []) as RevenueEvent[];
-    console.log(`Found ${events.length} events for period ${startDate.toISOString()} to ${endDate.toISOString()}, location: ${location}`);
+    console.log(`Found ${events.length} events for period ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
     const totalRevenue = events.reduce((sum, event) => sum + event.amount_cents, 0);
     
@@ -114,10 +109,10 @@ export const RevenueDashboard = () => {
       const ranges = getDateRanges();
 
       const [currentWeekMetrics, lastWeekMetrics, lastMonthMetrics, lastYearMetrics] = await Promise.all([
-        fetchPeriodMetrics(ranges.currentWeek.start, ranges.currentWeek.end, selectedLocation),
-        fetchPeriodMetrics(ranges.lastWeek.start, ranges.lastWeek.end, selectedLocation),
-        fetchPeriodMetrics(ranges.lastMonth.start, ranges.lastMonth.end, selectedLocation),
-        fetchPeriodMetrics(ranges.lastYear.start, ranges.lastYear.end, selectedLocation)
+        fetchPeriodMetrics(ranges.currentWeek.start, ranges.currentWeek.end),
+        fetchPeriodMetrics(ranges.lastWeek.start, ranges.lastWeek.end),
+        fetchPeriodMetrics(ranges.lastMonth.start, ranges.lastMonth.end),
+        fetchPeriodMetrics(ranges.lastYear.start, ranges.lastYear.end)
       ]);
 
       setCurrentWeek(currentWeekMetrics);
@@ -149,7 +144,7 @@ export const RevenueDashboard = () => {
 
   useEffect(() => {
     fetchAllMetrics();
-  }, [selectedLocation]);
+  }, []);
 
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -195,32 +190,9 @@ export const RevenueDashboard = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header with Location Toggle */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Revenue Dashboard</h1>
-        <div className="flex gap-2">
-          <Button
-            variant={selectedLocation === 'hippie' ? 'default' : 'outline'}
-            onClick={() => setSelectedLocation('hippie')}
-            size="sm"
-          >
-            Hippie
-          </Button>
-          <Button
-            variant={selectedLocation === 'manor' ? 'default' : 'outline'}
-            onClick={() => setSelectedLocation('manor')}
-            size="sm"
-          >
-            Manor
-          </Button>
-          <Button
-            variant={selectedLocation === 'all' ? 'default' : 'outline'}
-            onClick={() => setSelectedLocation('all')}
-            size="sm"
-          >
-            All
-          </Button>
-        </div>
       </div>
 
       {/* Current Week Section */}
