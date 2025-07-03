@@ -180,6 +180,14 @@ serve(async (req) => {
     console.log('Access token configured:', accessToken ? 'YES' : 'NO');
     console.log('Token length:', accessToken ? accessToken.length : 0);
 
+    // First, sync locations to ensure proper venue mapping
+    console.log('=== SYNCING SQUARE LOCATIONS ===');
+    try {
+      await syncSquareLocations(accessToken, environment, supabase);
+    } catch (error) {
+      console.warn('Failed to sync locations (continuing with payment sync):', error);
+    }
+
     // Get or create sync session
     let syncSession: SyncSession;
     
@@ -637,6 +645,66 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to sync Square locations
+async function syncSquareLocations(accessToken: string, environment: string, supabase: any): Promise<void> {
+  console.log('Fetching Square locations...');
+  
+  const baseUrl = environment === 'sandbox' 
+    ? 'https://connect.squareupsandbox.com'
+    : 'https://connect.squareup.com';
+
+  const response = await fetch(`${baseUrl}/v2/locations`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Square-Version': '2024-12-18',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch locations: ${response.status}`);
+  }
+
+  const locationsData = await response.json();
+  console.log(`Found ${locationsData.locations?.length || 0} locations`);
+
+  if (locationsData.locations && locationsData.locations.length > 0) {
+    for (const location of locationsData.locations) {
+      const locationData = {
+        square_location_id: location.id,
+        location_name: location.name || 'Unknown Location',
+        address: location.address ? [
+          location.address.address_line_1,
+          location.address.address_line_2,
+          location.address.locality,
+          location.address.administrative_district_level_1,
+          location.address.postal_code
+        ].filter(Boolean).join(', ') : null,
+        business_name: location.business_name,
+        country: location.country,
+        currency: location.currency,
+        environment: environment,
+        is_active: location.status === 'ACTIVE',
+        synced_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('square_locations')
+        .upsert(locationData, {
+          onConflict: 'square_location_id'
+        });
+
+      if (error) {
+        console.error(`Failed to store location ${location.id}:`, error);
+      } else {
+        console.log(`Stored location: ${location.name} (${location.id})`);
+      }
+    }
+  }
+}
 
 // Helper function to categorize payments
 function categorizePayment(payment: SquarePayment): 'bar' | 'door' | 'other' {

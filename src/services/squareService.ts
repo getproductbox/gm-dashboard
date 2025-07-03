@@ -96,6 +96,59 @@ export class SquareService {
     });
   }
 
+  async syncLocations(environment: 'sandbox' | 'production'): Promise<{
+    success: boolean;
+    locationsProcessed: number;
+    error?: string;
+  }> {
+    try {
+      const response = await this.listLocations();
+      let locationsProcessed = 0;
+
+      if (response.locations && response.locations.length > 0) {
+        for (const location of response.locations) {
+          await this.storeLocation(location, environment);
+          locationsProcessed++;
+        }
+      }
+
+      return { success: true, locationsProcessed };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, locationsProcessed: 0, error: errorMessage };
+    }
+  }
+
+  private async storeLocation(location: any, environment: 'sandbox' | 'production'): Promise<void> {
+    const locationData = {
+      square_location_id: location.id,
+      location_name: location.name || 'Unknown Location',
+      address: location.address ? [
+        location.address.address_line_1,
+        location.address.address_line_2,
+        location.address.locality,
+        location.address.administrative_district_level_1,
+        location.address.postal_code
+      ].filter(Boolean).join(', ') : null,
+      business_name: location.business_name,
+      country: location.country,
+      currency: location.currency,
+      environment: environment,
+      is_active: location.status === 'ACTIVE',
+      synced_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('square_locations')
+      .upsert(locationData, {
+        onConflict: 'square_location_id'
+      });
+
+    if (error) {
+      throw new Error(`Failed to store location: ${error.message}`);
+    }
+  }
+
   async getPaymentsSince(since: string, locationId?: string): Promise<SquarePaymentsResponse> {
     const params: SquarePaymentsListParams = {
       begin_time: since,
@@ -240,6 +293,25 @@ export class SquareService {
       return 'bar';
     } else {
       return 'other'; // Large amounts might be special events, etc.
+    }
+  }
+
+  async reprocessVenueMapping(): Promise<{
+    success: boolean;
+    processedCount?: number;
+    error?: string;
+  }> {
+    try {
+      const response = await supabase.functions.invoke('reprocess-venues');
+      
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      return response.data;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage };
     }
   }
 }

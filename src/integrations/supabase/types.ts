@@ -197,6 +197,51 @@ export type Database = {
           },
         ]
       }
+      square_locations: {
+        Row: {
+          address: string | null
+          business_name: string | null
+          country: string | null
+          created_at: string
+          currency: string | null
+          environment: string
+          id: string
+          is_active: boolean
+          location_name: string
+          square_location_id: string
+          synced_at: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          business_name?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          environment?: string
+          id?: string
+          is_active?: boolean
+          location_name: string
+          square_location_id: string
+          synced_at?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          business_name?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          environment?: string
+          id?: string
+          is_active?: boolean
+          location_name?: string
+          square_location_id?: string
+          synced_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       square_payments_raw: {
         Row: {
           id: string

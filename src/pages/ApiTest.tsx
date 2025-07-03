@@ -2,9 +2,10 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Code } from "lucide-react";
+import { Activity, Code, MapPin } from "lucide-react";
 import { ApiConnectionStatus } from "@/components/api/ApiConnectionStatus";
 import { GenericApiTester } from "@/components/api/GenericApiTester";
+import { VenueReprocessingControls } from "@/components/square/VenueReprocessingControls";
 
 export default function ApiTest() {
   return (
@@ -18,7 +19,7 @@ export default function ApiTest() {
         </div>
 
         <Tabs defaultValue="status" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="status" className="flex items-center space-x-2">
               <Activity className="h-4 w-4" />
               <span>Service Status</span>
@@ -26,6 +27,10 @@ export default function ApiTest() {
             <TabsTrigger value="tester" className="flex items-center space-x-2">
               <Code className="h-4 w-4" />
               <span>API Tester</span>
+            </TabsTrigger>
+            <TabsTrigger value="venues" className="flex items-center space-x-2">
+              <MapPin className="h-4 w-4" />
+              <span>Venue Tools</span>
             </TabsTrigger>
           </TabsList>
 
@@ -46,6 +51,10 @@ export default function ApiTest() {
                 <GenericApiTester />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="venues" className="space-y-6">
+            <VenueReprocessingControls />
           </TabsContent>
         </Tabs>
       </div>
