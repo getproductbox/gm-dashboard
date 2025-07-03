@@ -192,8 +192,7 @@ export class SquareService {
       .upsert({
         square_payment_id: payment.id,
         raw_response: payment as any, // Cast to any to satisfy Json type
-        api_version: '2024-12-18',
-        sync_timestamp: new Date().toISOString()
+        synced_at: new Date().toISOString()
       }, {
         onConflict: 'square_payment_id'
       });

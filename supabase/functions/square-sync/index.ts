@@ -471,8 +471,7 @@ serve(async (req) => {
               .upsert({
                 square_payment_id: payment.id,
                 raw_response: payment,
-                api_version: '2024-12-18',
-                sync_timestamp: new Date().toISOString()
+                synced_at: new Date().toISOString()
               }, {
                 onConflict: 'square_payment_id'
               });

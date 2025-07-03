@@ -12,8 +12,7 @@ interface RawPayment {
   id: string;
   square_payment_id: string;
   raw_response: any;
-  api_version: string;
-  sync_timestamp: string;
+  synced_at: string;
 }
 
 export const RawDataExplorer = () => {
@@ -32,7 +31,7 @@ export const RawDataExplorer = () => {
       const { data, error } = await supabase
         .from('square_payments_raw')
         .select('*')
-        .order('sync_timestamp', { ascending: false })
+        .order('synced_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
@@ -118,7 +117,7 @@ export const RawDataExplorer = () => {
                           {payment.square_payment_id}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {new Date(payment.sync_timestamp).toLocaleString()}
+                          {new Date(payment.synced_at).toLocaleString()}
                         </div>
                       </div>
                       <div className="text-right">
@@ -149,9 +148,8 @@ export const RawDataExplorer = () => {
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">Payment Details</h4>
                     <div className="flex space-x-2">
-                      <Badge>{selectedPayment.api_version}</Badge>
                       <Badge variant="outline">
-                        {new Date(selectedPayment.sync_timestamp).toLocaleString()}
+                        {new Date(selectedPayment.synced_at).toLocaleString()}
                       </Badge>
                     </div>
                   </div>
