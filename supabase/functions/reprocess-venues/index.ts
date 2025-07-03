@@ -44,12 +44,120 @@ serve(async (req) => {
 
     console.log(`Found ${rawPayments?.length || 0} payments to reprocess`);
 
+    // For large datasets (>1000), use job-based processing
+    if (rawPayments && rawPayments.length > 1000) {
+      console.log(`🚀 Large dataset detected (${rawPayments.length} payments). Creating background job...`);
+      
+      // Create a processing job
+      const jobId = crypto.randomUUID();
+      const { error: jobError } = await supabase
+        .from('venue_processing_jobs')
+        .insert({
+          id: jobId,
+          total_payments: rawPayments.length,
+          days_back: daysBack,
+          status: 'pending',
+          created_at: new Date().toISOString()
+        });
+
+      if (jobError) {
+        throw new Error(`Failed to create processing job: ${jobError.message}`);
+      }
+
+      // Start background processing
+      const backgroundProcessing = async () => {
+        const CHUNK_SIZE = 500;
+        let processed = 0;
+        let errors = 0;
+
+        for (let i = 0; i < rawPayments.length; i += CHUNK_SIZE) {
+          const chunk = rawPayments.slice(i, i + CHUNK_SIZE);
+          
+          // Update job status
+          await supabase
+            .from('venue_processing_jobs')
+            .update({
+              status: 'processing',
+              processed_count: processed,
+              error_count: errors,
+              progress_percentage: Math.round((processed / rawPayments.length) * 100),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', jobId);
+
+          // Process chunk
+          for (const payment of chunk) {
+            try {
+              const { data: result, error: processError } = await supabase
+                .rpc('process_payment_to_revenue', {
+                  payment_id: payment.square_payment_id
+                });
+
+              if (processError) {
+                console.error(`❌ Error processing payment ${payment.square_payment_id}:`, processError.message);
+                errors++;
+              } else if (result) {
+                processed++;
+              }
+            } catch (error) {
+              console.error(`💥 Exception processing payment ${payment.square_payment_id}:`, error);
+              errors++;
+            }
+          }
+
+          console.log(`📊 Chunk complete: ${processed}/${rawPayments.length} processed, ${errors} errors`);
+        }
+
+        // Mark job as complete
+        await supabase
+          .from('venue_processing_jobs')
+          .update({
+            status: processed === rawPayments.length && errors === 0 ? 'completed' : 'completed_with_errors',
+            processed_count: processed,
+            error_count: errors,
+            progress_percentage: 100,
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', jobId);
+
+        console.log(`🎉 Background job ${jobId} complete: ${processed} processed, ${errors} errors`);
+      };
+
+      // Start background processing without blocking response
+      backgroundProcessing().catch(error => {
+        console.error('Background processing error:', error);
+        supabase
+          .from('venue_processing_jobs')
+          .update({
+            status: 'failed',
+            error_message: error.message,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', jobId);
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          jobId: jobId,
+          totalPayments: rawPayments.length,
+          message: `Background job created for ${rawPayments.length} payments. Check job status with ID: ${jobId}`
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    // For smaller datasets, process immediately
     let processedCount = 0;
     let errorCount = 0;
-    const BATCH_SIZE = 250; // Larger batch size for better performance
-    const MAX_PROCESSING_TIME = 280000; // 4 minutes 40 seconds (leaving 20s buffer for response)
+    const BATCH_SIZE = 250;
+    const MAX_PROCESSING_TIME = 280000;
     const startTime = Date.now();
-    const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100 payments
+    const PROGRESS_UPDATE_INTERVAL = 100;
 
     if (rawPayments && rawPayments.length > 0) {
       console.log(`Starting optimized bulk processing with ${BATCH_SIZE} payment batches...`);
