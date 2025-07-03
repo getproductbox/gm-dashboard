@@ -350,6 +350,48 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_processing_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          days_back: number
+          error_count: number | null
+          error_message: string | null
+          id: string
+          processed_count: number | null
+          progress_percentage: number | null
+          status: string
+          total_payments: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          days_back: number
+          error_count?: number | null
+          error_message?: string | null
+          id?: string
+          processed_count?: number | null
+          progress_percentage?: number | null
+          status?: string
+          total_payments: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          days_back?: number
+          error_count?: number | null
+          error_message?: string | null
+          id?: string
+          processed_count?: number | null
+          progress_percentage?: number | null
+          status?: string
+          total_payments?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
