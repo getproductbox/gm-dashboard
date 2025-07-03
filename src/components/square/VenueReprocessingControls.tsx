@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 export const VenueReprocessingControls = () => {
   const [isReprocessing, setIsReprocessing] = useState(false);
   const [isSyncingLocations, setIsSyncingLocations] = useState(false);
-  const [daysBack, setDaysBack] = useState("14");
+  const [daysBack, setDaysBack] = useState("3");
   const [lastReprocessResult, setLastReprocessResult] = useState<{
     processedCount: number;
     errorCount: number;
@@ -126,7 +126,7 @@ export const VenueReprocessingControls = () => {
 
       if (data.success) {
         if (data.jobId) {
-          // Background job created
+          // Background job created - all processing now uses jobs
           setCurrentJob({
             id: data.jobId,
             status: 'pending',
@@ -136,15 +136,9 @@ export const VenueReprocessingControls = () => {
             error_count: 0
           });
           toast.success(`Background job created for ${data.totalPayments} payments. Processing in background...`);
-        } else {
-          // Immediate processing completed
-          setLastReprocessResult({
-            processedCount: data.processedCount,
-            errorCount: data.errorCount,
-            totalPayments: data.totalPayments,
-            daysBack: parseInt(daysBack)
-          });
-          toast.success(`Successfully reprocessed ${data.processedCount} payments from the last ${daysBack} days`);
+        } else if (data.totalPayments === 0) {
+          // No payments to process
+          toast.info(`No payments found in the last ${daysBack} days`);
         }
       } else {
         throw new Error(data.error || 'Unknown error');
@@ -226,6 +220,7 @@ export const VenueReprocessingControls = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="3">Last 3 days</SelectItem>
                   <SelectItem value="7">Last 7 days</SelectItem>
                   <SelectItem value="14">Last 2 weeks</SelectItem>
                   <SelectItem value="30">Last 30 days</SelectItem>

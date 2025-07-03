@@ -44,9 +44,9 @@ serve(async (req) => {
 
     console.log(`Found ${rawPayments?.length || 0} payments to reprocess`);
 
-    // For large datasets (>1000), use job-based processing
-    if (rawPayments && rawPayments.length > 1000) {
-      console.log(`🚀 Large dataset detected (${rawPayments.length} payments). Creating background job...`);
+    // Always use job-based processing for better reliability and timeout handling
+    if (rawPayments && rawPayments.length > 0) {
+      console.log(`🚀 Creating background job for ${rawPayments.length} payments...`);
       
       // Create a processing job
       const jobId = crypto.randomUUID();
@@ -66,7 +66,7 @@ serve(async (req) => {
 
       // Start background processing
       const backgroundProcessing = async () => {
-        const CHUNK_SIZE = 500;
+        const CHUNK_SIZE = 50;
         let processed = 0;
         let errors = 0;
 
@@ -151,84 +151,12 @@ serve(async (req) => {
       );
     }
 
-    // For smaller datasets, process immediately
-    let processedCount = 0;
-    let errorCount = 0;
-    const BATCH_SIZE = 250;
-    const MAX_PROCESSING_TIME = 280000;
-    const startTime = Date.now();
-    const PROGRESS_UPDATE_INTERVAL = 100;
-
-    if (rawPayments && rawPayments.length > 0) {
-      console.log(`Starting optimized bulk processing with ${BATCH_SIZE} payment batches...`);
-      const totalBatches = Math.ceil(rawPayments.length / BATCH_SIZE);
-      
-      // Process in optimized batches
-      for (let i = 0; i < rawPayments.length; i += BATCH_SIZE) {
-        const currentBatch = Math.floor(i / BATCH_SIZE) + 1;
-        const elapsedTime = Date.now() - startTime;
-        
-        // Enhanced timeout check with more generous limit
-        if (elapsedTime > MAX_PROCESSING_TIME) {
-          console.log(`⏰ Timeout reached after ${Math.round(elapsedTime / 1000)}s. Processed ${processedCount} of ${rawPayments.length} payments.`);
-          console.log(`📊 Processing rate: ${Math.round(processedCount / (elapsedTime / 1000))} payments/second`);
-          break;
-        }
-
-        const batch = rawPayments.slice(i, i + BATCH_SIZE);
-        console.log(`🔄 Processing batch ${currentBatch}/${totalBatches} (${batch.length} payments) - ${Math.round((i / rawPayments.length) * 100)}% complete`);
-        
-        let batchProcessed = 0;
-        let batchErrors = 0;
-        
-        // Process batch with enhanced error handling
-        for (const rawPayment of batch) {
-          try {
-            // Use the database function to properly process venue mapping
-            const { data: processed, error: processError } = await supabase
-              .rpc('process_payment_to_revenue', {
-                payment_id: rawPayment.square_payment_id
-              });
-
-            if (processError) {
-              console.error(`❌ Error processing payment ${rawPayment.square_payment_id}:`, processError.message);
-              errorCount++;
-              batchErrors++;
-            } else if (processed) {
-              processedCount++;
-              batchProcessed++;
-            }
-          } catch (error) {
-            console.error(`💥 Exception processing payment ${rawPayment.square_payment_id}:`, error);
-            errorCount++;
-            batchErrors++;
-          }
-          
-          // Enhanced progress logging
-          if (processedCount % PROGRESS_UPDATE_INTERVAL === 0) {
-            const progressPercent = Math.round((processedCount / rawPayments.length) * 100);
-            const rate = Math.round(processedCount / ((Date.now() - startTime) / 1000));
-            console.log(`📈 Progress: ${processedCount}/${rawPayments.length} (${progressPercent}%) - Rate: ${rate} payments/sec`);
-          }
-        }
-        
-        const batchTime = Date.now() - startTime;
-        console.log(`✅ Batch ${currentBatch} complete: ${batchProcessed} processed, ${batchErrors} errors in ${Math.round((Date.now() - startTime - elapsedTime) / 1000)}s`);
-        console.log(`📊 Overall progress: ${processedCount}/${rawPayments.length} (${Math.round((processedCount / rawPayments.length) * 100)}%) - Total time: ${Math.round(batchTime / 1000)}s`);
-      }
-    }
-
-    console.log('=== REPROCESSING COMPLETE ===');
-    console.log(`Successfully processed: ${processedCount}`);
-    console.log(`Errors encountered: ${errorCount}`);
-
+    // If no payments found, return success
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Reprocessed venue mapping for ${processedCount} payments`,
-        processedCount,
-        errorCount,
-        totalPayments: rawPayments?.length || 0
+        message: `No payments found in the last ${daysBack} days`,
+        totalPayments: 0
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
