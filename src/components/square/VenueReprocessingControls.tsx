@@ -2,24 +2,29 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MapPin, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export const VenueReprocessingControls = () => {
   const [isReprocessing, setIsReprocessing] = useState(false);
+  const [daysBack, setDaysBack] = useState("14");
   const [lastReprocessResult, setLastReprocessResult] = useState<{
     processedCount: number;
     errorCount: number;
     totalPayments: number;
+    daysBack: number;
   } | null>(null);
 
   const handleReprocessVenues = async () => {
     setIsReprocessing(true);
     try {
-      toast.info('Starting venue reprocessing...');
+      toast.info(`Starting venue reprocessing for last ${daysBack} days...`);
       
-      const { data, error } = await supabase.functions.invoke('reprocess-venues');
+      const { data, error } = await supabase.functions.invoke('reprocess-venues', {
+        body: { daysBack: parseInt(daysBack) }
+      });
       
       if (error) {
         throw error;
@@ -29,9 +34,10 @@ export const VenueReprocessingControls = () => {
         setLastReprocessResult({
           processedCount: data.processedCount,
           errorCount: data.errorCount,
-          totalPayments: data.totalPayments
+          totalPayments: data.totalPayments,
+          daysBack: parseInt(daysBack)
         });
-        toast.success(`Successfully reprocessed ${data.processedCount} payments with proper venue mapping`);
+        toast.success(`Successfully reprocessed ${data.processedCount} payments from the last ${daysBack} days`);
       } else {
         throw new Error(data.error || 'Unknown error');
       }
@@ -57,7 +63,22 @@ export const VenueReprocessingControls = () => {
           This will update all revenue events to use the correct venue names from your Square locations.
         </p>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Time Range:</label>
+            <Select value={daysBack} onValueChange={setDaysBack} disabled={isReprocessing}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="14">Last 2 weeks</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 3 months</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
           <Button 
             onClick={handleReprocessVenues}
             disabled={isReprocessing}
@@ -71,7 +92,7 @@ export const VenueReprocessingControls = () => {
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-green-500" />
               <span className="text-sm text-muted-foreground">
-                Last run: {lastReprocessResult.processedCount}/{lastReprocessResult.totalPayments} processed
+                Last run ({lastReprocessResult.daysBack} days): {lastReprocessResult.processedCount}/{lastReprocessResult.totalPayments} processed
               </span>
               {lastReprocessResult.errorCount > 0 && (
                 <Badge variant="destructive" className="flex items-center gap-1">

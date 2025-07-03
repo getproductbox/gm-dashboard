@@ -20,11 +20,23 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all raw payments that need venue reprocessing
-    console.log('Fetching raw payments...');
+    // Get body parameters
+    const body = await req.json().catch(() => ({}));
+    const daysBack = body.daysBack || 14; // Default to last 2 weeks
+    
+    // Calculate date filter
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    const cutoffISO = cutoffDate.toISOString();
+    
+    console.log(`Fetching raw payments from the last ${daysBack} days (since ${cutoffISO})...`);
+    
+    // Get raw payments that need venue reprocessing from the specified date range
     const { data: rawPayments, error: fetchError } = await supabase
       .from('square_payments_raw')
-      .select('square_payment_id, raw_response');
+      .select('square_payment_id, raw_response')
+      .gte('raw_response->>created_at', cutoffISO)
+      .order('synced_at', { ascending: false });
 
     if (fetchError) {
       throw new Error(`Failed to fetch raw payments: ${fetchError.message}`);
