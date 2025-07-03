@@ -46,29 +46,43 @@ serve(async (req) => {
 
     let processedCount = 0;
     let errorCount = 0;
+    const BATCH_SIZE = 50;
+    const MAX_PROCESSING_TIME = 50000; // 50 seconds limit
+    const startTime = Date.now();
 
     if (rawPayments && rawPayments.length > 0) {
-      for (const rawPayment of rawPayments) {
-        try {
-          // Use the database function to properly process venue mapping
-          const { data: processed, error: processError } = await supabase
-            .rpc('process_payment_to_revenue', {
-              payment_id: rawPayment.square_payment_id
-            });
-
-          if (processError) {
-            console.error(`Error processing payment ${rawPayment.square_payment_id}:`, processError);
-            errorCount++;
-          } else if (processed) {
-            processedCount++;
-            if (processedCount % 50 === 0) {
-              console.log(`Processed ${processedCount} payments...`);
-            }
-          }
-        } catch (error) {
-          console.error(`Exception processing payment ${rawPayment.square_payment_id}:`, error);
-          errorCount++;
+      // Process in batches to avoid timeout
+      for (let i = 0; i < rawPayments.length; i += BATCH_SIZE) {
+        // Check if we're approaching timeout
+        if (Date.now() - startTime > MAX_PROCESSING_TIME) {
+          console.log(`Stopping due to timeout limit. Processed ${processedCount} of ${rawPayments.length} payments.`);
+          break;
         }
+
+        const batch = rawPayments.slice(i, i + BATCH_SIZE);
+        console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} payments)...`);
+        
+        for (const rawPayment of batch) {
+          try {
+            // Use the database function to properly process venue mapping
+            const { data: processed, error: processError } = await supabase
+              .rpc('process_payment_to_revenue', {
+                payment_id: rawPayment.square_payment_id
+              });
+
+            if (processError) {
+              console.error(`Error processing payment ${rawPayment.square_payment_id}:`, processError);
+              errorCount++;
+            } else if (processed) {
+              processedCount++;
+            }
+          } catch (error) {
+            console.error(`Exception processing payment ${rawPayment.square_payment_id}:`, error);
+            errorCount++;
+          }
+        }
+        
+        console.log(`Batch complete. Progress: ${processedCount}/${rawPayments.length} processed, ${errorCount} errors`);
       }
     }
 
