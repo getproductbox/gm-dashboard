@@ -6,6 +6,7 @@ import { Activity, Code, MapPin } from "lucide-react";
 import { ApiConnectionStatus } from "@/components/api/ApiConnectionStatus";
 import { GenericApiTester } from "@/components/api/GenericApiTester";
 import { VenueReprocessingControls } from "@/components/square/VenueReprocessingControls";
+import { TransactionMappingTest } from "@/components/square/TransactionMappingTest";
 
 export default function ApiTest() {
   return (
@@ -19,7 +20,7 @@ export default function ApiTest() {
         </div>
 
         <Tabs defaultValue="status" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="status" className="flex items-center space-x-2">
               <Activity className="h-4 w-4" />
               <span>Service Status</span>
@@ -31,6 +32,10 @@ export default function ApiTest() {
             <TabsTrigger value="venues" className="flex items-center space-x-2">
               <MapPin className="h-4 w-4" />
               <span>Venue Tools</span>
+            </TabsTrigger>
+            <TabsTrigger value="mapping" className="flex items-center space-x-2">
+              <Code className="h-4 w-4" />
+              <span>Data Mapping</span>
             </TabsTrigger>
           </TabsList>
 
@@ -55,6 +60,10 @@ export default function ApiTest() {
 
           <TabsContent value="venues" className="space-y-6">
             <VenueReprocessingControls />
+          </TabsContent>
+
+          <TabsContent value="mapping" className="space-y-6">
+            <TransactionMappingTest />
           </TabsContent>
         </Tabs>
       </div>
