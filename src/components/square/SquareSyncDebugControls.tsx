@@ -11,7 +11,7 @@ import { Bug, Calendar, Play, RefreshCw } from 'lucide-react';
 import { useSquareSync } from '@/hooks/useSquareSync';
 
 export const SquareSyncDebugControls = () => {
-  const { isLoading, testDateRangeSync, syncLastDays } = useSquareSync();
+  const { isLoading, triggerSync } = useSquareSync();
   const [environment, setEnvironment] = useState<'sandbox' | 'production'>('sandbox');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -25,7 +25,10 @@ export const SquareSyncDebugControls = () => {
     }
 
     try {
-      await testDateRangeSync(environment, startDate, endDate, clearExisting);
+      await triggerSync(environment, {
+        dateRange: { start: startDate, end: endDate },
+        clearExisting
+      });
     } catch (error) {
       console.error('Test sync failed:', error);
     }
@@ -39,7 +42,17 @@ export const SquareSyncDebugControls = () => {
     }
 
     try {
-      await syncLastDays(environment, days, clearExisting);
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      await triggerSync(environment, {
+        dateRange: { 
+          start: startDate.toISOString(), 
+          end: endDate.toISOString() 
+        },
+        clearExisting
+      });
     } catch (error) {
       console.error('Last days sync failed:', error);
     }
