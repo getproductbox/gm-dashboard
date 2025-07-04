@@ -138,13 +138,26 @@ serve(async (req) => {
   const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
   const BATCH_SIZE = 25; // Smaller batches for better progress tracking
 
+  // Environment and request data for error handling
+  let environment = 'sandbox';
+  let syncParams: SyncRequest = {};
+
   try {
-    console.log('=== STARTING TRANSACTION-BASED SQUARE PAYMENTS SYNC ===');
+    console.log('=== STARTING SIMPLIFIED SQUARE PAYMENTS SYNC ===');
     console.log('Request method:', req.method);
     console.log('Current UTC time:', new Date().toISOString());
 
+    // Validate required environment variables early
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const sandboxToken = Deno.env.get('SQUARE_SANDBOX_ACCESS_TOKEN');
+    const productionToken = Deno.env.get('SQUARE_PRODUCTION_ACCESS_TOKEN');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase configuration');
+    }
+
     // Parse request body for sync parameters
-    let syncParams: SyncRequest = {};
     if (req.method === 'POST') {
       try {
         const body = await req.json();
@@ -156,31 +169,23 @@ serve(async (req) => {
       }
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Reset any stuck sync states first
-    console.log('Resetting any stuck sync states...');
-    await supabase.rpc('reset_stuck_sync_states');
-
-    // Determine environment
-    const environment = syncParams.environment || 'sandbox';
-    console.log('=== ENVIRONMENT CONFIGURATION ===');
-    console.log('Target environment:', environment);
-    
-    // Get Square API credentials
-    const sandboxToken = Deno.env.get('SQUARE_SANDBOX_ACCESS_TOKEN');
-    const productionToken = Deno.env.get('SQUARE_PRODUCTION_ACCESS_TOKEN');
+    // Determine environment and validate access token
+    environment = syncParams.environment || 'sandbox';
     const accessToken = environment === 'production' ? productionToken : sandboxToken;
 
     if (!accessToken) {
       throw new Error(`No access token configured for ${environment} environment`);
     }
 
-    console.log('Access token configured:', accessToken ? 'YES' : 'NO');
-    console.log('Token length:', accessToken ? accessToken.length : 0);
+    console.log('Environment:', environment);
+    console.log('Access token configured:', 'YES');
+
+    // Initialize Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Reset any stuck sync states first
+    console.log('Resetting any stuck sync states...');
+    await supabase.rpc('reset_stuck_sync_states');
 
     // First, sync locations to ensure proper venue mapping
     console.log('=== SYNCING SQUARE LOCATIONS ===');
@@ -634,7 +639,7 @@ serve(async (req) => {
           error_message: errorMessage,
           last_heartbeat: new Date().toISOString()
         })
-        .eq('environment', (req as any).environment || 'sandbox');
+        .eq('environment', environment);
     } catch (updateError) {
       console.error('Failed to update error status:', updateError);
     }
