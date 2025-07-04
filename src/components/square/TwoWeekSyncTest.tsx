@@ -101,15 +101,17 @@ export const TwoWeekSyncTest = () => {
               <SelectItem value="1000">1,000 transactions (Medium test)</SelectItem>
               <SelectItem value="2000">2,000 transactions (Large test)</SelectItem>
               <SelectItem value="10000">10,000 transactions (Stress test)</SelectItem>
+              <SelectItem value="50000">50,000 transactions (Max stress test)</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-gray-600">
             Estimated time: {parseInt(transactionCount) <= 500 ? '30-60 seconds' : 
                            parseInt(transactionCount) <= 1000 ? '1-2 minutes' : 
-                           parseInt(transactionCount) <= 2000 ? '2-4 minutes' : '2-5 minutes'}
+                           parseInt(transactionCount) <= 2000 ? '2-4 minutes' : 
+                           parseInt(transactionCount) <= 10000 ? '2-5 minutes' : '5-10 minutes'}
             {parseInt(transactionCount) >= 10000 && (
               <span className="block text-orange-600 mt-1">
-                ⚡ Stress test: ~100 API calls to Square for comprehensive dataset
+                ⚡ Stress test: ~{Math.ceil(parseInt(transactionCount) / 100)} API calls to Square for comprehensive dataset
               </span>
             )}
           </p>
