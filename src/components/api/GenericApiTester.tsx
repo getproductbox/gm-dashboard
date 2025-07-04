@@ -40,6 +40,14 @@ const squareTests = [
       limit: 10
     },
     expectedEndpoint: 'https://connect.squareup.com/v2/payments?begin_time=2025-06-20T00:00:00Z&limit=10'
+  },
+  {
+    name: 'Test Map 100 Transactions',
+    method: 'POST',
+    description: 'Test mapping 100 transactions from raw payments to revenue_events table',
+    body: {},
+    expectedEndpoint: 'Database Function: test_map_100_transactions()',
+    isDbFunction: true
   }
 ];
 
@@ -55,49 +63,79 @@ export const GenericApiTester = () => {
     const startTime = Date.now();
 
     try {
-      console.log('Running Square API test:', currentTest.name);
+      console.log('Running test:', currentTest.name);
       console.log('Test body:', currentTest.body);
-
-      const { data, error } = await supabase.functions.invoke('square-api-test', {
-        body: currentTest.body
-      });
-
-      const executionTime = Date.now() - startTime;
 
       let result: ApiTestResult;
 
-      if (error) {
-        result = {
-          endpoint: `Square API Test: ${currentTest.name}`,
-          method: currentTest.method,
-          status: null,
-          response: null,
-          error: error.message,
-          timestamp: new Date(),
-          duration: executionTime
-        };
+      if (currentTest.isDbFunction) {
+        // Handle database function tests
+        const { data, error } = await supabase.rpc('test_map_100_transactions');
+        
+        const executionTime = Date.now() - startTime;
+
+        if (error) {
+          result = {
+            endpoint: currentTest.expectedEndpoint,
+            method: 'DB Function',
+            status: null,
+            response: null,
+            error: error.message,
+            timestamp: new Date(),
+            duration: executionTime
+          };
+        } else {
+          result = {
+            endpoint: currentTest.expectedEndpoint,
+            method: 'DB Function',
+            status: 200,
+            response: data,
+            error: null,
+            timestamp: new Date(),
+            duration: executionTime
+          };
+        }
       } else {
-        result = {
-          endpoint: data?.url || currentTest.expectedEndpoint,
-          method: 'GET', // The actual method used by the edge function
-          status: data?.status || null,
-          response: data,
-          error: data?.success === false ? (data?.error || 'Test failed') : null,
-          timestamp: new Date(),
-          duration: executionTime
-        };
+        // Handle Square API tests
+        const { data, error } = await supabase.functions.invoke('square-api-test', {
+          body: currentTest.body
+        });
+
+        const executionTime = Date.now() - startTime;
+
+        if (error) {
+          result = {
+            endpoint: `Square API Test: ${currentTest.name}`,
+            method: currentTest.method,
+            status: null,
+            response: null,
+            error: error.message,
+            timestamp: new Date(),
+            duration: executionTime
+          };
+        } else {
+          result = {
+            endpoint: data?.url || currentTest.expectedEndpoint,
+            method: 'GET', // The actual method used by the edge function
+            status: data?.status || null,
+            response: data,
+            error: data?.success === false ? (data?.error || 'Test failed') : null,
+            timestamp: new Date(),
+            duration: executionTime
+          };
+        }
       }
 
       setTestResults(prev => [result, ...prev]);
       
-      if (!result.error && result.status && result.status >= 200 && result.status < 300) {
+      if (!result.error && (result.status === 200 || (result.status && result.status >= 200 && result.status < 300))) {
         toast.success(`${currentTest.name} successful`);
       } else {
         toast.error(`${currentTest.name} failed`);
       }
     } catch (error) {
       const result: ApiTestResult = {
-        endpoint: `Square API Test: ${currentTest.name}`,
+        endpoint: `Test: ${currentTest.name}`,
         method: currentTest.method,
         status: null,
         response: null,

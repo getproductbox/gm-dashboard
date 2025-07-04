@@ -425,6 +425,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      test_map_100_transactions: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
