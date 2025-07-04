@@ -409,6 +409,18 @@ export type Database = {
         Args: { payment_id: string }
         Returns: boolean
       }
+      process_payments_batch: {
+        Args: { payment_ids?: string[]; days_back?: number }
+        Returns: {
+          processed_count: number
+          error_count: number
+          total_payments: number
+        }[]
+      }
+      reprocess_venues_batch: {
+        Args: { days_back?: number }
+        Returns: Json
+      }
       reset_stuck_sync_states: {
         Args: Record<PropertyKey, never>
         Returns: undefined

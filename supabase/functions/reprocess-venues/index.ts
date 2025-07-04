@@ -44,119 +44,28 @@ serve(async (req) => {
 
     console.log(`Found ${rawPayments?.length || 0} payments to reprocess`);
 
-    // Always use job-based processing for better reliability and timeout handling
-    if (rawPayments && rawPayments.length > 0) {
-      console.log(`🚀 Creating background job for ${rawPayments.length} payments...`);
-      
-      // Create a processing job
-      const jobId = crypto.randomUUID();
-      const { error: jobError } = await supabase
-        .from('venue_processing_jobs')
-        .insert({
-          id: jobId,
-          total_payments: rawPayments.length,
-          days_back: daysBack,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        });
-
-      if (jobError) {
-        throw new Error(`Failed to create processing job: ${jobError.message}`);
-      }
-
-      // Start background processing
-      const backgroundProcessing = async () => {
-        const CHUNK_SIZE = 50;
-        let processed = 0;
-        let errors = 0;
-
-        for (let i = 0; i < rawPayments.length; i += CHUNK_SIZE) {
-          const chunk = rawPayments.slice(i, i + CHUNK_SIZE);
-          
-          // Update job status
-          await supabase
-            .from('venue_processing_jobs')
-            .update({
-              status: 'processing',
-              processed_count: processed,
-              error_count: errors,
-              progress_percentage: Math.round((processed / rawPayments.length) * 100),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', jobId);
-
-          // Process chunk
-          for (const payment of chunk) {
-            try {
-              const { data: result, error: processError } = await supabase
-                .rpc('process_payment_to_revenue', {
-                  payment_id: payment.square_payment_id
-                });
-
-              if (processError) {
-                console.error(`❌ Error processing payment ${payment.square_payment_id}:`, processError.message);
-                errors++;
-              } else if (result) {
-                processed++;
-              }
-            } catch (error) {
-              console.error(`💥 Exception processing payment ${payment.square_payment_id}:`, error);
-              errors++;
-            }
-          }
-
-          console.log(`📊 Chunk complete: ${processed}/${rawPayments.length} processed, ${errors} errors`);
-        }
-
-        // Mark job as complete
-        await supabase
-          .from('venue_processing_jobs')
-          .update({
-            status: processed === rawPayments.length && errors === 0 ? 'completed' : 'completed_with_errors',
-            processed_count: processed,
-            error_count: errors,
-            progress_percentage: 100,
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', jobId);
-
-        console.log(`🎉 Background job ${jobId} complete: ${processed} processed, ${errors} errors`);
-      };
-
-      // Start background processing without blocking response
-      backgroundProcessing().catch(error => {
-        console.error('Background processing error:', error);
-        supabase
-          .from('venue_processing_jobs')
-          .update({
-            status: 'failed',
-            error_message: error.message,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', jobId);
+    // Use optimized batch processing instead of individual payment processing
+    console.log(`🚀 Using optimized batch processing for last ${daysBack} days...`);
+    
+    // Call the new batch processing function
+    const { data: batchResult, error: batchError } = await supabase
+      .rpc('reprocess_venues_batch', {
+        days_back: daysBack
       });
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          jobId: jobId,
-          totalPayments: rawPayments.length,
-          message: `Background job created for ${rawPayments.length} payments. Check job status with ID: ${jobId}`
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      );
+    if (batchError) {
+      throw new Error(`Batch processing failed: ${batchError.message}`);
     }
 
-    // If no payments found, return success
+    console.log(`✅ Batch processing complete:`, batchResult);
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `No payments found in the last ${daysBack} days`,
-        totalPayments: 0
+        processedCount: batchResult.processed_count,
+        errorCount: batchResult.error_count,
+        totalPayments: batchResult.total_payments,
+        message: `Successfully processed ${batchResult.processed_count} of ${batchResult.total_payments} payments in batch`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
