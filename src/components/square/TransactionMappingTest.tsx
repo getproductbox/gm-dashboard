@@ -32,7 +32,7 @@ export const TransactionMappingTest = () => {
     try {
       console.log('Running transaction mapping test...');
       
-      const { data, error } = await supabase.rpc('test_map_100_transactions');
+      const { data, error } = await supabase.rpc('test_map_1000_transactions');
       
       if (error) {
         throw new Error(error.message);
@@ -67,13 +67,13 @@ export const TransactionMappingTest = () => {
       <CardContent className="space-y-4">
         <Alert>
           <AlertDescription>
-            This test will map 100 recent transactions from the raw payments table to the revenue_events table.
-            It will use basic venue mapping and set all revenue types to 'bar'.
+            This test will map 1000 recent transactions from the raw payments table to the revenue_events table.
+            It will use venue-based mapping (Hippie Door → door, others → bar).
           </AlertDescription>
         </Alert>
 
         <Button onClick={runMappingTest} disabled={isLoading} className="w-full">
-          {isLoading ? 'Processing...' : 'Test Map 100 Transactions'}
+          {isLoading ? 'Processing...' : 'Test Map 1000 Transactions'}
         </Button>
 
         {error && (
