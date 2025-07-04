@@ -72,9 +72,37 @@ export const TransactionMappingTest = () => {
           </AlertDescription>
         </Alert>
 
-        <Button onClick={runMappingTest} disabled={isLoading} className="w-full">
-          {isLoading ? 'Processing...' : 'Test Map 1000 Transactions'}
-        </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Button onClick={runMappingTest} disabled={isLoading} className="w-full">
+            {isLoading ? 'Processing...' : 'Test Map 1000 Transactions'}
+          </Button>
+          
+          <Button 
+            onClick={async () => {
+              setIsLoading(true);
+              setError(null);
+              setResult(null);
+              
+              try {
+                const { data, error } = await supabase.rpc('test_map_1000_transactions');
+                if (error) throw new Error(error.message);
+                setResult(data as unknown as MappingResult);
+                toast.success(`Successfully mapped ${(data as any).processed_count} transactions`);
+              } catch (err) {
+                const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+                setError(errorMessage);
+                toast.error('Mapping test failed');
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            disabled={isLoading} 
+            variant="outline" 
+            className="w-full"
+          >
+            {isLoading ? 'Processing...' : 'Quick Test 1000 Sync'}
+          </Button>
+        </div>
 
         {error && (
           <Alert variant="destructive">
