@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Hash, RefreshCw, CheckCircle, AlertCircle, PlayCircle } from 'lucide-react';
+import { Hash, RefreshCw, CheckCircle, AlertCircle, PlayCircle, MapPin } from 'lucide-react';
 import { useSquareSync } from '@/hooks/useSquareSync';
 
 interface SyncResult {
@@ -30,6 +30,13 @@ export const TwoWeekSyncTest = () => {
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [transactionCount, setTransactionCount] = useState<string>('500');
   const [clearExisting, setClearExisting] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+
+  const locations = [
+    { id: 'LGRBM02D8PCNM', name: 'Hippie Door' },
+    { id: 'LR2FMXHGFCX2D', name: 'Hippie Bar' },
+    { id: 'LY1RWCF6KXG4F', name: 'Manor Bar' }
+  ];
 
   const handleTransactionSync = async (environment: 'sandbox' | 'production') => {
     setSyncResult(null);
@@ -71,6 +78,40 @@ export const TwoWeekSyncTest = () => {
       console.error('Continue sync error:', error);
     }
   };
+
+  const handleLocationSync = async (environment: 'sandbox' | 'production') => {
+    if (!selectedLocation) return;
+    
+    setSyncResult(null);
+    
+    try {
+      console.log(`Starting location-specific sync for ${environment} environment...`);
+      console.log('Location:', selectedLocation);
+      console.log('Clear existing:', clearExisting);
+      
+      const result = await syncTransactions(environment, 1000, clearExisting, selectedLocation);
+      setSyncResult(result);
+      
+    } catch (error) {
+      console.error('Location sync error:', error);
+      setSyncResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        environment,
+        paymentsProcessed: 0,
+        totalFetched: 0,
+        cursor: null,
+        isComplete: false,
+        executionTimeSeconds: 0,
+        sessionId: null,
+        canContinue: false,
+        progressPercentage: 0,
+        message: 'Location sync failed'
+      });
+    }
+  };
+
+  const selectedLocationName = locations.find(loc => loc.id === selectedLocation)?.name;
 
   return (
     <Card>
@@ -155,6 +196,65 @@ export const TwoWeekSyncTest = () => {
               <Hash className="h-4 w-4 mr-2" />
             )}
             Sync Production ({transactionCount} transactions)
+          </Button>
+        </div>
+
+        {/* Location-Specific Testing Section */}
+        <Alert>
+          <MapPin className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Location-Specific Testing:</strong> Sync 1,000 transactions from a specific venue. 
+            This is perfect for testing venue mapping and getting focused data from a single location.
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-2">
+          <Label htmlFor="location-select">Select Location for Testing</Label>
+          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a location" />
+            </SelectTrigger>
+            <SelectContent>
+              {locations.map((location) => (
+                <SelectItem key={location.id} value={location.id}>
+                  {location.name} ({location.id})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedLocationName && (
+            <p className="text-xs text-muted-foreground">
+              Will sync 1,000 most recent transactions from <strong>{selectedLocationName}</strong>
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Button
+            onClick={() => handleLocationSync('sandbox')}
+            disabled={isLoading || !selectedLocation}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoading ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <MapPin className="h-4 w-4 mr-2" />
+            )}
+            Test {selectedLocationName || 'Location'} (Sandbox)
+          </Button>
+
+          <Button
+            onClick={() => handleLocationSync('production')}
+            disabled={isLoading || !selectedLocation}
+            className="w-full"
+          >
+            {isLoading ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <MapPin className="h-4 w-4 mr-2" />
+            )}
+            Sync {selectedLocationName || 'Location'} (Production)
           </Button>
         </div>
 

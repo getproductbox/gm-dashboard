@@ -38,6 +38,7 @@ interface SyncRequest {
   environment?: 'sandbox' | 'production';
   max_transactions?: number;
   clear_existing?: boolean;
+  location_id?: string;
 }
 
 serve(async (req) => {
@@ -79,7 +80,8 @@ serve(async (req) => {
     }
 
     const maxTransactions = syncParams.max_transactions || 500;
-    console.log(`Environment: ${environment}, Max transactions: ${maxTransactions}`);
+    const locationId = syncParams.location_id;
+    console.log(`Environment: ${environment}, Max transactions: ${maxTransactions}`, locationId ? `, Location: ${locationId}` : '');
 
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -117,7 +119,8 @@ serve(async (req) => {
       environment,
       maxTransactions,
       syncId,
-      supabase
+      supabase,
+      locationId
     ));
 
     // Return immediate response
@@ -184,7 +187,8 @@ async function performBackgroundSync(
   environment: string,
   maxTransactions: number,
   syncId: string,
-  supabase: any
+  supabase: any,
+  locationId?: string
 ): Promise<void> {
   const startTime = Date.now();
   let totalFetched = 0;
@@ -212,6 +216,10 @@ async function performBackgroundSync(
       const url = new URL(`${baseUrl}/v2/payments`);
       url.searchParams.append('sort_order', 'DESC'); // Get most recent first
       url.searchParams.append('limit', requestLimit.toString());
+      
+      if (locationId) {
+        url.searchParams.append('location_id', locationId);
+      }
       
       if (cursor) {
         url.searchParams.append('cursor', cursor);

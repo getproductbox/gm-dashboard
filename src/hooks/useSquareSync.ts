@@ -59,6 +59,7 @@ export const useSquareSync = () => {
       dateRange?: { start: string; end: string };
       maxTransactions?: number; // NEW: Transaction-based limit
       clearExisting?: boolean;
+      locationId?: string;
     }
   ) => {
     setIsLoading(true);
@@ -72,6 +73,12 @@ export const useSquareSync = () => {
       if (options?.maxTransactions) {
         requestBody.max_transactions = options.maxTransactions;
         delete requestBody.maxTransactions;
+      }
+
+      // Convert locationId to location_id for API  
+      if (options?.locationId) {
+        requestBody.location_id = options.locationId;
+        delete requestBody.locationId;
       }
 
       console.log('🚀 Triggering transaction-based sync with params:', {
@@ -130,17 +137,20 @@ export const useSquareSync = () => {
   const syncTransactions = useCallback(async (
     environment: 'sandbox' | 'production',
     maxTransactions: number,
-    clearExisting = false
+    clearExisting = false,
+    locationId?: string
   ) => {
     console.log('🔢 Syncing specific number of transactions:', {
       environment,
       maxTransactions,
-      clearExisting
+      clearExisting,
+      locationId
     });
 
     return triggerSync(environment, {
       maxTransactions,
-      clearExisting
+      clearExisting,
+      locationId
     });
   }, [triggerSync]);
 
