@@ -34,8 +34,8 @@ export const TwoWeekSyncTest = () => {
 
   const locations = [
     { id: 'LGRBM02D8PCNM', name: 'Hippie Door' },
-    { id: 'LR2FMXHGFCX2D', name: 'Hippie Bar' },
-    { id: 'LY1RWCF6KXG4F', name: 'Manor Bar' }
+    { id: 'LZJH98CYNZ8JF', name: 'Hippie Bar' },
+    { id: 'LB2CG4JE73AJN', name: 'Manor Bar' }
   ];
 
   const handleTransactionSync = async (environment: 'sandbox' | 'production') => {
