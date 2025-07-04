@@ -57,6 +57,7 @@ export const useSquareSync = () => {
     options?: {
       historical?: boolean;
       dateRange?: { start: string; end: string };
+      maxTransactions?: number; // NEW: Transaction-based limit
       clearExisting?: boolean;
     }
   ) => {
@@ -67,9 +68,15 @@ export const useSquareSync = () => {
         ...options
       };
 
-      console.log('🚀 Triggering cursor-based sync with detailed params:', {
+      // Convert maxTransactions to max_transactions for API
+      if (options?.maxTransactions) {
+        requestBody.max_transactions = options.maxTransactions;
+        delete requestBody.maxTransactions;
+      }
+
+      console.log('🚀 Triggering transaction-based sync with params:', {
         environment,
-        ...options,
+        ...requestBody,
         timestamp: new Date().toISOString()
       });
 
@@ -119,6 +126,23 @@ export const useSquareSync = () => {
       setIsLoading(false);
     }
   }, [fetchSyncStatus]);
+
+  const syncTransactions = useCallback(async (
+    environment: 'sandbox' | 'production',
+    maxTransactions: number,
+    clearExisting = false
+  ) => {
+    console.log('🔢 Syncing specific number of transactions:', {
+      environment,
+      maxTransactions,
+      clearExisting
+    });
+
+    return triggerSync(environment, {
+      maxTransactions,
+      clearExisting
+    });
+  }, [triggerSync]);
 
   const testDateRangeSync = useCallback(async (
     environment: 'sandbox' | 'production',
@@ -263,8 +287,7 @@ export const useSquareSync = () => {
     syncStatus,
     fetchSyncStatus,
     triggerSync,
-    testDateRangeSync,
-    syncLastDays,
+    syncTransactions,
     continueSync,
     resetSyncSession,
     getFormattedSyncStatus

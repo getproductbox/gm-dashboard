@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Hash, RefreshCw, CheckCircle, AlertCircle, PlayCircle } from 'lucide-react';
 import { useSquareSync } from '@/hooks/useSquareSync';
 
 interface SyncResult {
@@ -23,20 +26,24 @@ interface SyncResult {
 }
 
 export const TwoWeekSyncTest = () => {
-  const { syncLastDays, isLoading } = useSquareSync();
+  const { syncTransactions, continueSync, isLoading } = useSquareSync();
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [transactionCount, setTransactionCount] = useState<string>('500');
+  const [clearExisting, setClearExisting] = useState(false);
 
-  const handleTwoWeekSync = async (environment: 'sandbox' | 'production') => {
+  const handleTransactionSync = async (environment: 'sandbox' | 'production') => {
     setSyncResult(null);
     
     try {
-      console.log(`Starting 2-week sync for ${environment} environment...`);
+      console.log(`Starting transaction-based sync for ${environment} environment...`);
+      console.log('Transaction limit:', transactionCount);
+      console.log('Clear existing:', clearExisting);
       
-      const result = await syncLastDays(environment, 14, false); // Last 14 days, don't clear existing
+      const result = await syncTransactions(environment, parseInt(transactionCount), clearExisting);
       setSyncResult(result);
       
     } catch (error) {
-      console.error('Two-week sync error:', error);
+      console.error('Transaction sync error:', error);
       setSyncResult({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -54,25 +61,68 @@ export const TwoWeekSyncTest = () => {
     }
   };
 
+  const handleContinueSync = async (environment: 'sandbox' | 'production') => {
+    if (!syncResult?.sessionId) return;
+    
+    try {
+      const result = await continueSync(environment, syncResult.sessionId);
+      setSyncResult(result);
+    } catch (error) {
+      console.error('Continue sync error:', error);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
-          <CalendarDays className="h-5 w-5" />
-          <span>2-Week Payment Sync Test</span>
+          <Hash className="h-5 w-5" />
+          <span>Transaction-Based Payment Sync</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert>
           <AlertDescription>
-            This will sync payments from the last 14 days to populate the square_payments_raw table 
-            with fresh data for testing venue mapping.
+            Sync a specific number of transactions instead of time-based ranges. This approach avoids 
+            timeouts and provides predictable execution times, even for high-volume transaction days.
           </AlertDescription>
         </Alert>
 
+        {/* Transaction Count Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="transaction-count">Number of Transactions to Sync</Label>
+          <Select value={transactionCount} onValueChange={setTransactionCount}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select transaction count" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="250">250 transactions (Quick test)</SelectItem>
+              <SelectItem value="500">500 transactions (Recommended)</SelectItem>
+              <SelectItem value="1000">1,000 transactions (Medium test)</SelectItem>
+              <SelectItem value="2000">2,000 transactions (Large test)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-gray-600">
+            Estimated time: {parseInt(transactionCount) <= 500 ? '30-60 seconds' : 
+                           parseInt(transactionCount) <= 1000 ? '1-2 minutes' : '2-4 minutes'}
+          </p>
+        </div>
+
+        {/* Clear Existing Data Option */}
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id="clear-existing"
+            checked={clearExisting}
+            onCheckedChange={(checked) => setClearExisting(checked as boolean)}
+          />
+          <Label htmlFor="clear-existing" className="text-sm">
+            Clear existing data before sync
+          </Label>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Button
-            onClick={() => handleTwoWeekSync('sandbox')}
+            onClick={() => handleTransactionSync('sandbox')}
             disabled={isLoading}
             variant="outline"
             className="w-full"
@@ -80,22 +130,22 @@ export const TwoWeekSyncTest = () => {
             {isLoading ? (
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <CalendarDays className="h-4 w-4 mr-2" />
+              <Hash className="h-4 w-4 mr-2" />
             )}
-            Test Sandbox (2 weeks)
+            Test Sandbox ({transactionCount} transactions)
           </Button>
 
           <Button
-            onClick={() => handleTwoWeekSync('production')}
+            onClick={() => handleTransactionSync('production')}
             disabled={isLoading}
             className="w-full"
           >
             {isLoading ? (
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <CalendarDays className="h-4 w-4 mr-2" />
+              <Hash className="h-4 w-4 mr-2" />
             )}
-            Sync Production (2 weeks)
+            Sync Production ({transactionCount} transactions)
           </Button>
         </div>
 
@@ -108,7 +158,7 @@ export const TwoWeekSyncTest = () => {
                 ) : (
                   <AlertCircle className="h-4 w-4 text-red-600" />
                 )}
-                <span>2-Week Sync Results</span>
+                <span>Transaction Sync Results</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -116,16 +166,29 @@ export const TwoWeekSyncTest = () => {
                 <div className="space-y-2">
                   <div className="flex items-center space-x-4 flex-wrap text-sm">
                     <Badge variant="outline">{syncResult.environment}</Badge>
+                    <span><strong>Fetched:</strong> {syncResult.totalFetched} transactions</span>
                     <span><strong>Processed:</strong> {syncResult.paymentsProcessed} payments</span>
-                    <span><strong>Fetched:</strong> {syncResult.totalFetched} payments</span>
                     <span><strong>Time:</strong> {syncResult.executionTimeSeconds}s</span>
+                    {!syncResult.isComplete && (
+                      <Badge variant="secondary">Partial</Badge>
+                    )}
                   </div>
                   
                   <p className="text-sm text-green-700">{syncResult.message}</p>
                   
-                  {syncResult.progressPercentage > 0 && (
-                    <div className="text-xs text-gray-600">
-                      Progress: {syncResult.progressPercentage}%
+                  {syncResult.canContinue && syncResult.sessionId && (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Button
+                        onClick={() => handleContinueSync(syncResult.environment as 'sandbox' | 'production')}
+                        disabled={isLoading}
+                        size="sm"
+                      >
+                        <PlayCircle className="h-4 w-4 mr-2" />
+                        Continue Sync
+                      </Button>
+                      <span className="text-xs text-gray-600">
+                        Session: {syncResult.sessionId}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -142,7 +205,7 @@ export const TwoWeekSyncTest = () => {
 
         <Alert>
           <AlertDescription className="text-xs">
-            <strong>Next steps after sync:</strong> Once payments are synced, use the "Map ALL Transactions" 
+            <strong>Next steps after sync:</strong> Once transactions are synced, use the "Map ALL Transactions" 
             test on the Data Mapping tab to process the new payment data and test venue mapping.
           </AlertDescription>
         </Alert>

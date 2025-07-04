@@ -105,6 +105,7 @@ interface SyncRequest {
     start: string;
     end: string;
   };
+  max_transactions?: number; // NEW: Transaction-based limit
   limit?: number;
   historical?: boolean;
   clear_existing?: boolean;
@@ -118,6 +119,7 @@ interface SyncSession {
   cursor_position?: string;
   current_date_range_start?: string;
   current_date_range_end?: string;
+  max_transactions?: number; // NEW: Track transaction limit
   total_estimated: number;
   progress_percentage: number;
   payments_fetched: number;
@@ -137,7 +139,7 @@ serve(async (req) => {
   const BATCH_SIZE = 25; // Smaller batches for better progress tracking
 
   try {
-    console.log('=== STARTING ROBUST CURSOR-BASED SQUARE PAYMENTS SYNC ===');
+    console.log('=== STARTING TRANSACTION-BASED SQUARE PAYMENTS SYNC ===');
     console.log('Request method:', req.method);
     console.log('Current UTC time:', new Date().toISOString());
 
@@ -215,6 +217,7 @@ serve(async (req) => {
         cursor_position: existingSession.cursor_position,
         current_date_range_start: existingSession.current_date_range_start,
         current_date_range_end: existingSession.current_date_range_end,
+        max_transactions: existingSession.max_transactions || syncParams.max_transactions,
         total_estimated: existingSession.total_estimated || 0,
         progress_percentage: existingSession.progress_percentage || 0,
         payments_fetched: existingSession.payments_fetched || 0,
@@ -247,30 +250,41 @@ serve(async (req) => {
         if (clearRawError) console.error('Error clearing square_payments_raw:', clearRawError);
       }
 
-      // Determine date range with detailed logging
+      // Determine sync approach: transaction-based or date-based
       let beginTime: string;
       let endTime: string | undefined;
+      let maxTransactions: number | undefined;
 
-      console.log('=== DATE RANGE CALCULATION ===');
+      console.log('=== SYNC APPROACH DETERMINATION ===');
       
-      if (syncParams.date_range) {
-        console.log('Using provided date range');
+      if (syncParams.max_transactions) {
+        console.log('Using TRANSACTION-BASED sync');
+        maxTransactions = syncParams.max_transactions;
+        console.log('Max transactions limit:', maxTransactions);
+        
+        // For transaction-based sync, use a reasonable time window (30 days back)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        beginTime = thirtyDaysAgo.toISOString();
+        endTime = undefined; // No end time, we'll stop based on transaction count
+        
+        console.log('Time window for transaction search:', beginTime, 'to current');
+      } else if (syncParams.date_range) {
+        console.log('Using DATE-BASED sync');
         beginTime = syncParams.date_range.start;
         endTime = syncParams.date_range.end;
-        console.log('Provided start:', beginTime);
-        console.log('Provided end:', endTime);
+        console.log('Date range:', beginTime, 'to', endTime);
       } else if (syncParams.historical) {
-        console.log('Using historical date range (1 year)');
+        console.log('Using HISTORICAL sync (1 year)');
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
         beginTime = oneYearAgo.toISOString();
         endTime = new Date().toISOString();
-        console.log('Historical start:', beginTime);
-        console.log('Historical end:', endTime);
+        console.log('Historical range:', beginTime, 'to', endTime);
       } else {
-        console.log('Using incremental sync from last successful sync');
+        console.log('Using INCREMENTAL sync');
         
-        // Get last successful sync with detailed logging
+        // Get last successful sync
         const { data: lastSync, error: lastSyncError } = await supabase
           .from('square_sync_status')
           .select('last_successful_sync, last_sync_attempt, sync_status')
@@ -283,30 +297,15 @@ serve(async (req) => {
           beginTime = lastSync.last_successful_sync;
           console.log('Using last successful sync time:', beginTime);
         } else {
-          // Default to 30 days ago instead of 24 hours for better coverage
+          // Default to 30 days ago
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           beginTime = thirtyDaysAgo.toISOString();
           console.log('No previous sync found, defaulting to 30 days ago:', beginTime);
         }
         
-        // For incremental sync, don't set end time to get all payments up to now
         endTime = undefined;
-        console.log('End time for incremental sync: current time (no explicit end)');
       }
-
-      // Validate and log final date range
-      const beginDate = new Date(beginTime);
-      const endDate = endTime ? new Date(endTime) : new Date();
-      const daysDifference = Math.ceil((endDate.getTime() - beginDate.getTime()) / (1000 * 60 * 60 * 24));
-      
-      console.log('=== FINAL DATE RANGE VALIDATION ===');
-      console.log('Begin time (ISO):', beginTime);
-      console.log('Begin time (parsed):', beginDate.toISOString());
-      console.log('End time (ISO):', endTime || 'current time');
-      console.log('End time (parsed):', endDate.toISOString());
-      console.log('Date range covers', daysDifference, 'days');
-      console.log('Time zone offset:', beginDate.getTimezoneOffset(), 'minutes');
 
       syncSession = {
         id: sessionId,
@@ -315,7 +314,8 @@ serve(async (req) => {
         cursor_position: undefined,
         current_date_range_start: beginTime,
         current_date_range_end: endTime,
-        total_estimated: 0,
+        max_transactions: maxTransactions,
+        total_estimated: maxTransactions || 0,
         progress_percentage: 0,
         payments_fetched: 0,
         payments_synced: 0,
@@ -365,12 +365,13 @@ serve(async (req) => {
     let lastHeartbeat = Date.now();
     let requestCount = 0;
 
-    console.log('=== STARTING STREAMING PROCESSING LOOP ===');
+    console.log('=== STARTING PROCESSING LOOP ===');
     console.log('Initial cursor:', cursor || 'none');
     console.log('Initial payments processed:', totalPaymentsProcessed);
     console.log('Initial payments fetched:', totalPaymentsFetched);
+    console.log('Transaction limit:', syncSession.max_transactions || 'none');
 
-    // Streaming processing loop
+    // Processing loop
     while (true) {
       requestCount++;
       console.log(`\n--- REQUEST ${requestCount} ---`);
@@ -378,6 +379,12 @@ serve(async (req) => {
       // Check timeout
       if (Date.now() - startTime > MAX_EXECUTION_TIME) {
         console.log('⚠️ Approaching timeout, saving progress and stopping...');
+        break;
+      }
+
+      // Check transaction limit (NEW: Primary stopping condition)
+      if (syncSession.max_transactions && totalPaymentsFetched >= syncSession.max_transactions) {
+        console.log(`✅ Reached transaction limit: ${totalPaymentsFetched}/${syncSession.max_transactions}`);
         break;
       }
 
@@ -395,23 +402,29 @@ serve(async (req) => {
         lastHeartbeat = Date.now();
       }
 
-      // Build API request with detailed logging
+      // Build API request
       const url = new URL(`${baseUrl}/v2/payments`);
       url.searchParams.append('begin_time', syncSession.current_date_range_start!);
       if (syncSession.current_date_range_end) {
         url.searchParams.append('end_time', syncSession.current_date_range_end);
       }
       url.searchParams.append('sort_order', 'ASC');
-      url.searchParams.append('limit', '100');
+      
+      // Adjust limit based on remaining transactions
+      let requestLimit = 100;
+      if (syncSession.max_transactions) {
+        const remaining = syncSession.max_transactions - totalPaymentsFetched;
+        requestLimit = Math.min(100, remaining);
+      }
+      url.searchParams.append('limit', requestLimit.toString());
+      
       if (cursor) {
         url.searchParams.append('cursor', cursor);
       }
 
       console.log('=== SQUARE API REQUEST ===');
-      console.log('Full URL:', url.toString());
-      console.log('Request headers will include:');
-      console.log('- Authorization: Bearer [TOKEN]');
-      console.log('- Square-Version: 2024-12-18');
+      console.log('Request limit:', requestLimit);
+      console.log('Remaining transactions:', syncSession.max_transactions ? (syncSession.max_transactions - totalPaymentsFetched) : 'unlimited');
 
       // Fetch from Square API
       const response = await fetch(url.toString(), {
@@ -426,8 +439,6 @@ serve(async (req) => {
 
       console.log('=== SQUARE API RESPONSE ===');
       console.log('Status:', response.status);
-      console.log('Status text:', response.statusText);
-      console.log('Headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -440,33 +451,18 @@ serve(async (req) => {
       console.log('=== PAYMENTS DATA ANALYSIS ===');
       console.log('Payments array length:', paymentsData.payments?.length || 0);
       console.log('Has cursor:', !!paymentsData.cursor);
-      console.log('Next cursor:', paymentsData.cursor || 'none');
-      console.log('Errors in response:', JSON.stringify(paymentsData.errors || [], null, 2));
-      
-      if (paymentsData.payments && paymentsData.payments.length > 0) {
-        console.log('First payment created_at:', paymentsData.payments[0].created_at);
-        console.log('Last payment created_at:', paymentsData.payments[paymentsData.payments.length - 1].created_at);
-        console.log('Sample payment IDs:', paymentsData.payments.slice(0, 3).map(p => p.id));
-      }
       
       if (!paymentsData.payments || paymentsData.payments.length === 0) {
-        console.log('🔍 NO PAYMENTS RETURNED - Analysis:');
-        console.log('- Date range may not contain any transactions');
-        console.log('- All transactions in range may already be synced');
-        console.log('- API credentials may not have access to payment data');
-        console.log('- Time zone issues may be affecting date filtering');
-        
-        if (paymentsData.errors && paymentsData.errors.length > 0) {
-          console.log('❌ API Errors found:', JSON.stringify(paymentsData.errors, null, 2));
-        }
-        
+        console.log('🔍 NO PAYMENTS RETURNED - stopping sync');
         break;
       }
 
-      totalPaymentsFetched += paymentsData.payments.length;
-      console.log(`✅ Fetched ${paymentsData.payments.length} payments (total fetched: ${totalPaymentsFetched})`);
+      // Process payments and update totals
+      const fetchedCount = paymentsData.payments.length;
+      totalPaymentsFetched += fetchedCount;
+      console.log(`✅ Fetched ${fetchedCount} payments (total fetched: ${totalPaymentsFetched})`);
 
-      // Process payments in smaller batches
+      // Process payments in batches
       for (let i = 0; i < paymentsData.payments.length; i += BATCH_SIZE) {
         const batch = paymentsData.payments.slice(i, i + BATCH_SIZE);
         console.log(`Processing batch ${Math.floor(i/BATCH_SIZE) + 1}: ${batch.length} payments`);
@@ -524,9 +520,12 @@ serve(async (req) => {
         }
 
         // Update progress after each batch
-        const progressPercentage = syncSession.total_estimated > 0 
-          ? Math.min(95, Math.round((totalPaymentsProcessed / syncSession.total_estimated) * 100))
-          : Math.min(95, Math.round((totalPaymentsFetched / 1000) * 100)); // Rough estimate
+        let progressPercentage = 0;
+        if (syncSession.max_transactions) {
+          progressPercentage = Math.min(100, Math.round((totalPaymentsFetched / syncSession.max_transactions) * 100));
+        } else {
+          progressPercentage = Math.min(95, Math.round((totalPaymentsFetched / 1000) * 100));
+        }
 
         await supabase
           .from('square_sync_status')
@@ -541,6 +540,12 @@ serve(async (req) => {
 
       cursor = paymentsData.cursor;
       
+      // Check if we've reached our transaction limit
+      if (syncSession.max_transactions && totalPaymentsFetched >= syncSession.max_transactions) {
+        console.log(`✅ Reached transaction limit: ${totalPaymentsFetched}/${syncSession.max_transactions}`);
+        break;
+      }
+      
       // Break if no more data
       if (!cursor) {
         console.log('✅ Reached end of data - no more cursor');
@@ -552,7 +557,7 @@ serve(async (req) => {
     }
 
     // Determine final status
-    const isComplete = !cursor;
+    const isComplete = !cursor || (syncSession.max_transactions && totalPaymentsFetched >= syncSession.max_transactions);
     const finalStatus = isComplete ? 'success' : 'partial';
 
     console.log('=== SYNC COMPLETION SUMMARY ===');
@@ -560,6 +565,7 @@ serve(async (req) => {
     console.log('Total requests made:', requestCount);
     console.log('Total payments fetched:', totalPaymentsFetched);
     console.log('Total payments processed:', totalPaymentsProcessed);
+    console.log('Transaction limit reached:', syncSession.max_transactions ? (totalPaymentsFetched >= syncSession.max_transactions) : 'N/A');
     console.log('Final cursor:', cursor || 'none');
     console.log('Is complete:', isComplete);
 
@@ -571,7 +577,7 @@ serve(async (req) => {
         sync_status: finalStatus,
         payments_synced: totalPaymentsProcessed,
         payments_fetched: totalPaymentsFetched,
-        progress_percentage: isComplete ? 100 : Math.min(95, Math.round((totalPaymentsFetched / 1000) * 100)),
+        progress_percentage: isComplete ? 100 : Math.min(95, Math.round((totalPaymentsFetched / (syncSession.max_transactions || 1000)) * 100)),
         cursor_position: cursor,
         sync_session_id: isComplete ? null : syncSession.id,
         is_continuation: false,
@@ -598,9 +604,9 @@ serve(async (req) => {
         executionTimeSeconds: executionTime,
         sessionId: isComplete ? null : syncSession.id,
         canContinue: !isComplete,
-        progressPercentage: isComplete ? 100 : Math.min(95, Math.round((totalPaymentsFetched / 1000) * 100)),
+        progressPercentage: isComplete ? 100 : Math.min(95, Math.round((totalPaymentsFetched / (syncSession.max_transactions || 1000)) * 100)),
         message: isComplete 
-          ? `Successfully synced ${totalPaymentsProcessed} payments`
+          ? `Successfully synced ${totalPaymentsProcessed} payments${syncSession.max_transactions ? ` (${totalPaymentsFetched} transactions fetched)` : ''}`
           : `Partial sync: processed ${totalPaymentsProcessed} payments. Session ${syncSession.id} can be continued.`
       }),
       {
