@@ -172,12 +172,6 @@ serve(async (req) => {
 });
 
 async function clearExistingData(supabase: any): Promise<void> {
-  console.log('Clearing existing revenue events...');
-  await supabase
-    .from('revenue_events')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
-    
   console.log('Clearing existing raw payments...');
   await supabase
     .from('square_payments_raw')
@@ -311,48 +305,35 @@ async function performBackgroundSync(
 }
 
 async function processBatch(payments: SquarePayment[], supabase: any): Promise<number> {
-  let processed = 0;
-  
-  for (const payment of payments) {
-    try {
-      // Store raw payment
-      await supabase
-        .from('square_payments_raw')
-        .upsert({
-          square_payment_id: payment.id,
-          raw_response: payment,
-          synced_at: new Date().toISOString()
-        }, {
-          onConflict: 'square_payment_id'
-        });
+  try {
+    console.log(`Processing batch of ${payments.length} payments...`);
+    
+    // Prepare batch data for bulk insert
+    const batchData = payments.map(payment => ({
+      square_payment_id: payment.id,
+      raw_response: payment,
+      synced_at: new Date().toISOString()
+    }));
 
-      // Transform to revenue event
-      const paymentDate = new Date(payment.created_at);
-      const revenueEvent = {
-        square_payment_id: payment.id,
-        venue: 'default',
-        revenue_type: categorizePayment(payment),
-        amount_cents: payment.amount_money.amount,
-        currency: payment.amount_money.currency,
-        payment_date: payment.created_at,
-        payment_hour: paymentDate.getHours(),
-        payment_day_of_week: paymentDate.getDay(),
-        status: payment.status.toLowerCase()
-      };
+    // Perform bulk upsert - single database operation
+    const { error } = await supabase
+      .from('square_payments_raw')
+      .upsert(batchData, {
+        onConflict: 'square_payment_id'
+      });
 
-      await supabase
-        .from('revenue_events')
-        .upsert(revenueEvent, {
-          onConflict: 'square_payment_id'
-        });
-
-      processed++;
-    } catch (error) {
-      console.error(`Error processing payment ${payment.id}:`, error);
+    if (error) {
+      console.error('Batch upsert error:', error);
+      return 0;
     }
+
+    console.log(`✅ Successfully processed batch of ${payments.length} payments`);
+    return payments.length;
+    
+  } catch (error) {
+    console.error('Error processing batch:', error);
+    return 0;
   }
-  
-  return processed;
 }
 
 async function syncSquareLocations(accessToken: string, environment: string, supabase: any): Promise<void> {
@@ -395,11 +376,4 @@ async function syncSquareLocations(accessToken: string, environment: string, sup
       }
     }
   }
-}
-
-function categorizePayment(payment: SquarePayment): 'bar' | 'door' | 'other' {
-  const amount = payment.amount_money.amount;
-  if (amount <= 1500) return 'door';
-  if (amount <= 10000) return 'bar';
-  return 'other';
 }
