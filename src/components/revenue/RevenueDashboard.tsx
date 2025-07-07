@@ -1,160 +1,38 @@
-import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { DollarSign, ArrowUp, ArrowDown, Minus, CalendarIcon } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { DollarSign, ArrowUp, ArrowDown, Minus, CalendarIcon, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-
-interface RevenueEvent {
-  id: string;
-  venue: string;
-  revenue_type: 'bar' | 'door' | 'other';
-  amount_cents: number;
-  payment_date: string;
-  status: string;
-}
-
-interface PeriodMetrics {
-  totalRevenue: number;
-  barRevenue: number;
-  doorRevenue: number;
-}
-
-interface ComparisonMetrics {
-  totalVariance: number;
-  barVariance: number;
-  doorVariance: number;
-}
-
-
+import { useRevenueDashboard } from '@/hooks/useRevenueDashboard';
+import { useDateRanges } from '@/hooks/useDateRanges';
 
 export const RevenueDashboard = () => {
-  const [selectedStartDate, setSelectedStartDate] = useState<Date | undefined>(new Date(2024, 7, 1)); // August 1, 2024
-  const [selectedEndDate, setSelectedEndDate] = useState<Date | undefined>(new Date(2024, 7, 7)); // August 7, 2024
-  const [currentWeek, setCurrentWeek] = useState<PeriodMetrics>({ totalRevenue: 0, barRevenue: 0, doorRevenue: 0 });
-  const [lastWeekComparison, setLastWeekComparison] = useState<ComparisonMetrics>({ totalVariance: 0, barVariance: 0, doorVariance: 0 });
-  const [lastMonthComparison, setLastMonthComparison] = useState<ComparisonMetrics>({ totalVariance: 0, barVariance: 0, doorVariance: 0 });
-  const [lastYearComparison, setLastYearComparison] = useState<ComparisonMetrics>({ totalVariance: 0, barVariance: 0, doorVariance: 0 });
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    isLoading,
+    currentPeriod,
+    lastWeekComparison,
+    lastMonthComparison,
+    lastYearComparison,
+    fetchAllMetrics
+  } = useRevenueDashboard();
 
-  const getDateRanges = () => {
-    // Use selected dates or default to current week if not selected
-    const currentStart = selectedStartDate || new Date();
-    const currentEnd = selectedEndDate || new Date();
-    
-    // Ensure start is beginning of day, end is end of day
-    const currentWeekStart = new Date(currentStart);
-    currentWeekStart.setHours(0, 0, 0, 0);
-    const currentWeekEnd = new Date(currentEnd);
-    currentWeekEnd.setHours(23, 59, 59, 999);
+  const {
+    selectedStartDate,
+    selectedEndDate,
+    setSelectedStartDate,
+    setSelectedEndDate,
+    quickRangeOptions,
+    applyQuickRange,
+    isValidDateRange
+  } = useDateRanges();
 
-    // Calculate comparison periods based on the length of selected period
-    const periodLengthDays = Math.ceil((currentWeekEnd.getTime() - currentWeekStart.getTime()) / (1000 * 60 * 60 * 24));
-    
-    const lastWeekStart = new Date(currentWeekStart);
-    lastWeekStart.setDate(currentWeekStart.getDate() - periodLengthDays - 1);
-    const lastWeekEnd = new Date(lastWeekStart);
-    lastWeekEnd.setDate(lastWeekStart.getDate() + periodLengthDays);
-    lastWeekEnd.setHours(23, 59, 59, 999);
-
-    const lastMonthStart = new Date(currentWeekStart);
-    lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-    const lastMonthEnd = new Date(lastMonthStart);
-    lastMonthEnd.setDate(lastMonthStart.getDate() + periodLengthDays);
-    lastMonthEnd.setHours(23, 59, 59, 999);
-
-    const lastYearStart = new Date(currentWeekStart);
-    lastYearStart.setFullYear(lastYearStart.getFullYear() - 1);
-    const lastYearEnd = new Date(lastYearStart);
-    lastYearEnd.setDate(lastYearStart.getDate() + periodLengthDays);
-    lastYearEnd.setHours(23, 59, 59, 999);
-
-    return {
-      currentWeek: { start: currentWeekStart, end: currentWeekEnd },
-      lastWeek: { start: lastWeekStart, end: lastWeekEnd },
-      lastMonth: { start: lastMonthStart, end: lastMonthEnd },
-      lastYear: { start: lastYearStart, end: lastYearEnd }
-    };
-  };
-
-  const fetchPeriodMetrics = async (startDate: Date, endDate: Date): Promise<PeriodMetrics> => {
-    let query = supabase
-      .from('revenue_events')
-      .select('*')
-      .eq('status', 'completed')
-      .gte('payment_date', startDate.toISOString())
-      .lte('payment_date', endDate.toISOString());
-
-    const { data, error } = await query;
-    if (error) {
-      console.error('Supabase query error:', error);
-      throw error;
-    }
-
-    const events = (data || []) as RevenueEvent[];
-    console.log(`Found ${events.length} events for period ${startDate.toISOString()} to ${endDate.toISOString()}`);
-    
-    const totalRevenue = events.reduce((sum, event) => sum + event.amount_cents, 0);
-    
-    // For now, show all revenue as "bar" revenue since we don't have proper categorization
-    // This will be fixed when the Square sync properly categorizes payments
-    const barRevenue = totalRevenue;
-    const doorRevenue = 0;
-
-    console.log(`Period metrics: total=${totalRevenue}, bar=${barRevenue}, door=${doorRevenue}`);
-    return { totalRevenue, barRevenue, doorRevenue };
-  };
-
-  const calculateVariance = (current: number, previous: number): number => {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return ((current - previous) / previous) * 100;
-  };
-
-  const fetchAllMetrics = async () => {
-    setIsLoading(true);
-    try {
-      const ranges = getDateRanges();
-
-      const [currentWeekMetrics, lastWeekMetrics, lastMonthMetrics, lastYearMetrics] = await Promise.all([
-        fetchPeriodMetrics(ranges.currentWeek.start, ranges.currentWeek.end),
-        fetchPeriodMetrics(ranges.lastWeek.start, ranges.lastWeek.end),
-        fetchPeriodMetrics(ranges.lastMonth.start, ranges.lastMonth.end),
-        fetchPeriodMetrics(ranges.lastYear.start, ranges.lastYear.end)
-      ]);
-
-      setCurrentWeek(currentWeekMetrics);
-
-      setLastWeekComparison({
-        totalVariance: calculateVariance(currentWeekMetrics.totalRevenue, lastWeekMetrics.totalRevenue),
-        barVariance: calculateVariance(currentWeekMetrics.barRevenue, lastWeekMetrics.barRevenue),
-        doorVariance: calculateVariance(currentWeekMetrics.doorRevenue, lastWeekMetrics.doorRevenue)
-      });
-
-      setLastMonthComparison({
-        totalVariance: calculateVariance(currentWeekMetrics.totalRevenue, lastMonthMetrics.totalRevenue),
-        barVariance: calculateVariance(currentWeekMetrics.barRevenue, lastMonthMetrics.barRevenue),
-        doorVariance: calculateVariance(currentWeekMetrics.doorRevenue, lastMonthMetrics.doorRevenue)
-      });
-
-      setLastYearComparison({
-        totalVariance: calculateVariance(currentWeekMetrics.totalRevenue, lastYearMetrics.totalRevenue),
-        barVariance: calculateVariance(currentWeekMetrics.barRevenue, lastYearMetrics.barRevenue),
-        doorVariance: calculateVariance(currentWeekMetrics.doorRevenue, lastYearMetrics.doorRevenue)
-      });
-
-    } catch (error) {
-      console.error('Error fetching revenue metrics:', error);
-    } finally {
-      setIsLoading(false);
+  const handleUpdate = () => {
+    if (selectedStartDate && selectedEndDate) {
+      fetchAllMetrics(selectedStartDate, selectedEndDate);
     }
   };
-
-  useEffect(() => {
-    fetchAllMetrics();
-  }, [selectedStartDate, selectedEndDate]);
 
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -164,8 +42,8 @@ export const RevenueDashboard = () => {
   };
 
   const formatPercentage = (value: number) => {
-    if (currentWeek.totalRevenue === 0) return 0;
-    return Math.round((value / currentWeek.totalRevenue) * 100);
+    if (currentPeriod.totalRevenue === 0) return 0;
+    return Math.round((value / currentPeriod.totalRevenue) * 100);
   };
 
   const getVarianceIcon = (variance: number) => {
@@ -205,10 +83,29 @@ export const RevenueDashboard = () => {
         <h1 className="text-3xl font-bold">Revenue Dashboard</h1>
       </div>
 
+      {/* Quick Range Buttons */}
+      <div className="bg-card p-4 rounded-lg border">
+        <h3 className="text-sm font-medium mb-3">Quick Date Ranges</h3>
+        <div className="flex flex-wrap gap-2">
+          {quickRangeOptions.map((option) => (
+            <Button
+              key={option.label}
+              variant="outline"
+              size="sm"
+              onClick={() => applyQuickRange(option)}
+              className="flex items-center gap-1"
+            >
+              <Zap className="h-3 w-3" />
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {/* Date Filter */}
       <div className="bg-card p-4 rounded-lg border">
-        <h3 className="text-sm font-medium mb-3">Select Date Range</h3>
-        <div className="flex gap-4 items-center">
+        <h3 className="text-sm font-medium mb-3">Custom Date Range</h3>
+        <div className="flex gap-4 items-center flex-wrap">
           <div className="flex flex-col">
             <label className="text-xs text-muted-foreground mb-1">Start Date</label>
             <Popover>
@@ -266,10 +163,10 @@ export const RevenueDashboard = () => {
           <div className="flex flex-col">
             <div className="text-xs text-muted-foreground mb-1">&nbsp;</div>
             <Button 
-              onClick={fetchAllMetrics}
-              disabled={!selectedStartDate || !selectedEndDate}
+              onClick={handleUpdate}
+              disabled={!isValidDateRange() || isLoading}
             >
-              Update
+              {isLoading ? 'Loading...' : 'Update'}
             </Button>
           </div>
         </div>
@@ -285,16 +182,31 @@ export const RevenueDashboard = () => {
             </span>
           )}
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Total Revenue Card */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <Card className="md:col-span-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(currentPeriod.totalRevenue)}</div>
+              <p className="text-xs text-muted-foreground">
+                {currentPeriod.eventCount} transactions
+              </p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Bar Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(currentWeek.barRevenue)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(currentPeriod.barRevenue)}</div>
               <p className="text-xs text-muted-foreground">
-                {formatPercentage(currentWeek.barRevenue)}% of total
+                {formatPercentage(currentPeriod.barRevenue)}% of total
               </p>
             </CardContent>
           </Card>
@@ -305,9 +217,9 @@ export const RevenueDashboard = () => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(currentWeek.doorRevenue)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(currentPeriod.doorRevenue)}</div>
               <p className="text-xs text-muted-foreground">
-                {formatPercentage(currentWeek.doorRevenue)}% of total
+                {formatPercentage(currentPeriod.doorRevenue)}% of total
               </p>
             </CardContent>
           </Card>
