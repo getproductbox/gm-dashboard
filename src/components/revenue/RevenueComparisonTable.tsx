@@ -1,13 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Calendar, CalendarDays } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useRevenueDashboard } from '@/hooks/useRevenueDashboard';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ComparisonData {
   period: string;
@@ -19,41 +14,181 @@ interface ComparisonData {
   doorPercent: number;
 }
 
+interface PeriodData {
+  current: { start: Date; end: Date };
+  comparison: { start: Date; end: Date };
+  metrics: any;
+  comparisonMetrics: any;
+}
+
 export const RevenueComparisonTable = () => {
-  const [startDate, setStartDate] = useState<Date>();
-  const [endDate, setEndDate] = useState<Date>();
-  const [startOpen, setStartOpen] = useState(false);
-  const [endOpen, setEndOpen] = useState(false);
+  const [weekData, setWeekData] = useState<PeriodData | null>(null);
+  const [monthData, setMonthData] = useState<PeriodData | null>(null);
+  const [yearData, setYearData] = useState<PeriodData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const {
-    isLoading,
-    currentPeriod,
-    lastWeekComparison,
-    lastMonthComparison,
-    lastYearComparison,
-    fetchAllMetrics
-  } = useRevenueDashboard();
+  const fetchPeriodMetrics = useCallback(async (startDate: Date, endDate: Date) => {
+    const { data, error } = await supabase
+      .from('revenue_events')
+      .select('*')
+      .eq('status', 'completed')
+      .gte('payment_date', startDate.toISOString())
+      .lte('payment_date', endDate.toISOString());
 
-  // Set default to current week
-  useEffect(() => {
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw error;
+    }
+
+    const events = data || [];
+    const totalRevenue = events.reduce((sum, event) => sum + event.amount_cents, 0);
+    const barRevenue = events
+      .filter(event => event.revenue_type === 'bar')
+      .reduce((sum, event) => sum + event.amount_cents, 0);
+    const doorRevenue = events
+      .filter(event => event.revenue_type === 'door')
+      .reduce((sum, event) => sum + event.amount_cents, 0);
+
+    return { 
+      totalRevenue, 
+      barRevenue, 
+      doorRevenue,
+      eventCount: events.length
+    };
+  }, []);
+
+  const calculateVariance = useCallback((current: number, previous: number): number => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  }, []);
+
+  const getCurrentWeek = () => {
     const now = new Date();
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay()); // Start of current week (Sunday)
+    weekStart.setDate(now.getDate() - now.getDay());
     weekStart.setHours(0, 0, 0, 0);
     
     const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6); // End of current week (Saturday)
+    weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
     
-    setStartDate(weekStart);
-    setEndDate(weekEnd);
-  }, []);
+    return { start: weekStart, end: weekEnd };
+  };
+
+  const getLastWeek = () => {
+    const currentWeek = getCurrentWeek();
+    const lastWeekStart = new Date(currentWeek.start);
+    lastWeekStart.setDate(currentWeek.start.getDate() - 7);
+    
+    const lastWeekEnd = new Date(currentWeek.end);
+    lastWeekEnd.setDate(currentWeek.end.getDate() - 7);
+    
+    return { start: lastWeekStart, end: lastWeekEnd };
+  };
+
+  const getCurrentMonth = () => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+    
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+    
+    return { start: monthStart, end: monthEnd };
+  };
+
+  const getLastMonth = () => {
+    const now = new Date();
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    lastMonthStart.setHours(0, 0, 0, 0);
+    
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    lastMonthEnd.setHours(23, 59, 59, 999);
+    
+    return { start: lastMonthStart, end: lastMonthEnd };
+  };
+
+  const getCurrentYear = () => {
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    yearStart.setHours(0, 0, 0, 0);
+    
+    const yearEnd = new Date(now.getFullYear(), 11, 31);
+    yearEnd.setHours(23, 59, 59, 999);
+    
+    return { start: yearStart, end: yearEnd };
+  };
+
+  const getLastYear = () => {
+    const now = new Date();
+    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
+    lastYearStart.setHours(0, 0, 0, 0);
+    
+    const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31);
+    lastYearEnd.setHours(23, 59, 59, 999);
+    
+    return { start: lastYearStart, end: lastYearEnd };
+  };
 
   useEffect(() => {
-    if (startDate && endDate) {
-      fetchAllMetrics(startDate, endDate);
-    }
-  }, [startDate, endDate, fetchAllMetrics]);
+    const fetchAllData = async () => {
+      setIsLoading(true);
+      try {
+        // Get date ranges
+        const currentWeek = getCurrentWeek();
+        const lastWeek = getLastWeek();
+        const currentMonth = getCurrentMonth();
+        const lastMonth = getLastMonth();
+        const currentYear = getCurrentYear();
+        const lastYear = getLastYear();
+
+        // Fetch all metrics in parallel
+        const [
+          weekMetrics,
+          lastWeekMetrics,
+          monthMetrics,
+          lastMonthMetrics,
+          yearMetrics,
+          lastYearMetrics
+        ] = await Promise.all([
+          fetchPeriodMetrics(currentWeek.start, currentWeek.end),
+          fetchPeriodMetrics(lastWeek.start, lastWeek.end),
+          fetchPeriodMetrics(currentMonth.start, currentMonth.end),
+          fetchPeriodMetrics(lastMonth.start, lastMonth.end),
+          fetchPeriodMetrics(currentYear.start, currentYear.end),
+          fetchPeriodMetrics(lastYear.start, lastYear.end)
+        ]);
+
+        setWeekData({
+          current: currentWeek,
+          comparison: lastWeek,
+          metrics: weekMetrics,
+          comparisonMetrics: lastWeekMetrics
+        });
+
+        setMonthData({
+          current: currentMonth,
+          comparison: lastMonth,
+          metrics: monthMetrics,
+          comparisonMetrics: lastMonthMetrics
+        });
+
+        setYearData({
+          current: currentYear,
+          comparison: lastYear,
+          metrics: yearMetrics,
+          comparisonMetrics: lastYearMetrics
+        });
+
+      } catch (error) {
+        console.error('Error fetching comparison data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, [fetchPeriodMetrics]);
 
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -73,104 +208,46 @@ export const RevenueComparisonTable = () => {
     return 'text-muted-foreground';
   };
 
-  const comparisonData: ComparisonData[] = [
-    {
-      period: 'Current Period',
-      totalDollars: currentPeriod.totalRevenue,
-      totalPercent: 0, // Baseline
-      barDollars: currentPeriod.barRevenue,
-      barPercent: 0, // Baseline
-      doorDollars: currentPeriod.doorRevenue,
-      doorPercent: 0, // Baseline
-    },
-    {
-      period: 'vs Previous Period',
-      totalDollars: currentPeriod.totalRevenue,
-      totalPercent: lastWeekComparison.totalVariance,
-      barDollars: currentPeriod.barRevenue,
-      barPercent: lastWeekComparison.barVariance,
-      doorDollars: currentPeriod.doorRevenue,
-      doorPercent: lastWeekComparison.doorVariance,
-    },
-    {
-      period: 'vs Same Period Last Month',
-      totalDollars: currentPeriod.totalRevenue,
-      totalPercent: lastMonthComparison.totalVariance,
-      barDollars: currentPeriod.barRevenue,
-      barPercent: lastMonthComparison.barVariance,
-      doorDollars: currentPeriod.doorRevenue,
-      doorPercent: lastMonthComparison.doorVariance,
-    },
-    {
-      period: 'vs Same Period Last Year',
-      totalDollars: currentPeriod.totalRevenue,
-      totalPercent: lastYearComparison.totalVariance,
-      barDollars: currentPeriod.barRevenue,
-      barPercent: lastYearComparison.barVariance,
-      doorDollars: currentPeriod.doorRevenue,
-      doorPercent: lastYearComparison.doorVariance,
-    },
-  ];
+  const buildComparisonData = (): ComparisonData[] => {
+    if (!weekData || !monthData || !yearData) return [];
+
+    return [
+      {
+        period: 'Current Week vs Last Week',
+        totalDollars: weekData.metrics.totalRevenue,
+        totalPercent: calculateVariance(weekData.metrics.totalRevenue, weekData.comparisonMetrics.totalRevenue),
+        barDollars: weekData.metrics.barRevenue,
+        barPercent: calculateVariance(weekData.metrics.barRevenue, weekData.comparisonMetrics.barRevenue),
+        doorDollars: weekData.metrics.doorRevenue,
+        doorPercent: calculateVariance(weekData.metrics.doorRevenue, weekData.comparisonMetrics.doorRevenue),
+      },
+      {
+        period: 'Current Month vs Last Month',
+        totalDollars: monthData.metrics.totalRevenue,
+        totalPercent: calculateVariance(monthData.metrics.totalRevenue, monthData.comparisonMetrics.totalRevenue),
+        barDollars: monthData.metrics.barRevenue,
+        barPercent: calculateVariance(monthData.metrics.barRevenue, monthData.comparisonMetrics.barRevenue),
+        doorDollars: monthData.metrics.doorRevenue,
+        doorPercent: calculateVariance(monthData.metrics.doorRevenue, monthData.comparisonMetrics.doorRevenue),
+      },
+      {
+        period: 'Current Year vs Last Year',
+        totalDollars: yearData.metrics.totalRevenue,
+        totalPercent: calculateVariance(yearData.metrics.totalRevenue, yearData.comparisonMetrics.totalRevenue),
+        barDollars: yearData.metrics.barRevenue,
+        barPercent: calculateVariance(yearData.metrics.barRevenue, yearData.comparisonMetrics.barRevenue),
+        doorDollars: yearData.metrics.doorRevenue,
+        doorPercent: calculateVariance(yearData.metrics.doorRevenue, yearData.comparisonMetrics.doorRevenue),
+      },
+    ];
+  };
+
+  const comparisonData = buildComparisonData();
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Revenue Comparison</CardTitle>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Popover open={startOpen} onOpenChange={setStartOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "justify-start text-left font-normal",
-                    !startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "PPP") : "Start date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={startDate}
-                  onSelect={(date) => {
-                    setStartDate(date);
-                    setStartOpen(false);
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            
-            <Popover open={endOpen} onOpenChange={setEndOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "justify-start text-left font-normal",
-                    !endDate && "text-muted-foreground"
-                  )}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, "PPP") : "End date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={endDate}
-                  onSelect={(date) => {
-                    setEndDate(date);
-                    setEndOpen(false);
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -191,26 +268,26 @@ export const RevenueComparisonTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {comparisonData.map((row, index) => (
+              {comparisonData.map((row) => (
                 <TableRow key={row.period}>
                   <TableCell className="font-medium">{row.period}</TableCell>
                   <TableCell className="text-right font-mono">
                     {formatCurrency(row.totalDollars)}
                   </TableCell>
                   <TableCell className={cn("text-right font-mono", getPercentColor(row.totalPercent))}>
-                    {index === 0 ? '—' : formatPercent(row.totalPercent)}
+                    {formatPercent(row.totalPercent)}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {formatCurrency(row.barDollars)}
                   </TableCell>
                   <TableCell className={cn("text-right font-mono", getPercentColor(row.barPercent))}>
-                    {index === 0 ? '—' : formatPercent(row.barPercent)}
+                    {formatPercent(row.barPercent)}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {formatCurrency(row.doorDollars)}
                   </TableCell>
                   <TableCell className={cn("text-right font-mono", getPercentColor(row.doorPercent))}>
-                    {index === 0 ? '—' : formatPercent(row.doorPercent)}
+                    {formatPercent(row.doorPercent)}
                   </TableCell>
                 </TableRow>
               ))}
