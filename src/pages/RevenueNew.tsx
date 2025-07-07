@@ -36,7 +36,10 @@ const RevenueNew = () => {
     try {
       const { data, error } = await supabase
         .from('revenue_events')
-        .select('venue');
+        .select('venue')
+        .eq('status', 'completed');
+
+      console.log('Venues query result:', { data, error });
 
       if (error) {
         console.error('Error fetching venues:', error);
@@ -45,6 +48,7 @@ const RevenueNew = () => {
 
       // Get unique venues from the data
       const uniqueVenues = [...new Set(data?.map(row => row.venue))].sort() || [];
+      console.log('Unique venues found:', uniqueVenues);
       setVenues(uniqueVenues);
     } catch (error) {
       console.error('Error:', error);
