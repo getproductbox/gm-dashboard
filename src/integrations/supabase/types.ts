@@ -407,7 +407,11 @@ export type Database = {
         Returns: {
           month: string
           total_transactions: number
-          total_cents: number
+          door_transactions: number
+          bar_transactions: number
+          door_revenue_cents: number
+          bar_revenue_cents: number
+          total_revenue_cents: number
         }[]
       }
       get_revenue_type_from_payment: {
