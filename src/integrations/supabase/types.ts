@@ -422,6 +422,18 @@ export type Database = {
         Args: { payment_data: Json }
         Returns: string
       }
+      get_weekly_revenue_summary: {
+        Args: { venue_filter?: string }
+        Returns: {
+          week_start: string
+          total_transactions: number
+          door_transactions: number
+          bar_transactions: number
+          door_revenue_cents: number
+          bar_revenue_cents: number
+          total_revenue_cents: number
+        }[]
+      }
       process_payment_to_revenue: {
         Args: { payment_id: string }
         Returns: boolean
