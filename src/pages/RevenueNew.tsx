@@ -34,11 +34,12 @@ const RevenueNew = () => {
       
       setTotalCount(count || 0);
 
-      // Use the exact SQL query that works
+      // Use direct SQL query to group by month
       const { data, error } = await supabase
         .from('revenue_events')
         .select(`
-          payment_date
+          payment_date,
+          amount_cents
         `)
         .eq('status', 'completed');
 
@@ -47,7 +48,7 @@ const RevenueNew = () => {
         return;
       }
 
-      // Group by month manually (simplified)
+      // Group by month in JavaScript (but simpler approach)
       const monthlyMap = new Map<string, { transactions: number; cents: number }>();
       
       data?.forEach(row => {
@@ -60,24 +61,8 @@ const RevenueNew = () => {
         
         const monthData = monthlyMap.get(monthKey)!;
         monthData.transactions += 1;
+        monthData.cents += row.amount_cents;
       });
-
-      // Get actual revenue amounts
-      const { data: revenueData, error: revenueError } = await supabase
-        .from('revenue_events')
-        .select('payment_date, amount_cents')
-        .eq('status', 'completed');
-
-      if (!revenueError && revenueData) {
-        revenueData.forEach(row => {
-          const date = new Date(row.payment_date);
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
-          
-          if (monthlyMap.has(monthKey)) {
-            monthlyMap.get(monthKey)!.cents += row.amount_cents;
-          }
-        });
-      }
 
       // Convert to array format
       const monthlyArray: MonthlyRevenue[] = Array.from(monthlyMap.entries())
