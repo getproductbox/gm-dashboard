@@ -25,19 +25,26 @@ const RevenueNew = () => {
     try {
       const { data, error } = await supabase
         .from('revenue_events')
-        .select('*')
-        .eq('status', 'completed')
-        .order('payment_date', { ascending: false });
+        .select('payment_date, revenue_type, amount_cents')
+        .eq('status', 'completed');
 
       if (error) {
         console.error('Error fetching revenue:', error);
         return;
       }
 
+      console.log('Raw data count:', data?.length);
+      console.log('Sample raw data:', data?.slice(0, 5));
+
+      if (!data || data.length === 0) {
+        setMonthlyData([]);
+        return;
+      }
+
       // Group by month and calculate totals
       const monthlyMap = new Map<string, MonthlyRevenue>();
       
-      data?.forEach((event) => {
+      data.forEach((event) => {
         const date = new Date(event.payment_date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const monthName = format(date, 'MMM yyyy');
@@ -64,17 +71,12 @@ const RevenueNew = () => {
         monthData.totalRevenue += amountDollars;
       });
 
-      // Convert to array and sort by year and month (newest first)
+      // Convert to array and sort by year-month key (newest first)
       const sortedData = Array.from(monthlyMap.entries())
-        .sort((a, b) => {
-          // Sort by year-month key in descending order (newest first)
-          return b[0].localeCompare(a[0]);
-        })
-        .map(([key, value]) => value)
-        .slice(0, 12); // Last 12 months
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([key, value]) => value);
 
-      console.log('Monthly revenue data:', sortedData);
-
+      console.log('Processed monthly data:', sortedData);
       setMonthlyData(sortedData);
     } catch (error) {
       console.error('Error:', error);
