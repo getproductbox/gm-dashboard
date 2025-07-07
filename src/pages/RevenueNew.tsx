@@ -64,14 +64,16 @@ const RevenueNew = () => {
         monthData.totalRevenue += amountDollars;
       });
 
-      // Convert to array and sort by date (newest first)
-      const sortedData = Array.from(monthlyMap.values())
+      // Convert to array and sort by year and month (newest first)
+      const sortedData = Array.from(monthlyMap.entries())
         .sort((a, b) => {
-          const dateA = new Date(a.month);
-          const dateB = new Date(b.month);
-          return dateB.getTime() - dateA.getTime();
+          // Sort by year-month key in descending order (newest first)
+          return b[0].localeCompare(a[0]);
         })
+        .map(([key, value]) => value)
         .slice(0, 12); // Last 12 months
+
+      console.log('Monthly revenue data:', sortedData);
 
       setMonthlyData(sortedData);
     } catch (error) {
