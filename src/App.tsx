@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import ApiTest from "./pages/ApiTest";
 import Revenue from "./pages/Revenue";
+import RevenueNew from "./pages/RevenueNew";
 import FeatureFlags from "./pages/FeatureFlags";
 
 const queryClient = new QueryClient();
@@ -66,6 +67,11 @@ const App = () => (
               <Route path="/revenue" element={
                 <ProtectedRoute>
                   <Revenue />
+                </ProtectedRoute>
+              } />
+              <Route path="/revenue-new" element={
+                <ProtectedRoute>
+                  <RevenueNew />
                 </ProtectedRoute>
               } />
               <Route path="/reports" element={
