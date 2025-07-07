@@ -66,7 +66,7 @@ export const WeekSelector = ({ onWeekChange, selectedWeek }: WeekSelectorProps) 
         Select Week:
       </label>
       <Select
-        value={selectedWeek ? selectedWeek.toISOString() : 'current'}
+        value={selectedWeek ? selectedWeek.toISOString().split('T')[0] : 'current'}
         onValueChange={handleWeekChange}
       >
         <SelectTrigger className="w-[300px]">
