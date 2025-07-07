@@ -8,9 +8,9 @@ import { format } from 'date-fns';
 
 interface MonthlyRevenue {
   month: string;
-  transaction_count: number;
-  total_amount_cents: number;
-  venues: { venue: string; revenue_type: string; count: number; amount_cents: number }[];
+  total_transactions: number;
+  total_cents: number;
+  total_dollars: number;
 }
 
 const RevenueNew = () => {
@@ -34,9 +34,62 @@ const RevenueNew = () => {
       
       setTotalCount(count || 0);
 
-      // Fetch monthly grouped data manually
-      const fallbackData = await fetchMonthlyFallback();
-      setMonthlyData(fallbackData);
+      // Use the exact SQL query that works
+      const { data, error } = await supabase
+        .from('revenue_events')
+        .select(`
+          payment_date
+        `)
+        .eq('status', 'completed');
+
+      if (error) {
+        console.error('Error fetching revenue data:', error);
+        return;
+      }
+
+      // Group by month manually (simplified)
+      const monthlyMap = new Map<string, { transactions: number; cents: number }>();
+      
+      data?.forEach(row => {
+        const date = new Date(row.payment_date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+        
+        if (!monthlyMap.has(monthKey)) {
+          monthlyMap.set(monthKey, { transactions: 0, cents: 0 });
+        }
+        
+        const monthData = monthlyMap.get(monthKey)!;
+        monthData.transactions += 1;
+      });
+
+      // Get actual revenue amounts
+      const { data: revenueData, error: revenueError } = await supabase
+        .from('revenue_events')
+        .select('payment_date, amount_cents')
+        .eq('status', 'completed');
+
+      if (!revenueError && revenueData) {
+        revenueData.forEach(row => {
+          const date = new Date(row.payment_date);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+          
+          if (monthlyMap.has(monthKey)) {
+            monthlyMap.get(monthKey)!.cents += row.amount_cents;
+          }
+        });
+      }
+
+      // Convert to array format
+      const monthlyArray: MonthlyRevenue[] = Array.from(monthlyMap.entries())
+        .map(([month, data]) => ({
+          month,
+          total_transactions: data.transactions,
+          total_cents: data.cents,
+          total_dollars: Math.round((data.cents / 100) * 100) / 100
+        }))
+        .sort((a, b) => b.month.localeCompare(a.month));
+
+      setMonthlyData(monthlyArray);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -44,72 +97,15 @@ const RevenueNew = () => {
     }
   };
 
-  const fetchMonthlyFallback = async () => {
-    const { data, error } = await supabase
-      .from('revenue_events')
-      .select('venue, revenue_type, amount_cents, payment_date')
-      .eq('status', 'completed')
-      .order('payment_date', { ascending: false });
-
-    if (error) return [];
-
-    // Group by month manually
-    const monthlyMap = new Map<string, {
-      transaction_count: number;
-      total_amount_cents: number;
-      venues: Map<string, { count: number; amount_cents: number }>;
-    }>();
-
-    data?.forEach(transaction => {
-      const month = format(new Date(transaction.payment_date), 'yyyy-MM');
-      const venueKey = `${transaction.venue}-${transaction.revenue_type}`;
-      
-      if (!monthlyMap.has(month)) {
-        monthlyMap.set(month, {
-          transaction_count: 0,
-          total_amount_cents: 0,
-          venues: new Map()
-        });
-      }
-      
-      const monthData = monthlyMap.get(month)!;
-      monthData.transaction_count += 1;
-      monthData.total_amount_cents += transaction.amount_cents;
-      
-      if (!monthData.venues.has(venueKey)) {
-        monthData.venues.set(venueKey, { count: 0, amount_cents: 0 });
-      }
-      
-      const venueData = monthData.venues.get(venueKey)!;
-      venueData.count += 1;
-      venueData.amount_cents += transaction.amount_cents;
-    });
-
-    return Array.from(monthlyMap.entries()).map(([month, data]) => ({
-      month,
-      transaction_count: data.transaction_count,
-      total_amount_cents: data.total_amount_cents,
-      venues: Array.from(data.venues.entries()).map(([key, venue]) => {
-        const [venueName, revenueType] = key.split('-');
-        return {
-          venue: venueName,
-          revenue_type: revenueType,
-          count: venue.count,
-          amount_cents: venue.amount_cents
-        };
-      })
-    })).sort((a, b) => b.month.localeCompare(a.month));
-  };
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
-    }).format(amount / 100);
+    }).format(amount);
   };
 
   const formatMonth = (monthString: string) => {
-    return format(new Date(`${monthString}-01`), 'MMMM yyyy');
+    return format(new Date(monthString), 'MMMM yyyy');
   };
 
   return (
@@ -136,7 +132,6 @@ const RevenueNew = () => {
                     <TableHead>Month</TableHead>
                     <TableHead className="text-right">Transactions</TableHead>
                     <TableHead className="text-right">Total Revenue</TableHead>
-                    <TableHead>Venue Breakdown</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -146,28 +141,10 @@ const RevenueNew = () => {
                         {formatMonth(monthData.month)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {monthData.transaction_count.toLocaleString()}
+                        {monthData.total_transactions.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(monthData.total_amount_cents)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {monthData.venues.map((venue, index) => (
-                            <div key={index} className="flex items-center gap-2 text-sm">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                venue.revenue_type === 'bar' 
-                                  ? 'bg-blue-100 text-blue-800' 
-                                  : 'bg-green-100 text-green-800'
-                              }`}>
-                                {venue.venue} ({venue.revenue_type})
-                              </span>
-                              <span className="text-muted-foreground">
-                                {venue.count} txns • {formatCurrency(venue.amount_cents)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                        {formatCurrency(monthData.total_dollars)}
                       </TableCell>
                     </TableRow>
                   ))}
