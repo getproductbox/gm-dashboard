@@ -2,110 +2,61 @@ import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
-interface MonthlyRevenue {
-  month: string;
-  year: number;
-  barRevenue: number;
-  doorRevenue: number;
-  totalRevenue: number;
+interface RevenueTransaction {
+  id: string;
+  square_payment_id: string;
+  venue: string;
+  revenue_type: string;
+  amount_cents: number;
+  currency: string;
+  payment_date: string;
+  status: string;
 }
 
 const RevenueNew = () => {
-  const [monthlyData, setMonthlyData] = useState<MonthlyRevenue[]>([]);
+  const [transactions, setTransactions] = useState<RevenueTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 50;
 
   useEffect(() => {
-    fetchMonthlyRevenue();
-  }, []);
+    fetchTransactions();
+  }, [currentPage]);
 
-  const fetchMonthlyRevenue = async () => {
+  const fetchTransactions = async () => {
     try {
+      setIsLoading(true);
+      
+      // Get total count first
+      const { count } = await supabase
+        .from('revenue_events')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'completed');
+      
+      setTotalCount(count || 0);
+
+      // Fetch paginated data
       const { data, error } = await supabase
         .from('revenue_events')
-        .select('payment_date, revenue_type, amount_cents')
-        .eq('status', 'completed');
+        .select('id, square_payment_id, venue, revenue_type, amount_cents, currency, payment_date, status')
+        .eq('status', 'completed')
+        .order('payment_date', { ascending: false })
+        .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
 
       if (error) {
-        console.error('Error fetching revenue:', error);
+        console.error('Error fetching transactions:', error);
         return;
       }
 
-      console.log('Raw data count:', data?.length);
-      console.log('Sample raw data:', data?.slice(0, 5));
-
-      if (!data || data.length === 0) {
-        setMonthlyData([]);
-        return;
-      }
-
-      // Group by month and calculate totals with robust error handling
-      const monthlyMap = new Map<string, MonthlyRevenue>();
-      const processingErrors: string[] = [];
+      console.log('Fetched transactions:', data?.length);
+      console.log('Sample transactions:', data?.slice(0, 3));
       
-      data.forEach((event, index) => {
-        try {
-          // Validate the event data
-          if (!event.payment_date || event.amount_cents === null || event.amount_cents === undefined) {
-            processingErrors.push(`Record ${index}: Missing required fields`);
-            return;
-          }
-
-          // More robust date parsing
-          const date = new Date(event.payment_date);
-          
-          // Validate the parsed date
-          if (isNaN(date.getTime())) {
-            processingErrors.push(`Record ${index}: Invalid date - ${event.payment_date}`);
-            return;
-          }
-
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          const monthName = format(date, 'MMM yyyy');
-          
-          console.log(`Processing record ${index}: ${event.payment_date} -> ${monthKey} (${monthName})`);
-          
-          if (!monthlyMap.has(monthKey)) {
-            monthlyMap.set(monthKey, {
-              month: monthName,
-              year: date.getFullYear(),
-              barRevenue: 0,
-              doorRevenue: 0,
-              totalRevenue: 0
-            });
-          }
-          
-          const monthData = monthlyMap.get(monthKey)!;
-          const amountDollars = event.amount_cents / 100;
-          
-          if (event.revenue_type === 'bar') {
-            monthData.barRevenue += amountDollars;
-          } else if (event.revenue_type === 'door') {
-            monthData.doorRevenue += amountDollars;
-          }
-          
-          monthData.totalRevenue += amountDollars;
-        } catch (recordError) {
-          processingErrors.push(`Record ${index}: ${recordError}`);
-          console.error(`Error processing record ${index}:`, recordError, event);
-        }
-      });
-
-      // Log any processing errors
-      if (processingErrors.length > 0) {
-        console.warn('Processing errors:', processingErrors);
-      }
-
-      // Convert to array and sort by year-month key (newest first)
-      const sortedData = Array.from(monthlyMap.entries())
-        .sort((a, b) => b[0].localeCompare(a[0]))
-        .map(([key, value]) => value);
-
-      console.log('Final processed monthly data:', sortedData);
-      console.log('Month keys found:', Array.from(monthlyMap.keys()).sort());
-      setMonthlyData(sortedData);
+      setTransactions(data || []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -117,20 +68,26 @@ const RevenueNew = () => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
-    }).format(amount);
+    }).format(amount / 100);
   };
+
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+  };
+
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Revenue New</h1>
-          <p className="text-muted-foreground">Monthly revenue breakdown over the last 12 months</p>
+          <h1 className="text-3xl font-bold">Revenue Transactions</h1>
+          <p className="text-muted-foreground">All revenue transactions ordered by payment date</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Revenue</CardTitle>
+            <CardTitle>Transactions ({totalCount} total)</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -138,26 +95,73 @@ const RevenueNew = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Month</TableHead>
-                    <TableHead className="text-right">Bar Revenue</TableHead>
-                    <TableHead className="text-right">Door Revenue</TableHead>
-                    <TableHead className="text-right">Total Revenue</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {monthlyData.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{row.month}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(row.barRevenue)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(row.doorRevenue)}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(row.totalRevenue)}</TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Payment Date</TableHead>
+                      <TableHead>Venue</TableHead>
+                      <TableHead>Revenue Type</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Payment ID</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions.map((transaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell className="font-medium">
+                          {formatDate(transaction.payment_date)}
+                        </TableCell>
+                        <TableCell>{transaction.venue}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            transaction.revenue_type === 'bar' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {transaction.revenue_type}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(transaction.amount_cents)}
+                        </TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                            {transaction.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {transaction.square_payment_id.slice(-8)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between pt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} transactions
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
