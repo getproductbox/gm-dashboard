@@ -403,7 +403,7 @@ export type Database = {
     }
     Functions: {
       get_monthly_revenue_summary: {
-        Args: Record<PropertyKey, never>
+        Args: { venue_filter?: string }
         Returns: {
           month: string
           total_transactions: number

@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -20,17 +21,45 @@ const RevenueNew = () => {
   const [monthlyData, setMonthlyData] = useState<MonthlyRevenue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectedVenue, setSelectedVenue] = useState<string>('all');
+  const [venues, setVenues] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchVenues();
+  }, []);
 
   useEffect(() => {
     fetchMonthlyRevenue();
-  }, []);
+  }, [selectedVenue]);
+
+  const fetchVenues = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('revenue_events')
+        .select('venue');
+
+      if (error) {
+        console.error('Error fetching venues:', error);
+        return;
+      }
+
+      // Get unique venues from the data
+      const uniqueVenues = [...new Set(data?.map(row => row.venue))].sort() || [];
+      setVenues(uniqueVenues);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
 
   const fetchMonthlyRevenue = async () => {
     try {
       setIsLoading(true);
       
-      // Use database function for direct monthly aggregation
-      const { data, error } = await supabase.rpc('get_monthly_revenue_summary');
+      // Use database function with venue filter parameter
+      const venueFilter = selectedVenue === 'all' ? null : selectedVenue;
+      const { data, error } = await supabase.rpc('get_monthly_revenue_summary', {
+        venue_filter: venueFilter
+      });
 
       if (error) {
         console.error('Error fetching monthly revenue data:', error);
@@ -79,9 +108,37 @@ const RevenueNew = () => {
           <p className="text-muted-foreground">Revenue grouped by month ({totalCount} total transactions)</p>
         </div>
 
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="venue-select" className="text-sm font-medium">
+              Venue:
+            </label>
+            <Select value={selectedVenue} onValueChange={setSelectedVenue}>
+              <SelectTrigger className="w-48 bg-background">
+                <SelectValue placeholder="Select venue" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-lg z-50">
+                <SelectItem value="all">All Venues</SelectItem>
+                {venues.map((venue) => (
+                  <SelectItem key={venue} value={venue}>
+                    {venue}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Revenue Breakdown</CardTitle>
+            <CardTitle>
+              Monthly Revenue Breakdown
+              {selectedVenue !== 'all' && (
+                <span className="text-base font-normal text-muted-foreground ml-2">
+                  - {selectedVenue}
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
