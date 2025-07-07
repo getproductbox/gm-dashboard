@@ -102,26 +102,35 @@ export const useRevenueDashboard = () => {
     const currentEnd = new Date(endDate);
     currentEnd.setHours(23, 59, 59, 999);
 
-    // Calculate comparison periods based on the length of selected period
-    const periodLengthDays = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24));
+    // Calculate period length in milliseconds
+    const periodLengthMs = currentEnd.getTime() - currentStart.getTime();
     
-    const lastWeekStart = new Date(currentStart);
-    lastWeekStart.setDate(currentStart.getDate() - periodLengthDays - 1);
-    const lastWeekEnd = new Date(lastWeekStart);
-    lastWeekEnd.setDate(lastWeekStart.getDate() + periodLengthDays);
+    // Previous period (same length, immediately before current period)
+    const lastWeekEnd = new Date(currentStart.getTime() - 1); // End just before current period starts
     lastWeekEnd.setHours(23, 59, 59, 999);
+    const lastWeekStart = new Date(lastWeekEnd.getTime() - periodLengthMs + (24 * 60 * 60 * 1000)); // Same length period
+    lastWeekStart.setHours(0, 0, 0, 0);
 
+    // Same period from previous month
     const lastMonthStart = new Date(currentStart);
     lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-    const lastMonthEnd = new Date(lastMonthStart);
-    lastMonthEnd.setDate(lastMonthStart.getDate() + periodLengthDays);
+    lastMonthStart.setHours(0, 0, 0, 0);
+    const lastMonthEnd = new Date(lastMonthStart.getTime() + periodLengthMs);
     lastMonthEnd.setHours(23, 59, 59, 999);
 
+    // Same period from previous year
     const lastYearStart = new Date(currentStart);
     lastYearStart.setFullYear(lastYearStart.getFullYear() - 1);
-    const lastYearEnd = new Date(lastYearStart);
-    lastYearEnd.setDate(lastYearStart.getDate() + periodLengthDays);
+    lastYearStart.setHours(0, 0, 0, 0);
+    const lastYearEnd = new Date(lastYearStart.getTime() + periodLengthMs);
     lastYearEnd.setHours(23, 59, 59, 999);
+
+    console.log('Comparison ranges:', {
+      current: { start: currentStart.toISOString(), end: currentEnd.toISOString() },
+      lastWeek: { start: lastWeekStart.toISOString(), end: lastWeekEnd.toISOString() },
+      lastMonth: { start: lastMonthStart.toISOString(), end: lastMonthEnd.toISOString() },
+      lastYear: { start: lastYearStart.toISOString(), end: lastYearEnd.toISOString() }
+    });
 
     return {
       current: { start: currentStart, end: currentEnd },
