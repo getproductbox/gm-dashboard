@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 
 interface MonthlyRevenue {
   month: string;
+  revenue_type: string;
   total_transactions: number;
   total_cents: number;
   total_dollars: number;
@@ -35,8 +36,9 @@ const RevenueNew = () => {
       }
 
       // Transform database results to component format
-      const monthlyArray: MonthlyRevenue[] = data?.map((row) => ({
+      const monthlyArray: MonthlyRevenue[] = data?.map((row: any) => ({
         month: new Date(row.month).toISOString().split('T')[0],
+        revenue_type: row.revenue_type,
         total_transactions: Number(row.total_transactions),
         total_cents: Number(row.total_cents),
         total_dollars: Math.round((Number(row.total_cents) / 100) * 100) / 100
@@ -87,15 +89,19 @@ const RevenueNew = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Month</TableHead>
+                    <TableHead>Revenue Type</TableHead>
                     <TableHead className="text-right">Transactions</TableHead>
                     <TableHead className="text-right">Total Revenue</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {monthlyData.map((monthData) => (
-                    <TableRow key={monthData.month}>
+                  {monthlyData.map((monthData, index) => (
+                    <TableRow key={`${monthData.month}-${monthData.revenue_type}`}>
                       <TableCell className="font-medium">
                         {formatMonth(monthData.month)}
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {monthData.revenue_type}
                       </TableCell>
                       <TableCell className="text-right">
                         {monthData.total_transactions.toLocaleString()}
