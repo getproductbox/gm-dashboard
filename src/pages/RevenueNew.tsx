@@ -6,29 +6,23 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
-interface RevenueTransaction {
-  id: string;
-  square_payment_id: string;
-  venue: string;
-  revenue_type: string;
-  amount_cents: number;
-  currency: string;
-  payment_date: string;
-  status: string;
+interface MonthlyRevenue {
+  month: string;
+  transaction_count: number;
+  total_amount_cents: number;
+  venues: { venue: string; revenue_type: string; count: number; amount_cents: number }[];
 }
 
 const RevenueNew = () => {
-  const [transactions, setTransactions] = useState<RevenueTransaction[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyRevenue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const itemsPerPage = 50;
 
   useEffect(() => {
-    fetchTransactions();
-  }, [currentPage]);
+    fetchMonthlyRevenue();
+  }, []);
 
-  const fetchTransactions = async () => {
+  const fetchMonthlyRevenue = async () => {
     try {
       setIsLoading(true);
       
@@ -40,28 +34,71 @@ const RevenueNew = () => {
       
       setTotalCount(count || 0);
 
-      // Fetch paginated data
-      const { data, error } = await supabase
-        .from('revenue_events')
-        .select('id, square_payment_id, venue, revenue_type, amount_cents, currency, payment_date, status')
-        .eq('status', 'completed')
-        .order('payment_date', { ascending: false })
-        .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
-
-      if (error) {
-        console.error('Error fetching transactions:', error);
-        return;
-      }
-
-      console.log('Fetched transactions:', data?.length);
-      console.log('Sample transactions:', data?.slice(0, 3));
-      
-      setTransactions(data || []);
+      // Fetch monthly grouped data manually
+      const fallbackData = await fetchMonthlyFallback();
+      setMonthlyData(fallbackData);
     } catch (error) {
       console.error('Error:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fetchMonthlyFallback = async () => {
+    const { data, error } = await supabase
+      .from('revenue_events')
+      .select('venue, revenue_type, amount_cents, payment_date')
+      .eq('status', 'completed')
+      .order('payment_date', { ascending: false });
+
+    if (error) return [];
+
+    // Group by month manually
+    const monthlyMap = new Map<string, {
+      transaction_count: number;
+      total_amount_cents: number;
+      venues: Map<string, { count: number; amount_cents: number }>;
+    }>();
+
+    data?.forEach(transaction => {
+      const month = format(new Date(transaction.payment_date), 'yyyy-MM');
+      const venueKey = `${transaction.venue}-${transaction.revenue_type}`;
+      
+      if (!monthlyMap.has(month)) {
+        monthlyMap.set(month, {
+          transaction_count: 0,
+          total_amount_cents: 0,
+          venues: new Map()
+        });
+      }
+      
+      const monthData = monthlyMap.get(month)!;
+      monthData.transaction_count += 1;
+      monthData.total_amount_cents += transaction.amount_cents;
+      
+      if (!monthData.venues.has(venueKey)) {
+        monthData.venues.set(venueKey, { count: 0, amount_cents: 0 });
+      }
+      
+      const venueData = monthData.venues.get(venueKey)!;
+      venueData.count += 1;
+      venueData.amount_cents += transaction.amount_cents;
+    });
+
+    return Array.from(monthlyMap.entries()).map(([month, data]) => ({
+      month,
+      transaction_count: data.transaction_count,
+      total_amount_cents: data.total_amount_cents,
+      venues: Array.from(data.venues.entries()).map(([key, venue]) => {
+        const [venueName, revenueType] = key.split('-');
+        return {
+          venue: venueName,
+          revenue_type: revenueType,
+          count: venue.count,
+          amount_cents: venue.amount_cents
+        };
+      })
+    })).sort((a, b) => b.month.localeCompare(a.month));
   };
 
   const formatCurrency = (amount: number) => {
@@ -71,23 +108,21 @@ const RevenueNew = () => {
     }).format(amount / 100);
   };
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+  const formatMonth = (monthString: string) => {
+    return format(new Date(`${monthString}-01`), 'MMMM yyyy');
   };
-
-  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Revenue Transactions</h1>
-          <p className="text-muted-foreground">All revenue transactions ordered by payment date</p>
+          <h1 className="text-3xl font-bold">Monthly Revenue Summary</h1>
+          <p className="text-muted-foreground">Revenue grouped by month ({totalCount} total transactions)</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Transactions ({totalCount} total)</CardTitle>
+            <CardTitle>Monthly Revenue Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -95,73 +130,49 @@ const RevenueNew = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Payment Date</TableHead>
-                      <TableHead>Venue</TableHead>
-                      <TableHead>Revenue Type</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Payment ID</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Month</TableHead>
+                    <TableHead className="text-right">Transactions</TableHead>
+                    <TableHead className="text-right">Total Revenue</TableHead>
+                    <TableHead>Venue Breakdown</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {monthlyData.map((monthData) => (
+                    <TableRow key={monthData.month}>
+                      <TableCell className="font-medium">
+                        {formatMonth(monthData.month)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {monthData.transaction_count.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(monthData.total_amount_cents)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {monthData.venues.map((venue, index) => (
+                            <div key={index} className="flex items-center gap-2 text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                venue.revenue_type === 'bar' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {venue.venue} ({venue.revenue_type})
+                              </span>
+                              <span className="text-muted-foreground">
+                                {venue.count} txns • {formatCurrency(venue.amount_cents)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell className="font-medium">
-                          {formatDate(transaction.payment_date)}
-                        </TableCell>
-                        <TableCell>{transaction.venue}</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            transaction.revenue_type === 'bar' 
-                              ? 'bg-blue-100 text-blue-800' 
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {transaction.revenue_type}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(transaction.amount_cents)}
-                        </TableCell>
-                        <TableCell>
-                          <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                            {transaction.status}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {transaction.square_payment_id.slice(-8)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                <div className="flex items-center justify-between pt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} transactions
-                  </p>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              </>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
