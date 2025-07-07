@@ -41,42 +41,70 @@ const RevenueNew = () => {
         return;
       }
 
-      // Group by month and calculate totals
+      // Group by month and calculate totals with robust error handling
       const monthlyMap = new Map<string, MonthlyRevenue>();
+      const processingErrors: string[] = [];
       
-      data.forEach((event) => {
-        const date = new Date(event.payment_date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const monthName = format(date, 'MMM yyyy');
-        
-        if (!monthlyMap.has(monthKey)) {
-          monthlyMap.set(monthKey, {
-            month: monthName,
-            year: date.getFullYear(),
-            barRevenue: 0,
-            doorRevenue: 0,
-            totalRevenue: 0
-          });
+      data.forEach((event, index) => {
+        try {
+          // Validate the event data
+          if (!event.payment_date || event.amount_cents === null || event.amount_cents === undefined) {
+            processingErrors.push(`Record ${index}: Missing required fields`);
+            return;
+          }
+
+          // More robust date parsing
+          const date = new Date(event.payment_date);
+          
+          // Validate the parsed date
+          if (isNaN(date.getTime())) {
+            processingErrors.push(`Record ${index}: Invalid date - ${event.payment_date}`);
+            return;
+          }
+
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          const monthName = format(date, 'MMM yyyy');
+          
+          console.log(`Processing record ${index}: ${event.payment_date} -> ${monthKey} (${monthName})`);
+          
+          if (!monthlyMap.has(monthKey)) {
+            monthlyMap.set(monthKey, {
+              month: monthName,
+              year: date.getFullYear(),
+              barRevenue: 0,
+              doorRevenue: 0,
+              totalRevenue: 0
+            });
+          }
+          
+          const monthData = monthlyMap.get(monthKey)!;
+          const amountDollars = event.amount_cents / 100;
+          
+          if (event.revenue_type === 'bar') {
+            monthData.barRevenue += amountDollars;
+          } else if (event.revenue_type === 'door') {
+            monthData.doorRevenue += amountDollars;
+          }
+          
+          monthData.totalRevenue += amountDollars;
+        } catch (recordError) {
+          processingErrors.push(`Record ${index}: ${recordError}`);
+          console.error(`Error processing record ${index}:`, recordError, event);
         }
-        
-        const monthData = monthlyMap.get(monthKey)!;
-        const amountDollars = event.amount_cents / 100;
-        
-        if (event.revenue_type === 'bar') {
-          monthData.barRevenue += amountDollars;
-        } else if (event.revenue_type === 'door') {
-          monthData.doorRevenue += amountDollars;
-        }
-        
-        monthData.totalRevenue += amountDollars;
       });
+
+      // Log any processing errors
+      if (processingErrors.length > 0) {
+        console.warn('Processing errors:', processingErrors);
+      }
 
       // Convert to array and sort by year-month key (newest first)
       const sortedData = Array.from(monthlyMap.entries())
         .sort((a, b) => b[0].localeCompare(a[0]))
         .map(([key, value]) => value);
 
-      console.log('Processed monthly data:', sortedData);
+      console.log('Final processed monthly data:', sortedData);
+      console.log('Month keys found:', Array.from(monthlyMap.keys()).sort());
       setMonthlyData(sortedData);
     } catch (error) {
       console.error('Error:', error);
