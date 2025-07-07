@@ -1,248 +1,148 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
-interface ComparisonData {
+interface RevenueRow {
   period: string;
   totalDollars: number;
-  totalPercent: number;
+  totalPercent: number | null;
   barDollars: number;
-  barPercent: number;
+  barPercent: number | null;
   doorDollars: number;
-  doorPercent: number;
-}
-
-interface PeriodData {
-  current: { start: Date; end: Date };
-  comparison: { start: Date; end: Date };
-  metrics: any;
-  comparisonMetrics: any;
+  doorPercent: number | null;
 }
 
 export const RevenueComparisonTable = () => {
-  const [weekData, setWeekData] = useState<PeriodData | null>(null);
-  const [monthData, setMonthData] = useState<PeriodData | null>(null);
-  const [yearData, setYearData] = useState<PeriodData | null>(null);
+  const [data, setData] = useState<RevenueRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPeriodMetrics = useCallback(async (startDate: Date, endDate: Date) => {
-    const { data, error } = await supabase
-      .from('revenue_events')
-      .select('*')
-      .eq('status', 'completed')
-      .gte('payment_date', startDate.toISOString())
-      .lte('payment_date', endDate.toISOString());
-
-    if (error) {
-      console.error('Supabase query error:', error);
-      throw error;
-    }
-
-    const events = data || [];
-    const totalRevenue = events.reduce((sum, event) => sum + event.amount_cents, 0);
-    const barRevenue = events
-      .filter(event => event.revenue_type === 'bar')
-      .reduce((sum, event) => sum + event.amount_cents, 0);
-    const doorRevenue = events
-      .filter(event => event.revenue_type === 'door')
-      .reduce((sum, event) => sum + event.amount_cents, 0);
-
-    return { 
-      totalRevenue, 
-      barRevenue, 
-      doorRevenue,
-      eventCount: events.length
-    };
-  }, []);
-
-  const calculateVariance = useCallback((current: number, previous: number): number => {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return ((current - previous) / previous) * 100;
-  }, []);
-
-  const getCurrentWeek = () => {
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    weekStart.setHours(0, 0, 0, 0);
-    
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-    
-    return { start: weekStart, end: weekEnd };
-  };
-
-  const getLastWeek = () => {
-    const currentWeek = getCurrentWeek();
-    const lastWeekStart = new Date(currentWeek.start);
-    lastWeekStart.setDate(currentWeek.start.getDate() - 7);
-    
-    const lastWeekEnd = new Date(currentWeek.end);
-    lastWeekEnd.setDate(currentWeek.end.getDate() - 7);
-    
-    return { start: lastWeekStart, end: lastWeekEnd };
-  };
-
-  const getCurrentMonth = () => {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    monthStart.setHours(0, 0, 0, 0);
-    
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    monthEnd.setHours(23, 59, 59, 999);
-    
-    return { start: monthStart, end: monthEnd };
-  };
-
-  const getLastMonth = () => {
-    const now = new Date();
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    lastMonthStart.setHours(0, 0, 0, 0);
-    
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-    lastMonthEnd.setHours(23, 59, 59, 999);
-    
-    return { start: lastMonthStart, end: lastMonthEnd };
-  };
-
-  const getCurrentYear = () => {
-    const now = new Date();
-    const yearStart = new Date(now.getFullYear(), 0, 1);
-    yearStart.setHours(0, 0, 0, 0);
-    
-    const yearEnd = new Date(now.getFullYear(), 11, 31);
-    yearEnd.setHours(23, 59, 59, 999);
-    
-    return { start: yearStart, end: yearEnd };
-  };
-
-  const getLastYear = () => {
-    const now = new Date();
-    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
-    lastYearStart.setHours(0, 0, 0, 0);
-    
-    const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31);
-    lastYearEnd.setHours(23, 59, 59, 999);
-    
-    return { start: lastYearStart, end: lastYearEnd };
-  };
-
   useEffect(() => {
-    const fetchAllData = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Get date ranges
-        const currentWeek = getCurrentWeek();
-        const lastWeek = getLastWeek();
-        const currentMonth = getCurrentMonth();
-        const lastMonth = getLastMonth();
-        const currentYear = getCurrentYear();
-        const lastYear = getLastYear();
-
-        // Fetch all metrics in parallel
-        const [
-          weekMetrics,
-          lastWeekMetrics,
-          monthMetrics,
-          lastMonthMetrics,
-          yearMetrics,
-          lastYearMetrics
-        ] = await Promise.all([
-          fetchPeriodMetrics(currentWeek.start, currentWeek.end),
-          fetchPeriodMetrics(lastWeek.start, lastWeek.end),
-          fetchPeriodMetrics(currentMonth.start, currentMonth.end),
-          fetchPeriodMetrics(lastMonth.start, lastMonth.end),
-          fetchPeriodMetrics(currentYear.start, currentYear.end),
-          fetchPeriodMetrics(lastYear.start, lastYear.end)
+        // Fetch current week, month, year and their comparisons using SQL functions
+        const [weeklyData, monthlyData, yearlyData] = await Promise.all([
+          supabase.rpc('get_weekly_revenue_summary'),
+          supabase.rpc('get_monthly_revenue_summary'), 
+          supabase.rpc('get_yearly_revenue_summary')
         ]);
 
-        setWeekData({
-          current: currentWeek,
-          comparison: lastWeek,
-          metrics: weekMetrics,
-          comparisonMetrics: lastWeekMetrics
-        });
+        if (weeklyData.error) console.error('Weekly data error:', weeklyData.error);
+        if (monthlyData.error) console.error('Monthly data error:', monthlyData.error);
+        if (yearlyData.error) console.error('Yearly data error:', yearlyData.error);
 
-        setMonthData({
-          current: currentMonth,
-          comparison: lastMonth,
-          metrics: monthMetrics,
-          comparisonMetrics: lastMonthMetrics
-        });
+        const weeks = weeklyData.data || [];
+        const months = monthlyData.data || [];
+        const years = yearlyData.data || [];
 
-        setYearData({
-          current: currentYear,
-          comparison: lastYear,
-          metrics: yearMetrics,
-          comparisonMetrics: lastYearMetrics
-        });
+        // Get current and previous periods
+        const currentWeek = weeks[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        const lastWeek = weeks[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        
+        const currentMonth = months[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        const lastMonth = months[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        
+        const currentYear = years[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        const lastYear = years[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
 
+        const calculatePercent = (current: number, previous: number) => {
+          if (previous === 0) return current > 0 ? 100 : 0;
+          return ((current - previous) / previous) * 100;
+        };
+
+        const formatDollars = (cents: number) => cents / 100;
+
+        const tableData: RevenueRow[] = [
+          // Actual values (first 3 rows)
+          {
+            period: 'Current Week',
+            totalDollars: formatDollars(currentWeek.total_revenue_cents),
+            totalPercent: null,
+            barDollars: formatDollars(currentWeek.bar_revenue_cents),
+            barPercent: null,
+            doorDollars: formatDollars(currentWeek.door_revenue_cents),
+            doorPercent: null,
+          },
+          {
+            period: 'Current Month',
+            totalDollars: formatDollars(currentMonth.total_revenue_cents),
+            totalPercent: null,
+            barDollars: formatDollars(currentMonth.bar_revenue_cents),
+            barPercent: null,
+            doorDollars: formatDollars(currentMonth.door_revenue_cents),
+            doorPercent: null,
+          },
+          {
+            period: 'Current Year',
+            totalDollars: formatDollars(currentYear.total_revenue_cents),
+            totalPercent: null,
+            barDollars: formatDollars(currentYear.bar_revenue_cents),
+            barPercent: null,
+            doorDollars: formatDollars(currentYear.door_revenue_cents),
+            doorPercent: null,
+          },
+          // Comparison values (next 3 rows)
+          {
+            period: 'vs Last Week',
+            totalDollars: formatDollars(currentWeek.total_revenue_cents),
+            totalPercent: calculatePercent(currentWeek.total_revenue_cents, lastWeek.total_revenue_cents),
+            barDollars: formatDollars(currentWeek.bar_revenue_cents),
+            barPercent: calculatePercent(currentWeek.bar_revenue_cents, lastWeek.bar_revenue_cents),
+            doorDollars: formatDollars(currentWeek.door_revenue_cents),
+            doorPercent: calculatePercent(currentWeek.door_revenue_cents, lastWeek.door_revenue_cents),
+          },
+          {
+            period: 'vs Last Month',
+            totalDollars: formatDollars(currentMonth.total_revenue_cents),
+            totalPercent: calculatePercent(currentMonth.total_revenue_cents, lastMonth.total_revenue_cents),
+            barDollars: formatDollars(currentMonth.bar_revenue_cents),
+            barPercent: calculatePercent(currentMonth.bar_revenue_cents, lastMonth.bar_revenue_cents),
+            doorDollars: formatDollars(currentMonth.door_revenue_cents),
+            doorPercent: calculatePercent(currentMonth.door_revenue_cents, lastMonth.door_revenue_cents),
+          },
+          {
+            period: 'vs Last Year',
+            totalDollars: formatDollars(currentYear.total_revenue_cents),
+            totalPercent: calculatePercent(currentYear.total_revenue_cents, lastYear.total_revenue_cents),
+            barDollars: formatDollars(currentYear.bar_revenue_cents),
+            barPercent: calculatePercent(currentYear.bar_revenue_cents, lastYear.bar_revenue_cents),
+            doorDollars: formatDollars(currentYear.door_revenue_cents),
+            doorPercent: calculatePercent(currentYear.door_revenue_cents, lastYear.door_revenue_cents),
+          },
+        ];
+
+        setData(tableData);
       } catch (error) {
-        console.error('Error fetching comparison data:', error);
+        console.error('Error fetching revenue data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchAllData();
-  }, [fetchPeriodMetrics]);
+    fetchData();
+  }, []);
 
-  const formatCurrency = (cents: number) => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
-    }).format(cents / 100);
+    }).format(amount);
   };
 
-  const formatPercent = (value: number) => {
+  const formatPercent = (value: number | null) => {
+    if (value === null) return '—';
     if (value === 0) return '0%';
     return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
   };
 
-  const getPercentColor = (value: number) => {
+  const getPercentColor = (value: number | null) => {
+    if (value === null) return 'text-muted-foreground';
     if (value > 0) return 'text-green-600';
     if (value < 0) return 'text-red-600';
     return 'text-muted-foreground';
   };
-
-  const buildComparisonData = (): ComparisonData[] => {
-    if (!weekData || !monthData || !yearData) return [];
-
-    return [
-      {
-        period: 'Current Week vs Last Week',
-        totalDollars: weekData.metrics.totalRevenue,
-        totalPercent: calculateVariance(weekData.metrics.totalRevenue, weekData.comparisonMetrics.totalRevenue),
-        barDollars: weekData.metrics.barRevenue,
-        barPercent: calculateVariance(weekData.metrics.barRevenue, weekData.comparisonMetrics.barRevenue),
-        doorDollars: weekData.metrics.doorRevenue,
-        doorPercent: calculateVariance(weekData.metrics.doorRevenue, weekData.comparisonMetrics.doorRevenue),
-      },
-      {
-        period: 'Current Month vs Last Month',
-        totalDollars: monthData.metrics.totalRevenue,
-        totalPercent: calculateVariance(monthData.metrics.totalRevenue, monthData.comparisonMetrics.totalRevenue),
-        barDollars: monthData.metrics.barRevenue,
-        barPercent: calculateVariance(monthData.metrics.barRevenue, monthData.comparisonMetrics.barRevenue),
-        doorDollars: monthData.metrics.doorRevenue,
-        doorPercent: calculateVariance(monthData.metrics.doorRevenue, monthData.comparisonMetrics.doorRevenue),
-      },
-      {
-        period: 'Current Year vs Last Year',
-        totalDollars: yearData.metrics.totalRevenue,
-        totalPercent: calculateVariance(yearData.metrics.totalRevenue, yearData.comparisonMetrics.totalRevenue),
-        barDollars: yearData.metrics.barRevenue,
-        barPercent: calculateVariance(yearData.metrics.barRevenue, yearData.comparisonMetrics.barRevenue),
-        doorDollars: yearData.metrics.doorRevenue,
-        doorPercent: calculateVariance(yearData.metrics.doorRevenue, yearData.comparisonMetrics.doorRevenue),
-      },
-    ];
-  };
-
-  const comparisonData = buildComparisonData();
 
   return (
     <Card>
@@ -268,7 +168,7 @@ export const RevenueComparisonTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {comparisonData.map((row) => (
+              {data.map((row, index) => (
                 <TableRow key={row.period}>
                   <TableCell className="font-medium">{row.period}</TableCell>
                   <TableCell className="text-right font-mono">

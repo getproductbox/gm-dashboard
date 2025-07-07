@@ -434,6 +434,18 @@ export type Database = {
           total_revenue_cents: number
         }[]
       }
+      get_yearly_revenue_summary: {
+        Args: { venue_filter?: string }
+        Returns: {
+          year_start: string
+          total_transactions: number
+          door_transactions: number
+          bar_transactions: number
+          door_revenue_cents: number
+          bar_revenue_cents: number
+          total_revenue_cents: number
+        }[]
+      }
       process_payment_to_revenue: {
         Args: { payment_id: string }
         Returns: boolean
