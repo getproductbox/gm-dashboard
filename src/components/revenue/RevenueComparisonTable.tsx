@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { WeekSelector } from './WeekSelector';
 
 interface RevenueRow {
   period: string;
@@ -17,21 +18,52 @@ interface RevenueRow {
 export const RevenueComparisonTable = () => {
   const [data, setData] = useState<RevenueRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedWeek, setSelectedWeek] = useState<Date | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch current week, month, year and their comparisons using SQL functions
+        // Use the date-filtered functions when a week is selected
+        const weekStartDate = selectedWeek?.toISOString();
+        const monthStartDate = selectedWeek ? new Date(selectedWeek.getFullYear(), selectedWeek.getMonth(), 1).toISOString() : undefined;
+        const yearStartDate = selectedWeek ? new Date(selectedWeek.getFullYear(), 0, 1).toISOString() : undefined;
+
         const [weeklyData, monthlyData, yearlyData] = await Promise.all([
-          supabase.rpc('get_weekly_revenue_summary'),
-          supabase.rpc('get_monthly_revenue_summary'), 
-          supabase.rpc('get_yearly_revenue_summary')
+          selectedWeek 
+            ? supabase.rpc('get_weekly_revenue_summary_by_date', { week_start_date: weekStartDate })
+            : supabase.rpc('get_weekly_revenue_summary'),
+          selectedWeek 
+            ? supabase.rpc('get_monthly_revenue_summary_by_date', { month_start_date: monthStartDate })
+            : supabase.rpc('get_monthly_revenue_summary'), 
+          selectedWeek 
+            ? supabase.rpc('get_yearly_revenue_summary_by_date', { year_start_date: yearStartDate })
+            : supabase.rpc('get_yearly_revenue_summary')
         ]);
 
         if (weeklyData.error) console.error('Weekly data error:', weeklyData.error);
         if (monthlyData.error) console.error('Monthly data error:', monthlyData.error);
         if (yearlyData.error) console.error('Yearly data error:', yearlyData.error);
+
+        // When a specific week is selected, also get the previous periods for comparison
+        let prevWeekData, prevMonthData, prevYearData;
+        
+        if (selectedWeek) {
+          const prevWeek = new Date(selectedWeek);
+          prevWeek.setDate(prevWeek.getDate() - 7);
+          
+          const prevMonth = new Date(selectedWeek);
+          prevMonth.setMonth(prevMonth.getMonth() - 1);
+          
+          const prevYear = new Date(selectedWeek);
+          prevYear.setFullYear(prevYear.getFullYear() - 1);
+
+          [prevWeekData, prevMonthData, prevYearData] = await Promise.all([
+            supabase.rpc('get_weekly_revenue_summary_by_date', { week_start_date: prevWeek.toISOString() }),
+            supabase.rpc('get_monthly_revenue_summary_by_date', { month_start_date: new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 1).toISOString() }),
+            supabase.rpc('get_yearly_revenue_summary_by_date', { year_start_date: new Date(prevYear.getFullYear(), 0, 1).toISOString() })
+          ]);
+        }
 
         const weeks = weeklyData.data || [];
         const months = monthlyData.data || [];
@@ -39,13 +71,22 @@ export const RevenueComparisonTable = () => {
 
         // Get current and previous periods
         const currentWeek = weeks[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
-        const lastWeek = weeks[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
-        
         const currentMonth = months[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
-        const lastMonth = months[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
-        
         const currentYear = years[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
-        const lastYear = years[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+
+        // For previous periods, use the fetched previous data when a specific week is selected
+        // Otherwise, use the second item from the arrays (default behavior)
+        const lastWeek = selectedWeek 
+          ? (prevWeekData?.data?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
+          : (weeks[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
+        
+        const lastMonth = selectedWeek 
+          ? (prevMonthData?.data?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
+          : (months[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
+        
+        const lastYear = selectedWeek 
+          ? (prevYearData?.data?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
+          : (years[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
 
         const calculatePercent = (current: number, previous: number) => {
           if (previous === 0) return current > 0 ? 100 : 0;
@@ -54,10 +95,15 @@ export const RevenueComparisonTable = () => {
 
         const formatDollars = (cents: number) => cents / 100;
 
+        // Dynamic labels based on whether a specific week is selected
+        const weekLabel = selectedWeek ? `Selected Week` : 'Current Week';
+        const monthLabel = selectedWeek ? `Selected Month` : 'Current Month';
+        const yearLabel = selectedWeek ? `Selected Year` : 'Current Year';
+
         const tableData: RevenueRow[] = [
           // Actual values (first 3 rows)
           {
-            period: 'Current Week',
+            period: weekLabel,
             totalDollars: formatDollars(currentWeek.total_revenue_cents),
             totalPercent: null,
             barDollars: formatDollars(currentWeek.bar_revenue_cents),
@@ -66,7 +112,7 @@ export const RevenueComparisonTable = () => {
             doorPercent: null,
           },
           {
-            period: 'Current Month',
+            period: monthLabel,
             totalDollars: formatDollars(currentMonth.total_revenue_cents),
             totalPercent: null,
             barDollars: formatDollars(currentMonth.bar_revenue_cents),
@@ -75,7 +121,7 @@ export const RevenueComparisonTable = () => {
             doorPercent: null,
           },
           {
-            period: 'Current Year',
+            period: yearLabel,
             totalDollars: formatDollars(currentYear.total_revenue_cents),
             totalPercent: null,
             barDollars: formatDollars(currentYear.bar_revenue_cents),
@@ -122,7 +168,7 @@ export const RevenueComparisonTable = () => {
     };
 
     fetchData();
-  }, []);
+  }, [selectedWeek]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -146,8 +192,12 @@ export const RevenueComparisonTable = () => {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-4">
         <CardTitle>Revenue Comparison</CardTitle>
+        <WeekSelector 
+          selectedWeek={selectedWeek} 
+          onWeekChange={setSelectedWeek} 
+        />
       </CardHeader>
       <CardContent>
         {isLoading ? (
