@@ -26,75 +26,25 @@ const RevenueNew = () => {
     try {
       setIsLoading(true);
       
-      // Use SQL query with direct aggregation by month
-      const { data, error } = await supabase.rpc('sql', {
-        query: `
-          SELECT 
-            DATE_TRUNC('month', payment_date) as month,
-            COUNT(*) as total_transactions,
-            SUM(amount_cents) as total_cents
-          FROM revenue_events 
-          WHERE status = 'completed'
-          GROUP BY DATE_TRUNC('month', payment_date)
-          ORDER BY month DESC
-        `
-      });
+      // Use database function for direct monthly aggregation
+      const { data, error } = await supabase.rpc('get_monthly_revenue_summary');
 
       if (error) {
         console.error('Error fetching monthly revenue data:', error);
-        
-        // Fallback to JavaScript grouping if SQL query fails
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('revenue_events')
-          .select('payment_date, amount_cents')
-          .eq('status', 'completed');
-
-        if (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          return;
-        }
-
-        // Manual grouping as fallback
-        const monthlyMap = new Map<string, { transactions: number; cents: number }>();
-        
-        fallbackData?.forEach(row => {
-          const date = new Date(row.payment_date);
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
-          
-          if (!monthlyMap.has(monthKey)) {
-            monthlyMap.set(monthKey, { transactions: 0, cents: 0 });
-          }
-          
-          const monthData = monthlyMap.get(monthKey)!;
-          monthData.transactions += 1;
-          monthData.cents += row.amount_cents;
-        });
-
-        const monthlyArray: MonthlyRevenue[] = Array.from(monthlyMap.entries())
-          .map(([month, data]) => ({
-            month,
-            total_transactions: data.transactions,
-            total_cents: data.cents,
-            total_dollars: Math.round((data.cents / 100) * 100) / 100
-          }))
-          .sort((a, b) => b.month.localeCompare(a.month));
-
-        setMonthlyData(monthlyArray);
-        setTotalCount(fallbackData?.length || 0);
         return;
       }
 
-      // Transform SQL results to component format
-      const monthlyArray: MonthlyRevenue[] = data?.map((row: any) => ({
-        month: new Date(row.month).toISOString().split('T')[0], // Format as YYYY-MM-DD
-        total_transactions: parseInt(row.total_transactions),
-        total_cents: parseInt(row.total_cents),
-        total_dollars: Math.round((parseInt(row.total_cents) / 100) * 100) / 100
+      // Transform database results to component format
+      const monthlyArray: MonthlyRevenue[] = data?.map((row) => ({
+        month: new Date(row.month).toISOString().split('T')[0],
+        total_transactions: Number(row.total_transactions),
+        total_cents: Number(row.total_cents),
+        total_dollars: Math.round((Number(row.total_cents) / 100) * 100) / 100
       })) || [];
 
       setMonthlyData(monthlyArray);
       
-      // Get total count separately
+      // Calculate total transactions
       const totalTransactions = monthlyArray.reduce((sum, month) => sum + month.total_transactions, 0);
       setTotalCount(totalTransactions);
     } catch (error) {

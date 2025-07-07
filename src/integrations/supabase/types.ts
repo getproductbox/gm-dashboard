@@ -402,6 +402,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_monthly_revenue_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          month: string
+          total_transactions: number
+          total_cents: number
+        }[]
+      }
       get_revenue_type_from_payment: {
         Args: { payment_data: Json }
         Returns: string
