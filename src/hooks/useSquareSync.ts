@@ -154,51 +154,6 @@ export const useSquareSync = () => {
     });
   }, [triggerSync]);
 
-  const testDateRangeSync = useCallback(async (
-    environment: 'sandbox' | 'production',
-    startDate: string,
-    endDate: string,
-    clearExisting = false
-  ) => {
-    console.log('🔍 Testing specific date range sync:', {
-      environment,
-      startDate,
-      endDate,
-      clearExisting,
-      startDateParsed: new Date(startDate).toISOString(),
-      endDateParsed: new Date(endDate).toISOString()
-    });
-
-    return triggerSync(environment, {
-      dateRange: { start: startDate, end: endDate },
-      clearExisting
-    });
-  }, [triggerSync]);
-
-  const syncLastDays = useCallback(async (
-    environment: 'sandbox' | 'production',
-    days: number,
-    clearExisting = false
-  ) => {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-
-    console.log('📅 Syncing last', days, 'days:', {
-      environment,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      clearExisting
-    });
-
-    return testDateRangeSync(
-      environment,
-      startDate.toISOString(),
-      endDate.toISOString(),
-      clearExisting
-    );
-  }, [testDateRangeSync]);
-
   const continueSync = useCallback(async (
     environment: 'sandbox' | 'production',
     sessionId: string

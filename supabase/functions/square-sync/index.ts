@@ -316,27 +316,58 @@ async function processBatch(payments: SquarePayment[], supabase: any): Promise<n
   try {
     console.log(`Processing batch of ${payments.length} payments...`);
     
-    // Prepare batch data for bulk insert
-    const batchData = payments.map(payment => ({
-      square_payment_id: payment.id,
-      raw_response: payment,
-      synced_at: new Date().toISOString()
-    }));
+    // Get location mappings for venue assignment
+    const { data: locations } = await supabase
+      .from('square_locations')
+      .select('square_location_id, location_name');
+    
+    const locationMap = new Map(
+      locations?.map((loc: any) => [loc.square_location_id, loc.location_name]) || []
+    );
+    
+    // Transform payments directly into revenue events
+    const revenueEvents = payments
+      .filter(payment => payment.status === 'COMPLETED')
+      .map(payment => {
+        const paymentDate = new Date(payment.created_at);
+        const venue = locationMap.get(payment.location_id) || 'default';
+        
+        // Simple venue-based revenue type mapping
+        const revenueType = venue === 'Hippie Door' ? 'door' : 'bar';
+        
+        return {
+          square_payment_id: payment.id,
+          venue,
+          revenue_type: revenueType,
+          amount_cents: payment.amount_money.amount,
+          currency: payment.amount_money.currency || 'USD',
+          payment_date: payment.created_at,
+          payment_hour: paymentDate.getHours(),
+          payment_day_of_week: paymentDate.getDay(),
+          status: 'completed',
+          processed_at: new Date().toISOString()
+        };
+      });
 
-    // Perform bulk upsert - single database operation
+    if (revenueEvents.length === 0) {
+      console.log('No completed payments to process');
+      return 0;
+    }
+
+    // Store processed revenue events directly
     const { error } = await supabase
-      .from('square_payments_raw')
-      .upsert(batchData, {
+      .from('revenue_events')
+      .upsert(revenueEvents, {
         onConflict: 'square_payment_id'
       });
 
     if (error) {
-      console.error('Batch upsert error:', error);
+      console.error('Revenue events upsert error:', error);
       return 0;
     }
 
-    console.log(`✅ Successfully processed batch of ${payments.length} payments`);
-    return payments.length;
+    console.log(`✅ Successfully processed ${revenueEvents.length} revenue events`);
+    return revenueEvents.length;
     
   } catch (error) {
     console.error('Error processing batch:', error);

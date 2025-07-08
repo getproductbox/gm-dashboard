@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-import { WeekSelector } from './WeekSelector';
+import { useRevenue } from '@/hooks/useRevenue';
 
 interface RevenueRow {
   period: string;
@@ -17,76 +17,70 @@ interface RevenueRow {
 
 export const RevenueComparisonTable = () => {
   const [data, setData] = useState<RevenueRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedWeek, setSelectedWeek] = useState<Date | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<string>('current');
+  const [availableWeeks, setAvailableWeeks] = useState<Array<{ week_start: string; week_label: string }>>([]);
+  const { isLoading, fetchWeeklyData, fetchMonthlyData, fetchYearlyData, fetchAvailableWeeks } = useRevenue();
+
+  useEffect(() => {
+    const loadAvailableWeeks = async () => {
+      try {
+        const weeks = await fetchAvailableWeeks();
+        setAvailableWeeks(weeks);
+      } catch (error) {
+        console.error('Error loading available weeks:', error);
+      }
+    };
+    loadAvailableWeeks();
+  }, [fetchAvailableWeeks]);
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
       try {
-        // Use the date-filtered functions when a week is selected
-        const weekStartDate = selectedWeek?.toISOString();
-        const monthStartDate = selectedWeek ? new Date(selectedWeek.getFullYear(), selectedWeek.getMonth(), 1).toISOString() : undefined;
-        const yearStartDate = selectedWeek ? new Date(selectedWeek.getFullYear(), 0, 1).toISOString() : undefined;
-
+        const selectedDate = selectedWeek === 'current' ? null : new Date(selectedWeek);
+        
         const [weeklyData, monthlyData, yearlyData] = await Promise.all([
-          selectedWeek 
-            ? supabase.rpc('get_weekly_revenue_summary_by_date', { week_start_date: weekStartDate })
-            : supabase.rpc('get_weekly_revenue_summary'),
-          selectedWeek 
-            ? supabase.rpc('get_monthly_revenue_summary_by_date', { month_start_date: monthStartDate })
-            : supabase.rpc('get_monthly_revenue_summary'), 
-          selectedWeek 
-            ? supabase.rpc('get_yearly_revenue_summary_by_date', { year_start_date: yearStartDate })
-            : supabase.rpc('get_yearly_revenue_summary')
+          fetchWeeklyData(null, selectedDate),
+          fetchMonthlyData(null, selectedDate),
+          fetchYearlyData(null, selectedDate)
         ]);
 
-        if (weeklyData.error) console.error('Weekly data error:', weeklyData.error);
-        if (monthlyData.error) console.error('Monthly data error:', monthlyData.error);
-        if (yearlyData.error) console.error('Yearly data error:', yearlyData.error);
+        // Get current periods
+        const currentWeek = weeklyData[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        const currentMonth = monthlyData[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        const currentYear = yearlyData[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
 
-        // When a specific week is selected, also get the previous periods for comparison
+        // Get previous periods for comparison
         let prevWeekData, prevMonthData, prevYearData;
         
-        if (selectedWeek) {
-          const prevWeek = new Date(selectedWeek);
+        if (selectedDate) {
+          const prevWeek = new Date(selectedDate);
           prevWeek.setDate(prevWeek.getDate() - 7);
           
-          const prevMonth = new Date(selectedWeek);
+          const prevMonth = new Date(selectedDate);
           prevMonth.setMonth(prevMonth.getMonth() - 1);
           
-          const prevYear = new Date(selectedWeek);
+          const prevYear = new Date(selectedDate);
           prevYear.setFullYear(prevYear.getFullYear() - 1);
 
           [prevWeekData, prevMonthData, prevYearData] = await Promise.all([
-            supabase.rpc('get_weekly_revenue_summary_by_date', { week_start_date: prevWeek.toISOString() }),
-            supabase.rpc('get_monthly_revenue_summary_by_date', { month_start_date: new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 1).toISOString() }),
-            supabase.rpc('get_yearly_revenue_summary_by_date', { year_start_date: new Date(prevYear.getFullYear(), 0, 1).toISOString() })
+            fetchWeeklyData(null, prevWeek),
+            fetchMonthlyData(null, prevMonth),
+            fetchYearlyData(null, prevYear)
           ]);
         }
 
-        const weeks = weeklyData.data || [];
-        const months = monthlyData.data || [];
-        const years = yearlyData.data || [];
-
-        // Get current and previous periods
-        const currentWeek = weeks[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
-        const currentMonth = months[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
-        const currentYear = years[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
-
-        // For previous periods, use the fetched previous data when a specific week is selected
-        // Otherwise, use the second item from the arrays (default behavior)
-        const lastWeek = selectedWeek 
-          ? (prevWeekData?.data?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
-          : (weeks[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
+        // Use previous data if selected date, otherwise use second item from current data
+        const lastWeek = selectedDate 
+          ? (prevWeekData?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
+          : (weeklyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
         
-        const lastMonth = selectedWeek 
-          ? (prevMonthData?.data?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
-          : (months[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
+        const lastMonth = selectedDate 
+          ? (prevMonthData?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
+          : (monthlyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
         
-        const lastYear = selectedWeek 
-          ? (prevYearData?.data?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
-          : (years[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
+        const lastYear = selectedDate 
+          ? (prevYearData?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
+          : (yearlyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
 
         const calculatePercent = (current: number, previous: number) => {
           if (previous === 0) return current > 0 ? 100 : 0;
@@ -95,13 +89,12 @@ export const RevenueComparisonTable = () => {
 
         const formatDollars = (cents: number) => cents / 100;
 
-        // Dynamic labels based on whether a specific week is selected
-        const weekLabel = selectedWeek ? `Selected Week` : 'Current Week';
-        const monthLabel = selectedWeek ? `Selected Month` : 'Current Month';
-        const yearLabel = selectedWeek ? `Selected Year` : 'Current Year';
+        const weekLabel = selectedDate ? 'Selected Week' : 'Current Week';
+        const monthLabel = selectedDate ? 'Selected Month' : 'Current Month';
+        const yearLabel = selectedDate ? 'Selected Year' : 'Current Year';
 
         const tableData: RevenueRow[] = [
-          // Actual values (first 3 rows)
+          // Current values
           {
             period: weekLabel,
             totalDollars: formatDollars(currentWeek.total_revenue_cents),
@@ -129,7 +122,7 @@ export const RevenueComparisonTable = () => {
             doorDollars: formatDollars(currentYear.door_revenue_cents),
             doorPercent: null,
           },
-          // Comparison values (next 3 rows) - showing previous period numbers
+          // Comparison values
           {
             period: 'vs Last Week',
             totalDollars: formatDollars(lastWeek.total_revenue_cents),
@@ -162,13 +155,11 @@ export const RevenueComparisonTable = () => {
         setData(tableData);
       } catch (error) {
         console.error('Error fetching revenue data:', error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
     fetchData();
-  }, [selectedWeek]);
+  }, [selectedWeek, fetchWeeklyData, fetchMonthlyData, fetchYearlyData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -194,10 +185,24 @@ export const RevenueComparisonTable = () => {
     <Card>
       <CardHeader className="space-y-4">
         <CardTitle>Revenue Comparison</CardTitle>
-        <WeekSelector 
-          selectedWeek={selectedWeek} 
-          onWeekChange={setSelectedWeek} 
-        />
+        <div className="flex items-center gap-2">
+          <label htmlFor="week-selector" className="text-sm font-medium">
+            Select Week:
+          </label>
+          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+            <SelectTrigger className="w-[300px]">
+              <SelectValue placeholder="Select a week" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">Current Week</SelectItem>
+              {availableWeeks.map((week) => (
+                <SelectItem key={week.week_start} value={week.week_start}>
+                  {week.week_label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (

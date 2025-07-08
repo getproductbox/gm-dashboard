@@ -410,7 +410,9 @@ export type Database = {
         }[]
       }
       get_monthly_revenue_summary: {
-        Args: { venue_filter?: string }
+        Args:
+          | { venue_filter?: string }
+          | { venue_filter?: string; month_date?: string }
         Returns: {
           month: string
           total_transactions: number
@@ -420,41 +422,11 @@ export type Database = {
           bar_revenue_cents: number
           total_revenue_cents: number
         }[]
-      }
-      get_monthly_revenue_summary_by_date: {
-        Args: { month_start_date?: string; venue_filter?: string }
-        Returns: {
-          month: string
-          total_transactions: number
-          door_transactions: number
-          bar_transactions: number
-          door_revenue_cents: number
-          bar_revenue_cents: number
-          total_revenue_cents: number
-        }[]
-      }
-      get_revenue_type_from_payment: {
-        Args: { payment_data: Json }
-        Returns: string
-      }
-      get_venue_from_payment: {
-        Args: { payment_data: Json }
-        Returns: string
       }
       get_weekly_revenue_summary: {
-        Args: { venue_filter?: string }
-        Returns: {
-          week_start: string
-          total_transactions: number
-          door_transactions: number
-          bar_transactions: number
-          door_revenue_cents: number
-          bar_revenue_cents: number
-          total_revenue_cents: number
-        }[]
-      }
-      get_weekly_revenue_summary_by_date: {
-        Args: { week_start_date?: string; venue_filter?: string }
+        Args:
+          | { venue_filter?: string }
+          | { venue_filter?: string; week_date?: string }
         Returns: {
           week_start: string
           total_transactions: number
@@ -466,7 +438,9 @@ export type Database = {
         }[]
       }
       get_yearly_revenue_summary: {
-        Args: { venue_filter?: string }
+        Args:
+          | { venue_filter?: string }
+          | { venue_filter?: string; year_date?: string }
         Returns: {
           year_start: string
           total_transactions: number
@@ -476,22 +450,6 @@ export type Database = {
           bar_revenue_cents: number
           total_revenue_cents: number
         }[]
-      }
-      get_yearly_revenue_summary_by_date: {
-        Args: { year_start_date?: string; venue_filter?: string }
-        Returns: {
-          year_start: string
-          total_transactions: number
-          door_transactions: number
-          bar_transactions: number
-          door_revenue_cents: number
-          bar_revenue_cents: number
-          total_revenue_cents: number
-        }[]
-      }
-      process_payment_to_revenue: {
-        Args: { payment_id: string }
-        Returns: boolean
       }
       process_payments_batch: {
         Args: { payment_ids?: string[]; days_back?: number }

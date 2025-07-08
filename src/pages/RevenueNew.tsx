@@ -79,7 +79,8 @@ const RevenueNew = () => {
       // Use database function with venue filter parameter
       const venueFilter = selectedVenue === 'all' ? null : selectedVenue;
       const { data, error } = await supabase.rpc('get_monthly_revenue_summary', {
-        venue_filter: venueFilter
+        venue_filter: venueFilter,
+        month_date: null
       });
 
       if (error) {
@@ -117,7 +118,8 @@ const RevenueNew = () => {
       // Use database function with venue filter parameter
       const venueFilter = selectedVenue === 'all' ? null : selectedVenue;
       const { data, error } = await supabase.rpc('get_weekly_revenue_summary', {
-        venue_filter: venueFilter
+        venue_filter: venueFilter,
+        week_date: null
       });
 
       if (error) {
