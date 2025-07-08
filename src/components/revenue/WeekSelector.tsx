@@ -56,16 +56,18 @@ export const WeekSelector = ({ onWeekChange, selectedWeek }: WeekSelectorProps) 
   const getSelectedValue = () => {
     if (!selectedWeek) return 'current';
     
-    // Convert selectedWeek to the start of its week for comparison
-    const selectedWeekStart = new Date(selectedWeek);
-    selectedWeekStart.setDate(selectedWeekStart.getDate() - selectedWeekStart.getDay());
-    selectedWeekStart.setHours(0, 0, 0, 0);
-    
-    // Find the matching week option
+    // Find the week that contains the selected date
     const matchingWeek = weeks.find(week => {
       const weekStart = new Date(week.week_start);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      
+      const selectedDate = new Date(selectedWeek);
+      selectedDate.setHours(0, 0, 0, 0);
       weekStart.setHours(0, 0, 0, 0);
-      return weekStart.getTime() === selectedWeekStart.getTime();
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      return selectedDate >= weekStart && selectedDate <= weekEnd;
     });
     
     return matchingWeek ? matchingWeek.week_start : 'current';
