@@ -52,6 +52,25 @@ export const WeekSelector = ({ onWeekChange, selectedWeek }: WeekSelectorProps) 
     }
   };
 
+  // Find the matching week for the selected date
+  const getSelectedValue = () => {
+    if (!selectedWeek) return 'current';
+    
+    // Convert selectedWeek to the start of its week for comparison
+    const selectedWeekStart = new Date(selectedWeek);
+    selectedWeekStart.setDate(selectedWeekStart.getDate() - selectedWeekStart.getDay());
+    selectedWeekStart.setHours(0, 0, 0, 0);
+    
+    // Find the matching week option
+    const matchingWeek = weeks.find(week => {
+      const weekStart = new Date(week.week_start);
+      weekStart.setHours(0, 0, 0, 0);
+      return weekStart.getTime() === selectedWeekStart.getTime();
+    });
+    
+    return matchingWeek ? matchingWeek.week_start : 'current';
+  };
+
   if (isLoading) {
     return (
       <div className="w-[300px]">
@@ -66,7 +85,7 @@ export const WeekSelector = ({ onWeekChange, selectedWeek }: WeekSelectorProps) 
         Select Week:
       </label>
       <Select
-        value={selectedWeek ? selectedWeek.toISOString().split('T')[0] : 'current'}
+        value={getSelectedValue()}
         onValueChange={handleWeekChange}
       >
         <SelectTrigger className="w-[300px]">
