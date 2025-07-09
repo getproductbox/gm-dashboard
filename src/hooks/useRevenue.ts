@@ -22,10 +22,24 @@ export const useRevenue = () => {
   ) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_weekly_revenue_summary', {
-        venue_filter: venueFilter,
-        week_date: weekDate?.toISOString()
-      });
+      let data, error;
+      
+      if (weekDate === null) {
+        // Call single-parameter version for current period
+        const result = await supabase.rpc('get_weekly_revenue_summary', {
+          venue_filter: venueFilter
+        });
+        data = result.data;
+        error = result.error;
+      } else {
+        // Call two-parameter version for specific date
+        const result = await supabase.rpc('get_weekly_revenue_summary', {
+          venue_filter: venueFilter,
+          week_date: weekDate.toISOString()
+        });
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
       return data as RevenueData[];
@@ -43,10 +57,24 @@ export const useRevenue = () => {
   ) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_monthly_revenue_summary', {
-        venue_filter: venueFilter,
-        month_date: monthDate?.toISOString()
-      });
+      let data, error;
+      
+      if (monthDate === null) {
+        // Call single-parameter version for current period
+        const result = await supabase.rpc('get_monthly_revenue_summary', {
+          venue_filter: venueFilter
+        });
+        data = result.data;
+        error = result.error;
+      } else {
+        // Call two-parameter version for specific date
+        const result = await supabase.rpc('get_monthly_revenue_summary', {
+          venue_filter: venueFilter,
+          month_date: monthDate.toISOString()
+        });
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
       return data as RevenueData[];
@@ -64,10 +92,24 @@ export const useRevenue = () => {
   ) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_yearly_revenue_summary', {
-        venue_filter: venueFilter,
-        year_date: yearDate?.toISOString()
-      });
+      let data, error;
+      
+      if (yearDate === null) {
+        // Call single-parameter version for current period
+        const result = await supabase.rpc('get_yearly_revenue_summary', {
+          venue_filter: venueFilter
+        });
+        data = result.data;
+        error = result.error;
+      } else {
+        // Call two-parameter version for specific date
+        const result = await supabase.rpc('get_yearly_revenue_summary', {
+          venue_filter: venueFilter,
+          year_date: yearDate.toISOString()
+        });
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
       return data as RevenueData[];
