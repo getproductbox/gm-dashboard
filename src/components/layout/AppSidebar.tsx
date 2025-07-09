@@ -9,10 +9,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, TestTube, DollarSign } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useFeatureFlag } from "@/hooks/useFeatureFlag";
+import { LastSyncIndicator } from "./LastSyncIndicator";
 
 const menuItems = [
   {
@@ -103,6 +105,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <LastSyncIndicator />
+      </SidebarFooter>
     </Sidebar>
   );
 }
