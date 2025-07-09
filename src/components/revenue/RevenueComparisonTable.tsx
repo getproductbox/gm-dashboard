@@ -15,7 +15,11 @@ interface RevenueRow {
   doorPercent: number | null;
 }
 
-export const RevenueComparisonTable = () => {
+interface RevenueComparisonTableProps {
+  selectedVenue?: string | null;
+}
+
+export const RevenueComparisonTable = ({ selectedVenue }: RevenueComparisonTableProps) => {
   const [data, setData] = useState<RevenueRow[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<string>('current');
   const [availableWeeks, setAvailableWeeks] = useState<Array<{ week_start: string; week_label: string }>>([]);
@@ -39,9 +43,9 @@ export const RevenueComparisonTable = () => {
         const selectedDate = selectedWeek === 'current' ? null : new Date(selectedWeek);
         
         const [weeklyData, monthlyData, yearlyData] = await Promise.all([
-          fetchWeeklyData(null, selectedDate),
-          fetchMonthlyData(null, selectedDate),
-          fetchYearlyData(null, selectedDate)
+          fetchWeeklyData(selectedVenue, selectedDate),
+          fetchMonthlyData(selectedVenue, selectedDate),
+          fetchYearlyData(selectedVenue, selectedDate)
         ]);
 
         // Get current periods
@@ -63,9 +67,9 @@ export const RevenueComparisonTable = () => {
           prevYear.setFullYear(prevYear.getFullYear() - 1);
 
           [prevWeekData, prevMonthData, prevYearData] = await Promise.all([
-            fetchWeeklyData(null, prevWeek),
-            fetchMonthlyData(null, prevMonth),
-            fetchYearlyData(null, prevYear)
+            fetchWeeklyData(selectedVenue, prevWeek),
+            fetchMonthlyData(selectedVenue, prevMonth),
+            fetchYearlyData(selectedVenue, prevYear)
           ]);
         }
 
@@ -159,7 +163,7 @@ export const RevenueComparisonTable = () => {
     };
 
     fetchData();
-  }, [selectedWeek, fetchWeeklyData, fetchMonthlyData, fetchYearlyData]);
+  }, [selectedWeek, selectedVenue, fetchWeeklyData, fetchMonthlyData, fetchYearlyData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
