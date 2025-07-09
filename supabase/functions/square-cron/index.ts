@@ -15,25 +15,7 @@ serve(async (req) => {
   try {
     console.log('Square cron job triggered');
 
-    // Check if we're in business hours (9 AM - 11 PM)
-    const now = new Date();
-    const currentHour = now.getHours();
-    const isBusinessHours = currentHour >= 9 && currentHour <= 23;
-
-    if (!isBusinessHours) {
-      console.log('Outside business hours, skipping sync');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Outside business hours, sync skipped',
-          currentHour
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      );
-    }
+    console.log('Starting scheduled Square sync for both environments');
 
     // Get the base URL for the edge function
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

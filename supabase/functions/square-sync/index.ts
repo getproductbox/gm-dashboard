@@ -205,17 +205,38 @@ async function performBackgroundSync(
       ? 'https://connect.squareupsandbox.com'
       : 'https://connect.squareup.com';
 
-    // Transaction-based sync loop - NO DATE FILTERING
+    // Get last successful sync time for incremental sync
+    const { data: syncStatus } = await supabase
+      .from('square_sync_status')
+      .select('last_successful_sync')
+      .eq('environment', environment)
+      .single();
+
+    let beginTime: string | undefined;
+    if (syncStatus?.last_successful_sync) {
+      beginTime = syncStatus.last_successful_sync;
+      console.log(`Starting incremental sync from: ${beginTime}`);
+    } else {
+      // First sync - go back 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      beginTime = thirtyDaysAgo.toISOString();
+      console.log(`First sync - starting from 30 days ago: ${beginTime}`);
+    }
+
+    // Incremental sync loop with date filtering
     while (totalFetched < maxTransactions) {
       const remaining = maxTransactions - totalFetched;
       const requestLimit = Math.min(100, remaining);
       
-      console.log(`Fetching ${requestLimit} transactions (${totalFetched}/${maxTransactions})`);
+      console.log(`Fetching ${requestLimit} payments since ${beginTime} (${totalFetched}/${maxTransactions})`);
       
-      // Build API request - NO begin_time or end_time parameters
+      // Build API request with incremental date filtering
       const url = new URL(`${baseUrl}/v2/payments`);
-      url.searchParams.append('sort_order', 'DESC'); // Get most recent first
+      url.searchParams.append('sort_order', 'ASC'); // Get oldest first for proper incremental sync
       url.searchParams.append('limit', requestLimit.toString());
+      url.searchParams.append('begin_time', beginTime);
+      url.searchParams.append('end_time', new Date().toISOString());
       
       if (locationId) {
         url.searchParams.append('location_id', locationId);
