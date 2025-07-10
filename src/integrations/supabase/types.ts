@@ -410,9 +410,7 @@ export type Database = {
         }[]
       }
       get_monthly_revenue_summary: {
-        Args:
-          | { venue_filter?: string }
-          | { venue_filter?: string; month_date?: string }
+        Args: { venue_filter?: string; month_date?: string }
         Returns: {
           month: string
           total_transactions: number
@@ -424,9 +422,7 @@ export type Database = {
         }[]
       }
       get_weekly_revenue_summary: {
-        Args:
-          | { venue_filter?: string }
-          | { venue_filter?: string; week_date?: string }
+        Args: { venue_filter?: string; week_date?: string }
         Returns: {
           week_start: string
           total_transactions: number
@@ -438,9 +434,7 @@ export type Database = {
         }[]
       }
       get_yearly_revenue_summary: {
-        Args:
-          | { venue_filter?: string }
-          | { venue_filter?: string; year_date?: string }
+        Args: { venue_filter?: string; year_date?: string }
         Returns: {
           year_start: string
           total_transactions: number
