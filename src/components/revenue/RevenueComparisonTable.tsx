@@ -23,7 +23,7 @@ export const RevenueComparisonTable = ({ selectedVenue }: RevenueComparisonTable
   const [data, setData] = useState<RevenueRow[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<string>('current');
   const [availableWeeks, setAvailableWeeks] = useState<Array<{ week_start: string; week_label: string }>>([]);
-  const { isLoading, fetchWeeklyData, fetchMonthlyData, fetchYearlyData, fetchAvailableWeeks } = useRevenue();
+  const { isLoading, fetchAllRevenueData, fetchAvailableWeeks } = useRevenue();
 
   useEffect(() => {
     const loadAvailableWeeks = async () => {
@@ -40,14 +40,13 @@ export const RevenueComparisonTable = ({ selectedVenue }: RevenueComparisonTable
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Clear previous data to prevent flashing
+        setData([]);
+        
         const selectedDate = selectedWeek === 'current' ? null : new Date(selectedWeek);
         
-        // Make only 3 database calls - each function returns multiple periods
-        const [weeklyData, monthlyData, yearlyData] = await Promise.all([
-          fetchWeeklyData(selectedVenue, selectedDate),
-          fetchMonthlyData(selectedVenue, selectedDate),
-          fetchYearlyData(selectedVenue, selectedDate)
-        ]);
+        // Use the consolidated fetch function
+        const { weeklyData, monthlyData, yearlyData } = await fetchAllRevenueData(selectedVenue, selectedDate);
 
         // Get current and previous periods using array indexing
         const currentWeek = weeklyData[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
@@ -136,7 +135,7 @@ export const RevenueComparisonTable = ({ selectedVenue }: RevenueComparisonTable
     };
 
     fetchData();
-  }, [selectedWeek, selectedVenue, fetchWeeklyData, fetchMonthlyData, fetchYearlyData]);
+  }, [selectedWeek, selectedVenue, fetchAllRevenueData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

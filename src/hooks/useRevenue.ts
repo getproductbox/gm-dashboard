@@ -20,7 +20,6 @@ export const useRevenue = () => {
     venueFilter?: string | null,
     weekDate?: Date | null
   ) => {
-    setIsLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_weekly_revenue_summary', {
         venue_filter: venueFilter,
@@ -32,8 +31,6 @@ export const useRevenue = () => {
     } catch (error) {
       console.error('Error fetching weekly revenue:', error);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -41,7 +38,6 @@ export const useRevenue = () => {
     venueFilter?: string | null,
     monthDate?: Date | null
   ) => {
-    setIsLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_monthly_revenue_summary', {
         venue_filter: venueFilter,
@@ -53,8 +49,6 @@ export const useRevenue = () => {
     } catch (error) {
       console.error('Error fetching monthly revenue:', error);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -62,7 +56,6 @@ export const useRevenue = () => {
     venueFilter?: string | null,
     yearDate?: Date | null
   ) => {
-    setIsLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_yearly_revenue_summary', {
         venue_filter: venueFilter,
@@ -74,10 +67,31 @@ export const useRevenue = () => {
     } catch (error) {
       console.error('Error fetching yearly revenue:', error);
       throw error;
+    }
+  }, []);
+
+  const fetchAllRevenueData = useCallback(async (
+    venueFilter?: string | null,
+    weekDate?: Date | null
+  ) => {
+    setIsLoading(true);
+    try {
+      const selectedDate = weekDate === null ? null : weekDate;
+      
+      const [weeklyData, monthlyData, yearlyData] = await Promise.all([
+        fetchWeeklyData(venueFilter, selectedDate),
+        fetchMonthlyData(venueFilter, selectedDate),
+        fetchYearlyData(venueFilter, selectedDate)
+      ]);
+
+      return { weeklyData, monthlyData, yearlyData };
+    } catch (error) {
+      console.error('Error fetching all revenue data:', error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchWeeklyData, fetchMonthlyData, fetchYearlyData]);
 
   const fetchAvailableWeeks = useCallback(async () => {
     try {
@@ -95,6 +109,7 @@ export const useRevenue = () => {
     fetchWeeklyData,
     fetchMonthlyData,
     fetchYearlyData,
+    fetchAllRevenueData,
     fetchAvailableWeeks
   };
 };
