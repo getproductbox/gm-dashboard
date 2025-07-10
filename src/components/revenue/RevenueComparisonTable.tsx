@@ -42,49 +42,22 @@ export const RevenueComparisonTable = ({ selectedVenue }: RevenueComparisonTable
       try {
         const selectedDate = selectedWeek === 'current' ? null : new Date(selectedWeek);
         
+        // Make only 3 database calls - each function returns multiple periods
         const [weeklyData, monthlyData, yearlyData] = await Promise.all([
           fetchWeeklyData(selectedVenue, selectedDate),
           fetchMonthlyData(selectedVenue, selectedDate),
           fetchYearlyData(selectedVenue, selectedDate)
         ]);
 
-        // Get current periods
+        // Get current and previous periods using array indexing
         const currentWeek = weeklyData[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
         const currentMonth = monthlyData[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
         const currentYear = yearlyData[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
 
-        // Get previous periods for comparison
-        let prevWeekData, prevMonthData, prevYearData;
-        
-        if (selectedDate) {
-          const prevWeek = new Date(selectedDate);
-          prevWeek.setDate(prevWeek.getDate() - 7);
-          
-          const prevMonth = new Date(selectedDate);
-          prevMonth.setMonth(prevMonth.getMonth() - 1);
-          
-          const prevYear = new Date(selectedDate);
-          prevYear.setFullYear(prevYear.getFullYear() - 1);
-
-          [prevWeekData, prevMonthData, prevYearData] = await Promise.all([
-            fetchWeeklyData(selectedVenue, prevWeek),
-            fetchMonthlyData(selectedVenue, prevMonth),
-            fetchYearlyData(selectedVenue, prevYear)
-          ]);
-        }
-
-        // Use previous data if selected date, otherwise use second item from current data
-        const lastWeek = selectedDate 
-          ? (prevWeekData?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
-          : (weeklyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
-        
-        const lastMonth = selectedDate 
-          ? (prevMonthData?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
-          : (monthlyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
-        
-        const lastYear = selectedDate 
-          ? (prevYearData?.[0] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 })
-          : (yearlyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 });
+        // Previous periods are the second item in each array
+        const lastWeek = weeklyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        const lastMonth = monthlyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
+        const lastYear = yearlyData[1] || { total_revenue_cents: 0, bar_revenue_cents: 0, door_revenue_cents: 0 };
 
         const calculatePercent = (current: number, previous: number) => {
           if (previous === 0) return current > 0 ? 100 : 0;
