@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RevenueStackedChart } from '@/components/revenue/RevenueStackedChart';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -204,6 +205,12 @@ const RevenueNew = () => {
           </TabsList>
           
           <TabsContent value="monthly" className="space-y-4">
+            <RevenueStackedChart
+              monthlyData={monthlyData}
+              activeTab={activeTab}
+              selectedVenue={selectedVenue}
+              isLoading={isLoading}
+            />
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -257,8 +264,14 @@ const RevenueNew = () => {
               </CardContent>
             </Card>
           </TabsContent>
-
+          
           <TabsContent value="weekly" className="space-y-4">
+            <RevenueStackedChart
+              weeklyData={weeklyData}
+              activeTab={activeTab}
+              selectedVenue={selectedVenue}
+              isLoading={isLoading}
+            />
             <Card>
               <CardHeader>
                 <CardTitle>
