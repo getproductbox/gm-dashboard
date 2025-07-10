@@ -8,7 +8,7 @@ import { Code, Play, RefreshCw, AlertCircle, CheckCircle, Info } from 'lucide-re
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
-interface ApiTestResult {
+interface LegacyApiTestResult {
   endpoint: string;
   method: string;
   status: number | null;
@@ -52,7 +52,7 @@ const squareTests = [
 ];
 
 export const GenericApiTester = () => {
-  const [testResults, setTestResults] = useState<ApiTestResult[]>([]);
+  const [testResults, setTestResults] = useState<LegacyApiTestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTest, setSelectedTest] = useState<number>(0);
 
@@ -66,7 +66,7 @@ export const GenericApiTester = () => {
       console.log('Running test:', currentTest.name);
       console.log('Test body:', currentTest.body);
 
-      let result: ApiTestResult;
+      let result: LegacyApiTestResult;
 
       if (currentTest.isDbFunction) {
         // Handle database function tests
@@ -134,7 +134,7 @@ export const GenericApiTester = () => {
         toast.error(`${currentTest.name} failed`);
       }
     } catch (error) {
-      const result: ApiTestResult = {
+      const result: LegacyApiTestResult = {
         endpoint: `Test: ${currentTest.name}`,
         method: currentTest.method,
         status: null,

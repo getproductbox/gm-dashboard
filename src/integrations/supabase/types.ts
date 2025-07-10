@@ -14,6 +14,124 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_configurations: {
+        Row: {
+          config_data: Json
+          created_at: string | null
+          environment: string
+          id: string
+          provider_id: string | null
+          secret_keys: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          config_data: Json
+          created_at?: string | null
+          environment: string
+          id?: string
+          provider_id?: string | null
+          secret_keys?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          config_data?: Json
+          created_at?: string | null
+          environment?: string
+          id?: string
+          provider_id?: string | null
+          secret_keys?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_configurations_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "api_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_endpoints: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          endpoint_key: string
+          id: string
+          is_active: boolean | null
+          method: string
+          path: string
+          provider_id: string | null
+          response_mapper: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          endpoint_key: string
+          id?: string
+          is_active?: boolean | null
+          method: string
+          path: string
+          provider_id?: string | null
+          response_mapper?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          endpoint_key?: string
+          id?: string
+          is_active?: boolean | null
+          method?: string
+          path?: string
+          provider_id?: string | null
+          response_mapper?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_endpoints_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "api_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_providers: {
+        Row: {
+          auth_type: string
+          base_url: string
+          created_at: string | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          auth_type: string
+          base_url: string
+          created_at?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          auth_type?: string
+          base_url?: string
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           booking_date: string
