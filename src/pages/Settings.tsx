@@ -2,7 +2,6 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserSettings } from '@/components/settings/UserSettings';
 import { SystemSettings } from '@/components/settings/SystemSettings';
 import { ApiSettings } from '@/components/settings/ApiSettings';
 
@@ -19,23 +18,18 @@ export default function Settings() {
         </div>
 
         {/* Settings Tabs */}
-        <Tabs defaultValue="user" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="user">User Settings</TabsTrigger>
+        <Tabs defaultValue="integrations" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="integrations">API Integrations</TabsTrigger>
             <TabsTrigger value="system">System Settings</TabsTrigger>
-            <TabsTrigger value="api">API & Integrations</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="user" className="mt-6">
-            <UserSettings />
+          <TabsContent value="integrations" className="mt-6">
+            <ApiSettings />
           </TabsContent>
           
           <TabsContent value="system" className="mt-6">
             <SystemSettings />
-          </TabsContent>
-          
-          <TabsContent value="api" className="mt-6">
-            <ApiSettings />
           </TabsContent>
         </Tabs>
       </div>
