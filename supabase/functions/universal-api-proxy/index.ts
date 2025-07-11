@@ -107,6 +107,50 @@ serve(async (req) => {
         throw new Error(`Authentication token '${tokenKey}' not found in environment`);
       }
       headers['Authorization'] = `Bearer ${token}`;
+    } else if (providerData.auth_type === 'oauth') {
+      // Get user from auth header for OAuth
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        throw new Error('No authorization header provided for OAuth request');
+      }
+
+      const jwt = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
+      
+      if (userError || !user) {
+        throw new Error('Invalid user token for OAuth request');
+      }
+
+      // Get OAuth token for this user and provider
+      const { data: oauthToken, error: tokenError } = await supabase
+        .from('oauth_tokens')
+        .select('access_token, expires_at, tenant_id')
+        .eq('provider_name', provider)
+        .eq('user_id', user.id)
+        .eq('environment', environment)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (tokenError) {
+        throw new Error(`Failed to fetch OAuth token: ${tokenError.message}`);
+      }
+
+      if (!oauthToken) {
+        throw new Error(`No OAuth token found for ${provider}. Please authenticate first.`);
+      }
+
+      // Check if token is expired
+      if (oauthToken.expires_at && new Date(oauthToken.expires_at) <= new Date()) {
+        throw new Error(`OAuth token for ${provider} has expired. Please re-authenticate.`);
+      }
+
+      headers['Authorization'] = `Bearer ${oauthToken.access_token}`;
+      
+      // Add Xero-specific tenant header
+      if (provider === 'xero' && oauthToken.tenant_id) {
+        headers['Xero-tenant-id'] = oauthToken.tenant_id;
+      }
     }
 
     console.log('=== API REQUEST ===');

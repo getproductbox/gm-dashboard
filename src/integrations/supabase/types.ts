@@ -264,6 +264,51 @@ export type Database = {
         }
         Relationships: []
       }
+      oauth_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          environment: string
+          expires_at: string | null
+          id: string
+          provider_name: string
+          refresh_token: string | null
+          scope: string | null
+          tenant_id: string | null
+          token_type: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          environment?: string
+          expires_at?: string | null
+          id?: string
+          provider_name: string
+          refresh_token?: string | null
+          scope?: string | null
+          tenant_id?: string | null
+          token_type?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          environment?: string
+          expires_at?: string | null
+          id?: string
+          provider_name?: string
+          refresh_token?: string | null
+          scope?: string | null
+          tenant_id?: string | null
+          token_type?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       revenue_events: {
         Row: {
           amount_cents: number
