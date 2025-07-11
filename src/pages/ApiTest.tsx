@@ -11,11 +11,18 @@ import { XeroOAuthCallback } from "@/components/api/XeroOAuthCallback";
 import { VenueReprocessingControls } from "@/components/square/VenueReprocessingControls";
 import { TransactionMappingTest } from "@/components/square/TransactionMappingTest";
 import { TwoWeekSyncTest } from "@/components/square/TwoWeekSyncTest";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 export default function ApiTest() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const activeTab = searchParams.get('tab') || 'status';
+  
+  const handleTabChange = (value: string) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', value);
+    navigate(`/api-test?${newSearchParams.toString()}`, { replace: true });
+  };
   
   // Check if this is a Xero OAuth callback
   const isXeroCallback = searchParams.has('code') && activeTab === 'xero-callback';
@@ -46,7 +53,7 @@ export default function ApiTest() {
           </div>
         </div>
 
-        <Tabs value={activeTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="status" className="flex items-center space-x-2">
               <Activity className="h-4 w-4" />
