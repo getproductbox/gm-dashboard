@@ -7,7 +7,6 @@ import { ApiConnectionStatus } from "@/components/api/ApiConnectionStatus";
 import { GenericApiTester } from "@/components/api/GenericApiTester";
 import { UniversalApiTester } from "@/components/api/UniversalApiTester";
 import { XeroOAuthConnection } from "@/components/api/XeroOAuthConnection";
-import { XeroOAuthCallback } from "@/components/api/XeroOAuthCallback";
 import { VenueReprocessingControls } from "@/components/square/VenueReprocessingControls";
 import { TransactionMappingTest } from "@/components/square/TransactionMappingTest";
 import { TwoWeekSyncTest } from "@/components/square/TwoWeekSyncTest";
@@ -24,24 +23,6 @@ export default function ApiTest() {
     navigate(`/api-test?${newSearchParams.toString()}`, { replace: true });
   };
   
-  // Check if this is a Xero OAuth callback
-  const isXeroCallback = searchParams.has('code') && activeTab === 'xero-callback';
-
-  if (isXeroCallback) {
-    return (
-      <DashboardLayout>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gm-neutral-900">Xero OAuth Connection</h1>
-              <p className="text-gm-neutral-600">Completing your Xero integration</p>
-            </div>
-          </div>
-          <XeroOAuthCallback />
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout>

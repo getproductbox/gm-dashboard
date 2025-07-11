@@ -21,6 +21,7 @@ import ApiTest from "./pages/ApiTest";
 import Revenue from "./pages/Revenue";
 import RevenueNew from "./pages/RevenueNew";
 import FeatureFlags from "./pages/FeatureFlags";
+import XeroCallback from "./pages/XeroCallback";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,11 @@ const App = () => (
               <Route path="/feature-flags" element={
                 <ProtectedRoute>
                   <FeatureFlags />
+                </ProtectedRoute>
+              } />
+              <Route path="/auth/xero/callback" element={
+                <ProtectedRoute>
+                  <XeroCallback />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -20,7 +20,7 @@ export const XeroOAuthConnection = () => {
   const [connectedTenants, setConnectedTenants] = useState<XeroTenant[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const redirectUri = `${window.location.origin}/api-test?tab=xero-callback`;
+  const redirectUri = 'https://preview--gm-dashboard.lovable.app/auth/xero/callback';
 
   const loadConnectedTenants = async () => {
     try {
