@@ -19,6 +19,7 @@ export const XeroOAuthConnection = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectedTenants, setConnectedTenants] = useState<XeroTenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState<string | null>(null);
 
   const redirectUri = 'https://preview--gm-dashboard.lovable.app/auth/xero/callback';
 
@@ -75,6 +76,32 @@ export const XeroOAuthConnection = () => {
       console.error('OAuth initiation error:', error);
       toast.error('Failed to start Xero connection');
       setIsConnecting(false);
+    }
+  };
+
+  const refreshToken = async (tenantId: string) => {
+    setIsRefreshing(tenantId);
+    try {
+      const { data, error } = await supabase.functions.invoke('xero-token-refresh', {
+        body: {
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          environment: 'production'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success('Token refreshed successfully');
+        loadConnectedTenants();
+      } else {
+        throw new Error(data.error || 'Failed to refresh token');
+      }
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      toast.error('Failed to refresh token. You may need to reconnect.');
+    } finally {
+      setIsRefreshing(null);
     }
   };
 
@@ -181,6 +208,20 @@ export const XeroOAuthConnection = () => {
                       <span className="text-sm text-gm-neutral-500">
                         Connected {new Date(tenant.connected_at).toLocaleDateString()}
                       </span>
+                      {isExpired && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => refreshToken(tenant.tenant_id)}
+                          disabled={isRefreshing === tenant.tenant_id}
+                        >
+                          {isRefreshing === tenant.tenant_id ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
