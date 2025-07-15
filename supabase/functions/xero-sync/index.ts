@@ -40,8 +40,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get request parameters
-    const { syncType = 'full', environment = 'production', test_connection_only = false } = await req.json().catch(() => ({}));
+    // Get request parameters - always use production
+    const { syncType = 'full', test_connection_only = false } = await req.json().catch(() => ({}));
+    const environment = 'production';
     console.log('Sync parameters:', { syncType, environment, test_connection_only });
 
     // If this is just a connection test, run a simple API call

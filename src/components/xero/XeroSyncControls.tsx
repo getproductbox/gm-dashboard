@@ -31,7 +31,7 @@ export const XeroSyncControls = () => {
     getFormattedSyncStatus
   } = useXeroSync();
 
-  const [environment, setEnvironment] = useState<'sandbox' | 'production'>('production');
+  const environment = 'production'; // Always use production
   const [isDebugging, setIsDebugging] = useState(false);
 
   useEffect(() => {
@@ -92,25 +92,12 @@ export const XeroSyncControls = () => {
 
   return (
     <div className="space-y-6">
-      {/* Environment Selector */}
-      <div className="flex items-center space-x-4">
-        <span className="text-sm font-medium">Environment:</span>
-        <div className="flex space-x-2">
-          <Button
-            variant={environment === 'production' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setEnvironment('production')}
-          >
-            Production
-          </Button>
-          <Button
-            variant={environment === 'sandbox' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setEnvironment('sandbox')}
-          >
-            Sandbox
-          </Button>
-        </div>
+      {/* Production Environment Indicator */}
+      <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+        <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+          Connected to Xero Production Environment
+        </span>
       </div>
 
       {/* Sync Status Card */}

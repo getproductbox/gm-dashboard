@@ -9,7 +9,7 @@ const corsHeaders = {
 interface ApiRequestBody {
   provider: string;
   endpoint: string;
-  environment: 'sandbox' | 'production';
+  environment?: 'sandbox' | 'production'; // Make optional since we'll force production for Xero
   query_params?: Record<string, string | number>;
   body?: any;
   custom_headers?: Record<string, string>;
@@ -46,7 +46,9 @@ serve(async (req) => {
     const requestBody: ApiRequestBody = await req.json();
     console.log('Request parameters:', JSON.stringify(requestBody, null, 2));
 
-    const { provider, endpoint, environment, query_params, body, custom_headers } = requestBody;
+    const { provider, endpoint, query_params, body, custom_headers } = requestBody;
+    // Force production environment for Xero
+    const environment = provider === 'xero' ? 'production' : (requestBody.environment || 'production');
 
     console.log('=== STEP 3: FETCHING PROVIDER CONFIGURATION ===');
     console.log('Looking for provider:', provider);
