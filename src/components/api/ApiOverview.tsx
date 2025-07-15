@@ -33,6 +33,26 @@ export const ApiOverview = () => {
     }
   ]);
 
+  // Check initial connection status on load
+  useEffect(() => {
+    const checkInitialStatus = async () => {
+      // Check Xero connection status
+      const tokenCheck = await checkXeroTokens();
+      setServices(prev => prev.map(service => 
+        service.name === 'Xero' 
+          ? { 
+              ...service, 
+              status: tokenCheck.connected ? 'connected' : 'error',
+              lastChecked: new Date(),
+              error: tokenCheck.connected ? undefined : tokenCheck.error
+            }
+          : service
+      ));
+    };
+
+    checkInitialStatus();
+  }, []);
+
   const testSquareConnection = async () => {
     setServices(prev => prev.map(service => 
       service.name === 'Square' 
@@ -81,27 +101,100 @@ export const ApiOverview = () => {
     }
   };
 
+  const checkXeroTokens = async () => {
+    try {
+      const { data: tokens, error } = await supabase
+        .from('oauth_tokens')
+        .select('*')
+        .eq('provider_name', 'xero')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!tokens) {
+        return { connected: false, error: 'No Xero connection found' };
+      }
+
+      // Check if token is expired
+      const now = new Date();
+      const expiresAt = tokens.expires_at ? new Date(tokens.expires_at) : null;
+      
+      if (expiresAt && now >= expiresAt) {
+        return { connected: false, error: 'Xero token has expired' };
+      }
+
+      return { connected: true };
+    } catch (error) {
+      return { 
+        connected: false, 
+        error: error instanceof Error ? error.message : 'Failed to check Xero connection' 
+      };
+    }
+  };
+
   const testXeroConnection = async () => {
-    // Placeholder for Xero connection test
     setServices(prev => prev.map(service => 
       service.name === 'Xero' 
         ? { ...service, status: 'testing' }
         : service
     ));
 
-    // Simulate connection test
-    setTimeout(() => {
+    try {
+      const tokenCheck = await checkXeroTokens();
+      
+      if (!tokenCheck.connected) {
+        setServices(prev => prev.map(service => 
+          service.name === 'Xero' 
+            ? { 
+                ...service, 
+                status: 'error',
+                lastChecked: new Date(),
+                error: tokenCheck.error
+              }
+            : service
+        ));
+        toast.error(tokenCheck.error || 'Xero connection failed');
+        return;
+      }
+
+      // Test actual Xero API connection
+      const { data, error } = await supabase.functions.invoke('xero-sync', {
+        body: { 
+          test_connection_only: true
+        }
+      });
+
+      if (error) throw error;
+
       setServices(prev => prev.map(service => 
         service.name === 'Xero' 
           ? { 
               ...service, 
-              status: 'unknown',
+              status: data?.success ? 'connected' : 'error',
               lastChecked: new Date(),
-              error: 'OAuth connection not configured'
+              error: data?.success ? undefined : data?.error || 'API connection failed'
             }
           : service
       ));
-    }, 1000);
+
+      if (data?.success) {
+        toast.success('Xero connection successful');
+      } else {
+        toast.error('Xero API connection failed');
+      }
+    } catch (error) {
+      setServices(prev => prev.map(service => 
+        service.name === 'Xero' 
+          ? { 
+              ...service, 
+              status: 'error',
+              lastChecked: new Date(),
+              error: error instanceof Error ? error.message : 'Connection test failed'
+            }
+          : service
+      ));
+      toast.error('Failed to test Xero connection');
+    }
   };
 
   const getStatusIcon = (status: ServiceStatus['status']) => {

@@ -41,8 +41,44 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get request parameters
-    const { syncType = 'full', environment = 'production' } = await req.json().catch(() => ({}));
-    console.log('Sync parameters:', { syncType, environment });
+    const { syncType = 'full', environment = 'production', test_connection_only = false } = await req.json().catch(() => ({}));
+    console.log('Sync parameters:', { syncType, environment, test_connection_only });
+
+    // If this is just a connection test, run a simple API call
+    if (test_connection_only) {
+      console.log('=== TESTING XERO CONNECTION ===');
+      try {
+        const testResult = await callXeroAPI(supabase, 'accounts', environment);
+        
+        if (testResult.success) {
+          const result = {
+            success: true,
+            message: 'Xero connection test successful',
+            timestamp: new Date().toISOString()
+          };
+          
+          console.log('✅ CONNECTION TEST PASSED:', result);
+          return new Response(JSON.stringify(result, null, 2), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } else {
+          throw new Error(testResult.error || 'API call failed');
+        }
+      } catch (error) {
+        console.error('❌ CONNECTION TEST FAILED:', error);
+        
+        const errorResult = {
+          success: false,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        };
+        
+        return new Response(JSON.stringify(errorResult, null, 2), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     // Update sync status to running
     const syncSessionId = crypto.randomUUID();
