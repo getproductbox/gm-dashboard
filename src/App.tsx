@@ -22,6 +22,7 @@ import Revenue from "./pages/Revenue";
 import RevenueNew from "./pages/RevenueNew";
 import FeatureFlags from "./pages/FeatureFlags";
 import XeroCallback from "./pages/XeroCallback";
+import ProfitLoss from "./pages/ProfitLoss";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,11 @@ const App = () => (
               <Route path="/revenue-new" element={
                 <ProtectedRoute>
                   <RevenueNew />
+                </ProtectedRoute>
+              } />
+              <Route path="/profit-loss" element={
+                <ProtectedRoute>
+                  <ProfitLoss />
                 </ProtectedRoute>
               } />
               <Route path="/reports" element={

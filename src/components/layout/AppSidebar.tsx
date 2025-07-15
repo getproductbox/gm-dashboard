@@ -48,6 +48,12 @@ const menuItems = [
     flagKey: "showRevenue",
   },
   {
+    title: "Profit & Loss",
+    url: "/profit-loss",
+    icon: BarChart3,
+    flagKey: "showRevenue",
+  },
+  {
     title: "API Connections",
     url: "/api-test",
     icon: TestTube,
