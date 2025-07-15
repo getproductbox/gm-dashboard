@@ -309,6 +309,57 @@ export type Database = {
         }
         Relationships: []
       }
+      profit_loss_events: {
+        Row: {
+          account_id: string
+          account_name: string
+          account_type: string
+          amount_cents: number
+          category: string
+          created_at: string
+          currency: string
+          id: string
+          period_end: string
+          period_start: string
+          processed_at: string
+          report_date: string
+          subcategory: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          account_name: string
+          account_type: string
+          amount_cents: number
+          category: string
+          created_at?: string
+          currency?: string
+          id?: string
+          period_end: string
+          period_start: string
+          processed_at?: string
+          report_date: string
+          subcategory?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          account_name?: string
+          account_type?: string
+          amount_cents?: number
+          category?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          processed_at?: string
+          report_date?: string
+          subcategory?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       revenue_events: {
         Row: {
           amount_cents: number
@@ -557,6 +608,78 @@ export type Database = {
           status?: string
           total_payments?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      xero_accounts: {
+        Row: {
+          account_class: string | null
+          account_code: string | null
+          account_name: string
+          account_type: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          raw_response: Json
+          synced_at: string
+          updated_at: string
+          xero_account_id: string
+        }
+        Insert: {
+          account_class?: string | null
+          account_code?: string | null
+          account_name: string
+          account_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          raw_response: Json
+          synced_at?: string
+          updated_at?: string
+          xero_account_id: string
+        }
+        Update: {
+          account_class?: string | null
+          account_code?: string | null
+          account_name?: string
+          account_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          raw_response?: Json
+          synced_at?: string
+          updated_at?: string
+          xero_account_id?: string
+        }
+        Relationships: []
+      }
+      xero_profit_loss_raw: {
+        Row: {
+          created_at: string
+          id: string
+          raw_response: Json
+          report_date: string
+          report_id: string
+          synced_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          raw_response: Json
+          report_date: string
+          report_id: string
+          synced_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          raw_response?: Json
+          report_date?: string
+          report_id?: string
+          synced_at?: string
         }
         Relationships: []
       }
