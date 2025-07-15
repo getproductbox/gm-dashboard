@@ -7,9 +7,11 @@ import { useState } from 'react';
 import { TwoWeekSyncTest } from '../square/TwoWeekSyncTest';
 import { VenueReprocessingControls } from '../square/VenueReprocessingControls';
 import { TransactionMappingTest } from '../square/TransactionMappingTest';
+import { XeroSyncControls } from '../xero/XeroSyncControls';
 
 export const DataManagement = () => {
   const [squareExpanded, setSquareExpanded] = useState(true);
+  const [xeroExpanded, setXeroExpanded] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -73,21 +75,27 @@ export const DataManagement = () => {
         </Card>
       </Collapsible>
 
-      {/* Future: Xero Data Management */}
-      <Card className="opacity-60">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Database className="h-5 w-5" />
-            <span>Xero Data Management</span>
-            <span className="text-sm font-normal text-gm-neutral-500">(Coming Soon)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gm-neutral-500 text-sm">
-            Xero integration and data processing tools will be available once OAuth connection is configured.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Xero Data Management */}
+      <Collapsible open={xeroExpanded} onOpenChange={setXeroExpanded}>
+        <Card>
+          <CardHeader>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between p-0 h-auto">
+                <CardTitle className="flex items-center space-x-2">
+                  <Database className="h-5 w-5" />
+                  <span>Xero Data Management</span>
+                </CardTitle>
+                <ChevronDown className={`h-4 w-4 transition-transform ${xeroExpanded ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-6">
+              <XeroSyncControls />
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 };
