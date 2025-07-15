@@ -17,6 +17,9 @@ verify_jwt = false
 [functions.reprocess-venues]
 verify_jwt = false
 
+[functions.xero-token-refresh]
+verify_jwt = false
+
 [db]
 port = 54322
 shadow_port = 54320

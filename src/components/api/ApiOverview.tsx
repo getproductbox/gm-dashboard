@@ -120,7 +120,10 @@ export const ApiOverview = () => {
       const expiresAt = tokens.expires_at ? new Date(tokens.expires_at) : null;
       
       if (expiresAt && now >= expiresAt) {
-        return { connected: false, error: 'Xero token has expired' };
+        return { 
+          connected: false, 
+          error: `Xero token expired at ${expiresAt.toLocaleString()}. Will attempt automatic refresh on next API call.`
+        };
       }
 
       return { connected: true };

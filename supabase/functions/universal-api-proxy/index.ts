@@ -124,7 +124,7 @@ serve(async (req) => {
       // Get OAuth token for this user and provider
       const { data: oauthToken, error: tokenError } = await supabase
         .from('oauth_tokens')
-        .select('access_token, expires_at, tenant_id')
+        .select('access_token, expires_at, tenant_id, refresh_token')
         .eq('provider_name', provider)
         .eq('user_id', user.id)
         .eq('environment', environment)
@@ -140,17 +140,63 @@ serve(async (req) => {
         throw new Error(`No OAuth token found for ${provider}. Please authenticate first.`);
       }
 
-      // Check if token is expired
+      // Check if token is expired and attempt refresh for Xero
       if (oauthToken.expires_at && new Date(oauthToken.expires_at) <= new Date()) {
-        throw new Error(`OAuth token for ${provider} has expired. Please re-authenticate.`);
+        if (provider === 'xero' && oauthToken.refresh_token) {
+          console.log('Token expired, attempting refresh...');
+          
+          try {
+            const refreshResponse = await supabase.functions.invoke('xero-token-refresh', {
+              body: {
+                user_id: user.id,
+                environment
+              }
+            });
+            
+            if (refreshResponse.error || !refreshResponse.data?.success) {
+              throw new Error(`Token refresh failed: ${refreshResponse.data?.error || 'Unknown error'}`);
+            }
+            
+            // Get the refreshed token
+            const { data: refreshedToken, error: refreshTokenError } = await supabase
+              .from('oauth_tokens')
+              .select('access_token, expires_at, tenant_id')
+              .eq('provider_name', provider)
+              .eq('user_id', user.id)
+              .eq('environment', environment)
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (refreshTokenError || !refreshedToken) {
+              throw new Error('Failed to get refreshed token');
+            }
+            
+            // Use the refreshed token
+            headers['Authorization'] = `Bearer ${refreshedToken.access_token}`;
+            
+            // Add Xero-specific tenant header
+            if (refreshedToken.tenant_id) {
+              headers['Xero-tenant-id'] = refreshedToken.tenant_id;
+            }
+            
+            console.log('✅ Token refreshed successfully');
+          } catch (refreshError) {
+            console.error('❌ Token refresh failed:', refreshError);
+            throw new Error(`OAuth token for ${provider} has expired and refresh failed: ${refreshError.message}`);
+          }
+        } else {
+          throw new Error(`OAuth token for ${provider} has expired. Please re-authenticate.`);
+        }
+      } else {
+        headers['Authorization'] = `Bearer ${oauthToken.access_token}`;
+        
+        // Add Xero-specific tenant header
+        if (provider === 'xero' && oauthToken.tenant_id) {
+          headers['Xero-tenant-id'] = oauthToken.tenant_id;
+        }
       }
 
-      headers['Authorization'] = `Bearer ${oauthToken.access_token}`;
-      
-      // Add Xero-specific tenant header
-      if (provider === 'xero' && oauthToken.tenant_id) {
-        headers['Xero-tenant-id'] = oauthToken.tenant_id;
-      }
     }
 
     console.log('=== API REQUEST ===');
