@@ -69,126 +69,38 @@ serve(async (req) => {
     const environment = 'production';
     console.log('Sync parameters:', { syncType, environment, test_connection_only });
 
-    // If this is just a connection test, run a simple API call
-    if (test_connection_only) {
-      console.log('=== TESTING XERO CONNECTION ===');
-      try {
-        const testResult = await callXeroAPI(supabase, 'accounts', environment, authHeader);
-        
-        if (testResult.success) {
-          const result = {
-            success: true,
-            message: 'Xero connection test successful',
-            timestamp: new Date().toISOString()
-          };
-          
-          console.log('✅ CONNECTION TEST PASSED:', result);
-          return new Response(JSON.stringify(result, null, 2), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        } else {
-          throw new Error(testResult.error || 'API call failed');
-        }
-      } catch (error) {
-        console.error('❌ CONNECTION TEST FAILED:', error);
-        
-        const errorResult = {
-          success: false,
-          error: error.message,
-          timestamp: new Date().toISOString()
-        };
-        
-        return new Response(JSON.stringify(errorResult, null, 2), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    // Update sync status to running
-    const syncSessionId = crypto.randomUUID();
-    await updateSyncStatus(supabase, environment, {
-      sync_status: 'running',
-      sync_session_id: syncSessionId,
-      last_sync_attempt: new Date().toISOString(),
-      error_message: null,
-      last_heartbeat: new Date().toISOString()
-    });
-
-    let accountsProcessed = 0;
-    let reportsProcessed = 0;
-
-    // Step 1: Sync Chart of Accounts
-    console.log('=== SYNCING CHART OF ACCOUNTS ===');
+    // ALL REQUESTS NOW JUST TEST THE ORGANISATION ENDPOINT
+    console.log('=== TESTING XERO ORGANISATION ENDPOINT ONLY ===');
     try {
-      const accountsResult = await callXeroAPI(supabase, 'accounts', environment, authHeader);
-      if (accountsResult.success && accountsResult.data?.Accounts) {
-        accountsProcessed = await processAccounts(supabase, accountsResult.data.Accounts);
-        console.log(`✅ Processed ${accountsProcessed} accounts`);
-      }
-    } catch (error) {
-      console.error('❌ Error syncing accounts:', error);
-      throw new Error(`Account sync failed: ${error.message}`);
-    }
-
-    // Step 2: Sync Profit & Loss Report (TEMPORARILY DISABLED)
-    // TODO: Add profit-and-loss endpoint to api_endpoints table first
-    console.log('=== SKIPPING P&L SYNC (ENDPOINT NOT CONFIGURED) ===');
-    console.log('ℹ️ Profit & Loss sync temporarily disabled - testing accounts sync only');
-    
-    // Uncomment the section below once the profit-and-loss endpoint is added:
-    /*
-    console.log('=== SYNCING PROFIT & LOSS REPORT ===');
-    try {
-      // Get last 12 months of P&L data
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setFullYear(endDate.getFullYear() - 1);
-
-      const params = {
-        fromDate: startDate.toISOString().split('T')[0],
-        toDate: endDate.toISOString().split('T')[0],
-        standardLayout: 'true'
+      const orgResult = await callXeroAPI(supabase, 'organisation', environment, authHeader);
+      
+      const result = {
+        success: true,
+        message: 'Organisation endpoint test successful',
+        data: orgResult,
+        timestamp: new Date().toISOString()
       };
-
-      const profitLossResult = await callXeroAPI(supabase, 'profit-and-loss', environment, authHeader, params);
-      if (profitLossResult.success && profitLossResult.data?.Reports?.[0]) {
-        reportsProcessed = await processProfitLossReport(supabase, profitLossResult.data.Reports[0], params);
-        console.log(`✅ Processed ${reportsProcessed} P&L entries`);
-      }
+      
+      console.log('✅ ORGANISATION ENDPOINT TEST PASSED:', result);
+      console.log('📊 Organisation data received:', JSON.stringify(orgResult, null, 2));
+      
+      return new Response(JSON.stringify(result, null, 2), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     } catch (error) {
-      console.error('❌ Error syncing profit & loss:', error);
-      throw new Error(`P&L sync failed: ${error.message}`);
+      console.error('❌ ORGANISATION ENDPOINT TEST FAILED:', error);
+      
+      const errorResult = {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+      
+      return new Response(JSON.stringify(errorResult, null, 2), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-    */
-
-    const executionTime = Date.now() - startTime;
-
-    // Update sync status to completed
-    await updateSyncStatus(supabase, environment, {
-      sync_status: 'completed',
-      last_successful_sync: new Date().toISOString(),
-      accounts_synced: accountsProcessed,
-      reports_synced: reportsProcessed,
-      progress_percentage: 100,
-      last_heartbeat: new Date().toISOString()
-    });
-
-    const result = {
-      success: true,
-      message: 'Xero sync completed successfully',
-      stats: {
-        accounts_processed: accountsProcessed,
-        reports_processed: reportsProcessed,
-        execution_time_ms: executionTime
-      },
-      timestamp: new Date().toISOString()
-    };
-
-    console.log('✅ XERO SYNC COMPLETED:', result);
-    return new Response(JSON.stringify(result, null, 2), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
     console.error('❌ XERO SYNC FAILED:', error);
