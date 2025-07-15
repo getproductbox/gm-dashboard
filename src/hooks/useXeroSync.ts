@@ -73,6 +73,14 @@ export const useXeroSync = () => {
   ) => {
     setIsLoading(true);
     try {
+      // Get current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('You must be logged in to perform Xero sync');
+        setIsLoading(false);
+        return;
+      }
+
       const requestBody = { 
         environment,
         syncType: options?.syncType || 'full'
@@ -84,7 +92,10 @@ export const useXeroSync = () => {
       });
 
       const { data, error } = await supabase.functions.invoke('xero-sync', {
-        body: requestBody
+        body: requestBody,
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
       });
 
       if (error) {

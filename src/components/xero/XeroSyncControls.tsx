@@ -41,10 +41,20 @@ export const XeroSyncControls = () => {
   const handleDebugTest = async (testType: string) => {
     setIsDebugging(true);
     try {
+      // Get current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('You must be logged in to perform debug tests');
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('xero-debug-test', {
         body: {
           test_type: testType,
           environment
+        },
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
         }
       });
 

@@ -35,10 +35,34 @@ serve(async (req) => {
     console.log('=== XERO SYNC FUNCTION START ===');
     console.log('Current UTC time:', new Date().toISOString());
 
-    // Initialize Supabase client
+    // Validate user authentication
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('Missing or invalid authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - User JWT required for Xero sync' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Initialize Supabase client with user JWT for authentication
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify user authentication
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('User authentication failed:', userError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid user authentication' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    console.log('Authenticated user:', user.id);
 
     // Get request parameters - always use production
     const { syncType = 'full', test_connection_only = false } = await req.json().catch(() => ({}));
@@ -49,7 +73,7 @@ serve(async (req) => {
     if (test_connection_only) {
       console.log('=== TESTING XERO CONNECTION ===');
       try {
-        const testResult = await callXeroAPI(supabase, 'accounts', environment);
+        const testResult = await callXeroAPI(supabase, 'accounts', environment, authHeader);
         
         if (testResult.success) {
           const result = {
@@ -97,7 +121,7 @@ serve(async (req) => {
     // Step 1: Sync Chart of Accounts
     console.log('=== SYNCING CHART OF ACCOUNTS ===');
     try {
-      const accountsResult = await callXeroAPI(supabase, 'accounts', environment);
+      const accountsResult = await callXeroAPI(supabase, 'accounts', environment, authHeader);
       if (accountsResult.success && accountsResult.data?.Accounts) {
         accountsProcessed = await processAccounts(supabase, accountsResult.data.Accounts);
         console.log(`✅ Processed ${accountsProcessed} accounts`);
@@ -121,7 +145,7 @@ serve(async (req) => {
         standardLayout: 'true'
       };
 
-      const profitLossResult = await callXeroAPI(supabase, 'profit-and-loss', environment, params);
+      const profitLossResult = await callXeroAPI(supabase, 'profit-and-loss', environment, authHeader, params);
       if (profitLossResult.success && profitLossResult.data?.Reports?.[0]) {
         reportsProcessed = await processProfitLossReport(supabase, profitLossResult.data.Reports[0], params);
         console.log(`✅ Processed ${reportsProcessed} P&L entries`);
@@ -188,7 +212,7 @@ serve(async (req) => {
   }
 });
 
-async function callXeroAPI(supabase: any, endpoint: string, environment: string, params?: Record<string, string>) {
+async function callXeroAPI(supabase: any, endpoint: string, environment: string, authHeader: string, params?: Record<string, string>) {
   console.log('=== CALLING XERO API ===');
   console.log('Endpoint:', endpoint);
   console.log('Environment:', environment);
@@ -204,7 +228,10 @@ async function callXeroAPI(supabase: any, endpoint: string, environment: string,
   console.log('Invoking universal-api-proxy with body:', JSON.stringify(requestBody, null, 2));
   
   const response = await supabase.functions.invoke('universal-api-proxy', {
-    body: requestBody
+    body: requestBody,
+    headers: {
+      'Authorization': authHeader
+    }
   });
 
   console.log('=== UNIVERSAL API PROXY RESPONSE ===');
