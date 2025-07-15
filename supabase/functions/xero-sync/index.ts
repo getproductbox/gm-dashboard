@@ -330,14 +330,15 @@ function mapAccountToSubcategory(accountName: string, category: string): string 
 
 async function updateSyncStatus(supabase: any, environment: string, updates: Record<string, any>) {
   const { error } = await supabase
-    .from('square_sync_status') // Reusing existing sync status table
+    .from('xero_sync_status')
     .upsert({
-      environment: `xero_${environment}`,
+      environment: environment,
       updated_at: new Date().toISOString(),
       ...updates
     }, { onConflict: 'environment' });
 
   if (error) {
     console.error('Error updating sync status:', error);
+    throw new Error(`Failed to update sync status: ${error.message}`);
   }
 }
