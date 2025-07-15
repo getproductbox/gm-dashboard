@@ -74,9 +74,35 @@ export const useXeroSync = () => {
     setIsLoading(true);
     try {
       // Get current user session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('❌ Session error:', sessionError);
+        toast.error('Authentication error: ' + sessionError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!session || !session.user) {
+        console.error('❌ No authenticated user session found');
         toast.error('You must be logged in to perform Xero sync');
+        setIsLoading(false);
+        return;
+      }
+
+      // Verify we have a proper user JWT token (should have 'sub' claim)
+      const tokenPayload = JSON.parse(atob(session.access_token.split('.')[1]));
+      console.log('🔍 Token payload preview:', {
+        iss: tokenPayload.iss,
+        sub: tokenPayload.sub,
+        role: tokenPayload.role,
+        aud: tokenPayload.aud,
+        exp: tokenPayload.exp
+      });
+
+      if (!tokenPayload.sub) {
+        console.error('❌ Invalid token: No sub claim found');
+        toast.error('Authentication token is invalid - please sign out and sign in again');
         setIsLoading(false);
         return;
       }
@@ -88,6 +114,7 @@ export const useXeroSync = () => {
 
       console.log('🚀 Triggering Xero sync with params:', {
         ...requestBody,
+        userToken: session.access_token.substring(0, 20) + '...',
         timestamp: new Date().toISOString()
       });
 

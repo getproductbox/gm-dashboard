@@ -42,11 +42,24 @@ export const XeroSyncControls = () => {
     setIsDebugging(true);
     try {
       // Get current user session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session || !session.user) {
         toast.error('You must be logged in to perform debug tests');
         return;
       }
+
+      // Verify we have a proper user JWT token
+      const tokenPayload = JSON.parse(atob(session.access_token.split('.')[1]));
+      if (!tokenPayload.sub) {
+        toast.error('Authentication token is invalid - please sign out and sign in again');
+        return;
+      }
+
+      console.log('🔍 Debug test token check:', {
+        userToken: session.access_token.substring(0, 20) + '...',
+        hasSubClaim: !!tokenPayload.sub
+      });
 
       const { data, error } = await supabase.functions.invoke('xero-debug-test', {
         body: {
