@@ -131,7 +131,13 @@ serve(async (req) => {
       throw new Error(`Account sync failed: ${error.message}`);
     }
 
-    // Step 2: Sync Profit & Loss Report
+    // Step 2: Sync Profit & Loss Report (TEMPORARILY DISABLED)
+    // TODO: Add profit-and-loss endpoint to api_endpoints table first
+    console.log('=== SKIPPING P&L SYNC (ENDPOINT NOT CONFIGURED) ===');
+    console.log('ℹ️ Profit & Loss sync temporarily disabled - testing accounts sync only');
+    
+    // Uncomment the section below once the profit-and-loss endpoint is added:
+    /*
     console.log('=== SYNCING PROFIT & LOSS REPORT ===');
     try {
       // Get last 12 months of P&L data
@@ -154,6 +160,7 @@ serve(async (req) => {
       console.error('❌ Error syncing profit & loss:', error);
       throw new Error(`P&L sync failed: ${error.message}`);
     }
+    */
 
     const executionTime = Date.now() - startTime;
 
