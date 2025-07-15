@@ -71,13 +71,21 @@ serve(async (req) => {
 
     // ALL REQUESTS NOW JUST TEST THE ACCOUNTS ENDPOINT
     console.log('=== TESTING XERO ACCOUNTS ENDPOINT ===');
+    const startTime = Date.now();
+    
     try {
       const accountsResult = await callXeroAPI(supabase, 'accounts', environment, authHeader);
+      const executionTime = Date.now() - startTime;
       
       const result = {
         success: true,
         message: 'Accounts endpoint test successful',
         data: accountsResult,
+        stats: {
+          accounts_processed: 0, // Not processing/storing yet, just testing connectivity
+          reports_processed: 0,
+          execution_time_ms: executionTime
+        },
         timestamp: new Date().toISOString()
       };
       
