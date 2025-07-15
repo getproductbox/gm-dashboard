@@ -188,19 +188,40 @@ serve(async (req) => {
 });
 
 async function callXeroAPI(supabase: any, endpoint: string, environment: string, params?: Record<string, string>) {
+  console.log('=== CALLING XERO API ===');
+  console.log('Endpoint:', endpoint);
+  console.log('Environment:', environment);
+  console.log('Params:', params);
+  
+  const requestBody = {
+    provider: 'xero',
+    endpoint,
+    environment,
+    query_params: params
+  };
+  
+  console.log('Invoking universal-api-proxy with body:', JSON.stringify(requestBody, null, 2));
+  
   const response = await supabase.functions.invoke('universal-api-proxy', {
-    body: {
-      provider: 'xero',
-      endpoint,
-      environment,
-      query_params: params
-    }
+    body: requestBody
   });
 
+  console.log('=== UNIVERSAL API PROXY RESPONSE ===');
+  console.log('Response error:', response.error);
+  console.log('Response data type:', typeof response.data);
+  console.log('Response status:', response.status);
+  
   if (response.error) {
+    console.error('❌ API proxy returned error:', response.error);
     throw new Error(`API call failed: ${response.error.message}`);
   }
 
+  if (!response.data) {
+    console.error('❌ No data in API proxy response');
+    throw new Error('No data returned from API proxy');
+  }
+
+  console.log('✅ API call successful');
   return response.data;
 }
 

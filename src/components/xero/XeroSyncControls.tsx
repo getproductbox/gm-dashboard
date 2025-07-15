@@ -13,9 +13,12 @@ import {
   CheckCircle, 
   XCircle, 
   AlertCircle,
-  Database
+  Database,
+  Bug
 } from 'lucide-react';
 import { useXeroSync } from '@/hooks/useXeroSync';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export const XeroSyncControls = () => {
   const {
@@ -29,10 +32,38 @@ export const XeroSyncControls = () => {
   } = useXeroSync();
 
   const [environment, setEnvironment] = useState<'sandbox' | 'production'>('production');
+  const [isDebugging, setIsDebugging] = useState(false);
 
   useEffect(() => {
     fetchSyncStatus();
   }, [fetchSyncStatus]);
+
+  const handleDebugTest = async (testType: string) => {
+    setIsDebugging(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('xero-debug-test', {
+        body: {
+          test_type: testType,
+          environment
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('Debug test result:', data);
+      
+      if (data.success) {
+        toast.success(`Debug test "${testType}" completed successfully - check console for details`);
+      } else {
+        toast.error(`Debug test "${testType}" failed: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Debug test error:', error);
+      toast.error(`Debug test failed: ${error.message}`);
+    } finally {
+      setIsDebugging(false);
+    }
+  };
 
   const currentStatus = syncStatus.find(s => s.environment === environment);
   const formattedStatus = currentStatus ? getFormattedSyncStatus(currentStatus) : null;
@@ -204,6 +235,53 @@ export const XeroSyncControls = () => {
                 <span className="text-xs text-gm-neutral-600">
                   Sync P&L reports
                 </span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Debug Tools */}
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="font-medium text-orange-600">🔧 Debug Tools</h4>
+            <p className="text-xs text-gm-neutral-600">
+              Use these tools to diagnose connection issues. Check browser console for detailed logs.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                onClick={() => handleDebugTest('database_check')} 
+                disabled={isDebugging}
+                variant="outline"
+                size="sm"
+              >
+                <Bug className="h-3 w-3 mr-1" />
+                DB Check
+              </Button>
+              <Button 
+                onClick={() => handleDebugTest('token_check')} 
+                disabled={isDebugging}
+                variant="outline"
+                size="sm"
+              >
+                <Bug className="h-3 w-3 mr-1" />
+                Token Check
+              </Button>
+              <Button 
+                onClick={() => handleDebugTest('direct_api')} 
+                disabled={isDebugging}
+                variant="outline"
+                size="sm"
+              >
+                <Bug className="h-3 w-3 mr-1" />
+                Direct API
+              </Button>
+              <Button 
+                onClick={() => handleDebugTest('proxy_test')} 
+                disabled={isDebugging}
+                variant="outline"
+                size="sm"
+              >
+                <Bug className="h-3 w-3 mr-1" />
+                Proxy Test
               </Button>
             </div>
           </div>
