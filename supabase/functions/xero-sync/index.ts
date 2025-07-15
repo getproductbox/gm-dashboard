@@ -69,20 +69,40 @@ serve(async (req) => {
     const environment = 'production';
     console.log('Sync parameters:', { syncType, environment, test_connection_only });
 
-    // ALL REQUESTS NOW JUST TEST THE ACCOUNTS ENDPOINT
-    console.log('=== TESTING XERO ACCOUNTS ENDPOINT ===');
+    // ALL REQUESTS NOW JUST TEST THE ACCOUNTS ENDPOINT AND GET RAW DATA
+    console.log('=== TESTING XERO ACCOUNTS ENDPOINT - RAW DATA ONLY ===');
     const startTime = Date.now();
     
     try {
       const accountsResult = await callXeroAPI(supabase, 'accounts', environment, authHeader);
       const executionTime = Date.now() - startTime;
       
+      // LOG THE COMPLETE RAW RESPONSE
+      console.log('=== RAW ACCOUNTS RESPONSE ===');
+      console.log('Type:', typeof accountsResult);
+      console.log('Keys:', accountsResult ? Object.keys(accountsResult) : 'null/undefined');
+      console.log('Full response:', JSON.stringify(accountsResult, null, 2));
+      
+      // Check if it's an array or nested structure
+      if (accountsResult && typeof accountsResult === 'object') {
+        if (Array.isArray(accountsResult)) {
+          console.log('Response is array with length:', accountsResult.length);
+        } else {
+          console.log('Response is object, checking for nested accounts...');
+          console.log('accounts property:', accountsResult.accounts ? `Array with ${accountsResult.accounts.length} items` : 'Not found');
+          console.log('Accounts property keys:', accountsResult.accounts ? Object.keys(accountsResult.accounts[0] || {}) : 'No accounts array');
+        }
+      }
+      
       const result = {
         success: true,
-        message: 'Accounts endpoint test successful',
-        data: accountsResult,
+        message: 'Raw accounts data retrieved - check logs for details',
+        raw_response: accountsResult,
+        response_type: typeof accountsResult,
+        is_array: Array.isArray(accountsResult),
+        accounts_count: accountsResult?.accounts?.length || (Array.isArray(accountsResult) ? accountsResult.length : 0),
         stats: {
-          accounts_processed: 0, // Not processing/storing yet, just testing connectivity
+          accounts_processed: 0, // Not processing yet, just getting raw data
           reports_processed: 0,
           execution_time_ms: executionTime
         },
