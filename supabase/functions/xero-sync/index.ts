@@ -69,26 +69,26 @@ serve(async (req) => {
     const environment = 'production';
     console.log('Sync parameters:', { syncType, environment, test_connection_only });
 
-    // ALL REQUESTS NOW JUST TEST THE ORGANISATION ENDPOINT
-    console.log('=== TESTING XERO ORGANISATION ENDPOINT ONLY ===');
+    // ALL REQUESTS NOW JUST TEST THE ACCOUNTS ENDPOINT
+    console.log('=== TESTING XERO ACCOUNTS ENDPOINT ===');
     try {
-      const orgResult = await callXeroAPI(supabase, 'organisation', environment, authHeader);
+      const accountsResult = await callXeroAPI(supabase, 'accounts', environment, authHeader);
       
       const result = {
         success: true,
-        message: 'Organisation endpoint test successful',
-        data: orgResult,
+        message: 'Accounts endpoint test successful',
+        data: accountsResult,
         timestamp: new Date().toISOString()
       };
       
-      console.log('✅ ORGANISATION ENDPOINT TEST PASSED:', result);
-      console.log('📊 Organisation data received:', JSON.stringify(orgResult, null, 2));
+      console.log('✅ ACCOUNTS ENDPOINT TEST PASSED:', result);
+      console.log('📊 Accounts data received:', JSON.stringify(accountsResult, null, 2));
       
       return new Response(JSON.stringify(result, null, 2), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (error) {
-      console.error('❌ ORGANISATION ENDPOINT TEST FAILED:', error);
+      console.error('❌ ACCOUNTS ENDPOINT TEST FAILED:', error);
       
       const errorResult = {
         success: false,
