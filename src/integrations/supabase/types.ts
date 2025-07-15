@@ -683,6 +683,45 @@ export type Database = {
         }
         Relationships: []
       }
+      xero_sync_status: {
+        Row: {
+          accounts_synced: number | null
+          created_at: string
+          environment: string
+          error_message: string | null
+          id: string
+          last_successful_sync: string | null
+          last_sync_attempt: string | null
+          reports_synced: number | null
+          sync_status: string
+          updated_at: string
+        }
+        Insert: {
+          accounts_synced?: number | null
+          created_at?: string
+          environment?: string
+          error_message?: string | null
+          id?: string
+          last_successful_sync?: string | null
+          last_sync_attempt?: string | null
+          reports_synced?: number | null
+          sync_status?: string
+          updated_at?: string
+        }
+        Update: {
+          accounts_synced?: number | null
+          created_at?: string
+          environment?: string
+          error_message?: string | null
+          id?: string
+          last_successful_sync?: string | null
+          last_sync_attempt?: string | null
+          reports_synced?: number | null
+          sync_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
