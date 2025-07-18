@@ -140,3 +140,5 @@ This is an internal GM project. For development questions or feature requests, p
 ---
 
 **Project URL**: https://lovable.dev/projects/d98ece8d-5a7b-4edf-ae49-b14db925e5c2
+
+<!-- Test deployment - added for shipping process verification -->
