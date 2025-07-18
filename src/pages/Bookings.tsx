@@ -4,7 +4,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BookingsList } from "@/components/bookings/BookingsList";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Calendar, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Calendar, Clock, CheckCircle, AlertCircle, Building } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useBookings } from "@/hooks/useBookings";
 
@@ -19,6 +20,10 @@ const Bookings = () => {
     ).length,
     completedBookings: bookings.filter(booking => booking.status === 'completed').length,
     pendingBookings: bookings.filter(booking => booking.status === 'pending').length,
+    karaokeBookings: bookings.filter(booking => 
+      booking.booking_type === 'karaoke_booking' || 
+      (booking.booking_type === 'venue_hire' && booking.venue_area === 'karaoke')
+    ).length,
   };
 
   const handleCreateBooking = () => {
@@ -36,10 +41,20 @@ const Bookings = () => {
               {stats.totalBookings} bookings
             </p>
           </div>
-          <Button onClick={handleCreateBooking} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            New Booking
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/booth-management')}
+              className="flex items-center gap-2"
+            >
+              <Building className="h-4 w-4" />
+              Manage Booths
+            </Button>
+            <Button onClick={handleCreateBooking} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              New Booking
+            </Button>
+          </div>
         </div>
 
         {/* Quick Stats */}
@@ -85,8 +100,40 @@ const Bookings = () => {
           </Card>
         </div>
 
-        {/* Bookings List */}
-        <BookingsList />
+        {/* Booking Tabs */}
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="all">All Bookings</TabsTrigger>
+            <TabsTrigger value="venue">Venue Bookings</TabsTrigger>
+            <TabsTrigger value="vip">VIP Tickets</TabsTrigger>
+            <TabsTrigger value="karaoke">Karaoke Bookings</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="all" className="mt-6">
+            <BookingsList />
+          </TabsContent>
+          
+          <TabsContent value="venue" className="mt-6">
+            <BookingsList 
+              initialFilters={{ bookingType: 'venue_hire' }}
+              title="Venue Bookings"
+            />
+          </TabsContent>
+          
+          <TabsContent value="vip" className="mt-6">
+            <BookingsList 
+              initialFilters={{ bookingType: 'vip_tickets' }}
+              title="VIP Tickets"
+            />
+          </TabsContent>
+          
+          <TabsContent value="karaoke" className="mt-6">
+            <BookingsList 
+              initialFilters={{ bookingType: 'karaoke_booking' }}
+              title="Karaoke Bookings"
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

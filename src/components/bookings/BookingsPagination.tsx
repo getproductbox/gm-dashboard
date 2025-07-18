@@ -33,7 +33,7 @@ export const BookingsPagination = ({
       }
     } else {
       let start = Math.max(1, currentPage - 2);
-      let end = Math.min(totalPages, start + maxVisible - 1);
+      const end = Math.min(totalPages, start + maxVisible - 1);
       
       if (end - start < maxVisible - 1) {
         start = Math.max(1, end - maxVisible + 1);
@@ -52,14 +52,14 @@ export const BookingsPagination = ({
   }
 
   return (
-    <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gm-neutral-200">
+    <div className="flex items-center justify-between bg-white dark:bg-gm-neutral-900 p-4 rounded-lg border border-gm-neutral-200 dark:border-gm-neutral-700">
       <div className="flex items-center gap-4">
-        <p className="text-sm text-gm-neutral-600">
+        <p className="text-sm text-gm-neutral-600 dark:text-gm-neutral-300">
           Showing {startItem}-{endItem} of {totalItems} bookings
         </p>
         
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gm-neutral-600">Show:</span>
+          <span className="text-sm text-gm-neutral-600 dark:text-gm-neutral-300">Show:</span>
           <Select 
             value={itemsPerPage.toString()} 
             onValueChange={(value) => onItemsPerPageChange(Number(value))}

@@ -27,17 +27,16 @@ export const useCreateBooking = () => {
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       
-      // Handle both single booking and multiple VIP ticket bookings
-      if (Array.isArray(booking)) {
-        // Multiple VIP ticket bookings
-        const ticketCount = booking.length;
-        const customerName = booking[0]?.customer_name || 'Customer';
+      // Handle both VIP tickets and venue hire bookings (now both return single BookingRow)
+      if (booking.booking_type === 'vip_tickets') {
+        // VIP ticket booking
+        const ticketCount = booking.ticket_quantity || 1;
         toast({
           title: "VIP Tickets Created Successfully",
-          description: `${ticketCount} VIP tickets for ${customerName} have been created.`,
+          description: `${ticketCount} VIP ticket${ticketCount > 1 ? 's' : ''} for ${booking.customer_name} have been created.`,
         });
       } else {
-        // Single venue hire booking
+        // Venue hire booking
         toast({
           title: "Booking Created Successfully",
           description: `Booking for ${booking.customer_name} has been created and ${booking.status === 'confirmed' ? 'confirmed' : 'is pending'}.`,

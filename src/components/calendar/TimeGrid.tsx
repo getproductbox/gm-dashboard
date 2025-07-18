@@ -51,18 +51,18 @@ export const TimeGrid = ({
         }}
       >
         {/* Header Row */}
-        <div className="sticky top-0 bg-gm-neutral-50 border-b border-r border-gm-neutral-200 flex items-center justify-center text-sm font-medium text-gm-neutral-600 z-20">
+        <div className="sticky top-0 bg-gm-neutral-50 dark:bg-gm-neutral-800 border-b border-r border-gm-neutral-200 dark:border-gm-neutral-700 flex items-center justify-center text-sm font-medium text-gm-neutral-600 dark:text-gm-neutral-300 z-20">
           Time
         </div>
         
         {resources.map((resource) => (
           <div
             key={resource.id}
-            className="sticky top-0 bg-gm-neutral-50 border-b border-r border-gm-neutral-200 flex items-center justify-center text-sm font-medium text-gm-neutral-900 px-2 z-20"
+            className="sticky top-0 bg-gm-neutral-50 dark:bg-gm-neutral-800 border-b border-r border-gm-neutral-200 dark:border-gm-neutral-700 flex items-center justify-center text-sm font-medium text-gm-neutral-900 dark:text-gm-neutral-100 px-2 z-20"
           >
             <div className="text-center">
               <div className="truncate">{resource.name}</div>
-              <div className="text-xs text-gm-neutral-500 capitalize">{resource.type}</div>
+              <div className="text-xs text-gm-neutral-500 dark:text-gm-neutral-400 capitalize">{resource.type}</div>
             </div>
           </div>
         ))}
@@ -73,7 +73,7 @@ export const TimeGrid = ({
             {/* Time Label */}
             <div
               key={`time-${time}`}
-              className="border-b border-r border-gm-neutral-200 bg-gm-neutral-50 flex items-center justify-center text-sm text-gm-neutral-600 sticky left-0 z-10"
+              className="border-b border-r border-gm-neutral-200 dark:border-gm-neutral-700 bg-gm-neutral-50 dark:bg-gm-neutral-800 flex items-center justify-center text-sm text-gm-neutral-600 dark:text-gm-neutral-300 sticky left-0 z-10"
             >
               {formatTimeDisplay(time)}
             </div>
@@ -91,8 +91,8 @@ export const TimeGrid = ({
                 <div
                   key={`${resource.id}-${time}`}
                   className={cn(
-                    "border-b border-r border-gm-neutral-200 relative min-h-[60px] hover:bg-gm-neutral-50 cursor-pointer transition-colors",
-                    timeIndex % 2 === 0 ? "bg-white" : "bg-gm-neutral-25"
+                    "border-b border-r border-gm-neutral-200 dark:border-gm-neutral-700 relative min-h-[60px] hover:bg-gm-neutral-50 dark:hover:bg-gm-neutral-800 cursor-pointer transition-colors",
+                    timeIndex % 2 === 0 ? "bg-white dark:bg-gm-neutral-900" : "bg-gm-neutral-25 dark:bg-gm-neutral-850"
                   )}
                   onClick={() => onSlotClick(resource.id, time)}
                 >

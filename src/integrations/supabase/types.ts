@@ -7,717 +7,207 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
-  }
   public: {
     Tables: {
-      api_configurations: {
-        Row: {
-          config_data: Json
-          created_at: string | null
-          environment: string
-          id: string
-          provider_id: string | null
-          secret_keys: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          config_data: Json
-          created_at?: string | null
-          environment: string
-          id?: string
-          provider_id?: string | null
-          secret_keys?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          config_data?: Json
-          created_at?: string | null
-          environment?: string
-          id?: string
-          provider_id?: string | null
-          secret_keys?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "api_configurations_provider_id_fkey"
-            columns: ["provider_id"]
-            isOneToOne: false
-            referencedRelation: "api_providers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      api_endpoints: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          endpoint_key: string
-          id: string
-          is_active: boolean | null
-          method: string
-          path: string
-          provider_id: string | null
-          response_mapper: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          endpoint_key: string
-          id?: string
-          is_active?: boolean | null
-          method: string
-          path: string
-          provider_id?: string | null
-          response_mapper?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          endpoint_key?: string
-          id?: string
-          is_active?: boolean | null
-          method?: string
-          path?: string
-          provider_id?: string | null
-          response_mapper?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "api_endpoints_provider_id_fkey"
-            columns: ["provider_id"]
-            isOneToOne: false
-            referencedRelation: "api_providers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      api_providers: {
-        Row: {
-          auth_type: string
-          base_url: string
-          created_at: string | null
-          display_name: string
-          id: string
-          is_active: boolean | null
-          name: string
-          updated_at: string | null
-        }
-        Insert: {
-          auth_type: string
-          base_url: string
-          created_at?: string | null
-          display_name: string
-          id?: string
-          is_active?: boolean | null
-          name: string
-          updated_at?: string | null
-        }
-        Update: {
-          auth_type?: string
-          base_url?: string
-          created_at?: string | null
-          display_name?: string
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       bookings: {
         Row: {
-          booking_date: string
-          booking_type: string
-          created_at: string | null
-          created_by: string | null
-          customer_email: string | null
-          customer_name: string
-          customer_phone: string | null
-          duration_hours: number | null
-          end_time: string | null
-          export_date: string | null
-          exported_to_megatix: boolean | null
-          guest_count: number | null
           id: string
-          payment_status: string | null
-          special_requests: string | null
-          staff_notes: string | null
-          start_time: string | null
-          status: string
-          ticket_quantity: number | null
-          total_amount: number | null
-          updated_at: string | null
+          customer_name: string
+          customer_email: string | null
+          customer_phone: string | null
+          booking_type: string
           venue: string
           venue_area: string | null
+          karaoke_booth_id: string | null
+          booking_date: string
+          start_time: string | null
+          end_time: string | null
+          duration_hours: number | null
+          guest_count: number | null
+          ticket_quantity: number | null
+          special_requests: string | null
+          status: string
+          total_amount: number | null
+          payment_status: string | null
+          exported_to_megatix: boolean | null
+          export_date: string | null
+          created_by: string | null
+          created_at: string | null
+          updated_at: string | null
+          staff_notes: string | null
         }
         Insert: {
-          booking_date: string
-          booking_type: string
-          created_at?: string | null
-          created_by?: string | null
-          customer_email?: string | null
-          customer_name: string
-          customer_phone?: string | null
-          duration_hours?: number | null
-          end_time?: string | null
-          export_date?: string | null
-          exported_to_megatix?: boolean | null
-          guest_count?: number | null
           id?: string
-          payment_status?: string | null
-          special_requests?: string | null
-          staff_notes?: string | null
-          start_time?: string | null
-          status?: string
-          ticket_quantity?: number | null
-          total_amount?: number | null
-          updated_at?: string | null
+          customer_name: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          booking_type: string
           venue: string
           venue_area?: string | null
+          karaoke_booth_id?: string | null
+          booking_date: string
+          start_time?: string | null
+          end_time?: string | null
+          duration_hours?: number | null
+          guest_count?: number | null
+          ticket_quantity?: number | null
+          special_requests?: string | null
+          status?: string
+          total_amount?: number | null
+          payment_status?: string | null
+          exported_to_megatix?: boolean | null
+          export_date?: string | null
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          staff_notes?: string | null
         }
         Update: {
-          booking_date?: string
-          booking_type?: string
-          created_at?: string | null
-          created_by?: string | null
-          customer_email?: string | null
-          customer_name?: string
-          customer_phone?: string | null
-          duration_hours?: number | null
-          end_time?: string | null
-          export_date?: string | null
-          exported_to_megatix?: boolean | null
-          guest_count?: number | null
           id?: string
-          payment_status?: string | null
-          special_requests?: string | null
-          staff_notes?: string | null
-          start_time?: string | null
-          status?: string
-          ticket_quantity?: number | null
-          total_amount?: number | null
-          updated_at?: string | null
+          customer_name?: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          booking_type?: string
           venue?: string
           venue_area?: string | null
+          karaoke_booth_id?: string | null
+          booking_date?: string
+          start_time?: string | null
+          end_time?: string | null
+          duration_hours?: number | null
+          guest_count?: number | null
+          ticket_quantity?: number | null
+          special_requests?: string | null
+          status?: string
+          total_amount?: number | null
+          payment_status?: string | null
+          exported_to_megatix?: boolean | null
+          export_date?: string | null
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          staff_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_karaoke_booth_id_fkey"
+            columns: ["karaoke_booth_id"]
+            isOneToOne: false
+            referencedRelation: "karaoke_booths"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      karaoke_booths: {
+        Row: {
+          id: string
+          name: string
+          venue: string
+          capacity: number | null
+          hourly_rate: number | null
+          is_available: boolean | null
+          maintenance_notes: string | null
+          operating_hours_start: string | null
+          operating_hours_end: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          venue: string
+          capacity?: number | null
+          hourly_rate?: number | null
+          is_available?: boolean | null
+          maintenance_notes?: string | null
+          operating_hours_start?: string | null
+          operating_hours_end?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          venue?: string
+          capacity?: number | null
+          hourly_rate?: number | null
+          is_available?: boolean | null
+          maintenance_notes?: string | null
+          operating_hours_start?: string | null
+          operating_hours_end?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
       customers: {
         Row: {
-          created_at: string | null
-          email: string | null
           id: string
           name: string
+          email: string | null
           phone: string | null
+          created_at: string | null
           updated_at: string | null
         }
         Insert: {
-          created_at?: string | null
-          email?: string | null
           id?: string
           name: string
+          email?: string | null
           phone?: string | null
+          created_at?: string | null
           updated_at?: string | null
         }
         Update: {
-          created_at?: string | null
-          email?: string | null
           id?: string
           name?: string
+          email?: string | null
           phone?: string | null
+          created_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
-      }
-      feature_flag_defaults: {
-        Row: {
-          created_at: string
-          enabled: boolean
-          flag_key: string
-          id: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          enabled: boolean
-          flag_key: string
-          id?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          enabled?: boolean
-          flag_key?: string
-          id?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      oauth_tokens: {
-        Row: {
-          access_token: string
-          created_at: string
-          environment: string
-          expires_at: string | null
-          id: string
-          provider_name: string
-          refresh_token: string | null
-          scope: string | null
-          tenant_id: string | null
-          token_type: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          access_token: string
-          created_at?: string
-          environment?: string
-          expires_at?: string | null
-          id?: string
-          provider_name: string
-          refresh_token?: string | null
-          scope?: string | null
-          tenant_id?: string | null
-          token_type?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          access_token?: string
-          created_at?: string
-          environment?: string
-          expires_at?: string | null
-          id?: string
-          provider_name?: string
-          refresh_token?: string | null
-          scope?: string | null
-          tenant_id?: string | null
-          token_type?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      profit_loss_events: {
-        Row: {
-          account_id: string
-          account_name: string
-          account_type: string
-          amount_cents: number
-          category: string
-          created_at: string
-          currency: string
-          id: string
-          period_end: string
-          period_start: string
-          processed_at: string
-          report_date: string
-          subcategory: string | null
-          updated_at: string
-        }
-        Insert: {
-          account_id: string
-          account_name: string
-          account_type: string
-          amount_cents: number
-          category: string
-          created_at?: string
-          currency?: string
-          id?: string
-          period_end: string
-          period_start: string
-          processed_at?: string
-          report_date: string
-          subcategory?: string | null
-          updated_at?: string
-        }
-        Update: {
-          account_id?: string
-          account_name?: string
-          account_type?: string
-          amount_cents?: number
-          category?: string
-          created_at?: string
-          currency?: string
-          id?: string
-          period_end?: string
-          period_start?: string
-          processed_at?: string
-          report_date?: string
-          subcategory?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      revenue_events: {
-        Row: {
-          amount_cents: number
-          created_at: string
-          currency: string
-          id: string
-          payment_date: string
-          payment_day_of_week: number
-          payment_hour: number
-          processed_at: string
-          revenue_type: string
-          square_payment_id: string
-          status: string
-          updated_at: string
-          venue: string
-        }
-        Insert: {
-          amount_cents: number
-          created_at?: string
-          currency?: string
-          id?: string
-          payment_date: string
-          payment_day_of_week: number
-          payment_hour: number
-          processed_at?: string
-          revenue_type: string
-          square_payment_id: string
-          status?: string
-          updated_at?: string
-          venue: string
-        }
-        Update: {
-          amount_cents?: number
-          created_at?: string
-          currency?: string
-          id?: string
-          payment_date?: string
-          payment_day_of_week?: number
-          payment_hour?: number
-          processed_at?: string
-          revenue_type?: string
-          square_payment_id?: string
-          status?: string
-          updated_at?: string
-          venue?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "revenue_events_square_payment_id_fkey"
-            columns: ["square_payment_id"]
-            isOneToOne: true
-            referencedRelation: "square_payments_raw"
-            referencedColumns: ["square_payment_id"]
-          },
-        ]
       }
       square_locations: {
         Row: {
+          id: string
+          square_location_id: string
+          location_name: string
           address: string | null
           business_name: string | null
           country: string | null
-          created_at: string
           currency: string | null
           environment: string
-          id: string
           is_active: boolean
-          location_name: string
-          square_location_id: string
           synced_at: string
+          created_at: string
           updated_at: string
         }
         Insert: {
+          id?: string
+          square_location_id: string
+          location_name: string
           address?: string | null
           business_name?: string | null
           country?: string | null
-          created_at?: string
           currency?: string | null
           environment?: string
-          id?: string
           is_active?: boolean
-          location_name: string
-          square_location_id: string
           synced_at?: string
+          created_at?: string
           updated_at?: string
         }
         Update: {
-          address?: string | null
-          business_name?: string | null
-          country?: string | null
-          created_at?: string
-          currency?: string | null
-          environment?: string
           id?: string
-          is_active?: boolean
-          location_name?: string
           square_location_id?: string
-          synced_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      square_payments_raw: {
-        Row: {
-          id: string
-          raw_response: Json
-          square_payment_id: string
-          synced_at: string
-        }
-        Insert: {
-          id?: string
-          raw_response: Json
-          square_payment_id: string
-          synced_at?: string
-        }
-        Update: {
-          id?: string
-          raw_response?: Json
-          square_payment_id?: string
-          synced_at?: string
-        }
-        Relationships: []
-      }
-      square_sync_status: {
-        Row: {
-          created_at: string
-          current_date_range_end: string | null
-          current_date_range_start: string | null
-          cursor_position: string | null
-          environment: string
-          error_message: string | null
-          id: string
-          is_continuation: boolean | null
-          last_heartbeat: string | null
-          last_successful_sync: string | null
-          last_sync_attempt: string | null
-          payments_fetched: number | null
-          payments_synced: number | null
-          progress_percentage: number | null
-          sync_session_id: string | null
-          sync_status: string
-          total_estimated: number | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          current_date_range_end?: string | null
-          current_date_range_start?: string | null
-          cursor_position?: string | null
-          environment: string
-          error_message?: string | null
-          id?: string
-          is_continuation?: boolean | null
-          last_heartbeat?: string | null
-          last_successful_sync?: string | null
-          last_sync_attempt?: string | null
-          payments_fetched?: number | null
-          payments_synced?: number | null
-          progress_percentage?: number | null
-          sync_session_id?: string | null
-          sync_status?: string
-          total_estimated?: number | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          current_date_range_end?: string | null
-          current_date_range_start?: string | null
-          cursor_position?: string | null
+          location_name?: string
+          address?: string | null
+          business_name?: string | null
+          country?: string | null
+          currency?: string | null
           environment?: string
-          error_message?: string | null
-          id?: string
-          is_continuation?: boolean | null
-          last_heartbeat?: string | null
-          last_successful_sync?: string | null
-          last_sync_attempt?: string | null
-          payments_fetched?: number | null
-          payments_synced?: number | null
-          progress_percentage?: number | null
-          sync_session_id?: string | null
-          sync_status?: string
-          total_estimated?: number | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      staff_profiles: {
-        Row: {
-          created_at: string | null
-          email: string
-          first_name: string
-          id: string
-          last_name: string
-        }
-        Insert: {
-          created_at?: string | null
-          email: string
-          first_name: string
-          id: string
-          last_name: string
-        }
-        Update: {
-          created_at?: string | null
-          email?: string
-          first_name?: string
-          id?: string
-          last_name?: string
-        }
-        Relationships: []
-      }
-      venue_processing_jobs: {
-        Row: {
-          completed_at: string | null
-          created_at: string
-          days_back: number
-          error_count: number | null
-          error_message: string | null
-          id: string
-          processed_count: number | null
-          progress_percentage: number | null
-          status: string
-          total_payments: number
-          updated_at: string
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string
-          days_back: number
-          error_count?: number | null
-          error_message?: string | null
-          id?: string
-          processed_count?: number | null
-          progress_percentage?: number | null
-          status?: string
-          total_payments: number
-          updated_at?: string
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string
-          days_back?: number
-          error_count?: number | null
-          error_message?: string | null
-          id?: string
-          processed_count?: number | null
-          progress_percentage?: number | null
-          status?: string
-          total_payments?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      xero_accounts: {
-        Row: {
-          account_class: string | null
-          account_code: string | null
-          account_name: string
-          account_type: string
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          raw_response: Json
-          synced_at: string
-          updated_at: string
-          xero_account_id: string
-        }
-        Insert: {
-          account_class?: string | null
-          account_code?: string | null
-          account_name: string
-          account_type: string
-          created_at?: string
-          description?: string | null
-          id?: string
           is_active?: boolean
-          raw_response: Json
           synced_at?: string
-          updated_at?: string
-          xero_account_id: string
-        }
-        Update: {
-          account_class?: string | null
-          account_code?: string | null
-          account_name?: string
-          account_type?: string
           created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          raw_response?: Json
-          synced_at?: string
-          updated_at?: string
-          xero_account_id?: string
-        }
-        Relationships: []
-      }
-      xero_profit_loss_raw: {
-        Row: {
-          created_at: string
-          id: string
-          raw_response: Json
-          report_date: string
-          report_id: string
-          synced_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          raw_response: Json
-          report_date: string
-          report_id: string
-          synced_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          raw_response?: Json
-          report_date?: string
-          report_id?: string
-          synced_at?: string
-        }
-        Relationships: []
-      }
-      xero_sync_status: {
-        Row: {
-          accounts_synced: number | null
-          created_at: string
-          environment: string
-          error_message: string | null
-          id: string
-          last_successful_sync: string | null
-          last_sync_attempt: string | null
-          reports_synced: number | null
-          sync_status: string
-          updated_at: string
-        }
-        Insert: {
-          accounts_synced?: number | null
-          created_at?: string
-          environment?: string
-          error_message?: string | null
-          id?: string
-          last_successful_sync?: string | null
-          last_sync_attempt?: string | null
-          reports_synced?: number | null
-          sync_status?: string
-          updated_at?: string
-        }
-        Update: {
-          accounts_synced?: number | null
-          created_at?: string
-          environment?: string
-          error_message?: string | null
-          id?: string
-          last_successful_sync?: string | null
-          last_sync_attempt?: string | null
-          reports_synced?: number | null
-          sync_status?: string
           updated_at?: string
         }
         Relationships: []
@@ -727,76 +217,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_available_weeks: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          week_start: string
-          week_label: string
-        }[]
-      }
-      get_monthly_revenue_summary: {
-        Args: { venue_filter?: string; month_date?: string }
-        Returns: {
-          month: string
-          total_transactions: number
-          door_transactions: number
-          bar_transactions: number
-          door_revenue_cents: number
-          bar_revenue_cents: number
-          total_revenue_cents: number
-        }[]
-      }
-      get_weekly_revenue_summary: {
-        Args: { venue_filter?: string; week_date?: string }
-        Returns: {
-          week_start: string
-          total_transactions: number
-          door_transactions: number
-          bar_transactions: number
-          door_revenue_cents: number
-          bar_revenue_cents: number
-          total_revenue_cents: number
-        }[]
-      }
-      get_yearly_revenue_summary: {
-        Args: { venue_filter?: string; year_date?: string }
-        Returns: {
-          year_start: string
-          total_transactions: number
-          door_transactions: number
-          bar_transactions: number
-          door_revenue_cents: number
-          bar_revenue_cents: number
-          total_revenue_cents: number
-        }[]
-      }
-      process_payments_batch: {
-        Args: { payment_ids?: string[]; days_back?: number }
-        Returns: {
-          processed_count: number
-          error_count: number
-          total_payments: number
-        }[]
-      }
-      reprocess_venues_batch: {
-        Args: { days_back?: number }
-        Returns: Json
-      }
-      reset_stuck_sync_states: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      test_map_100_transactions: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      test_map_1000_transactions: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      test_map_all_transactions: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
+      get_karaoke_booth_availability: {
+        Args: {
+          booth_id: string
+          booking_date: string
+          start_time: string
+          end_time: string
+          exclude_booking_id?: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
@@ -808,33 +237,27 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type PublicSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  PublicTableNameOrOptions extends
+    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
+        PublicSchema["Views"])
+    ? (PublicSchema["Tables"] &
+        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -842,24 +265,20 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -867,24 +286,20 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -892,41 +307,29 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  PublicEnumNameOrOptions extends
+    | keyof PublicSchema["Enums"]
+    | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | keyof PublicSchema["CompositeTypes"]
+    | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
+    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const

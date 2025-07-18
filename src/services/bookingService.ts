@@ -10,9 +10,10 @@ export interface CreateBookingData {
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
-  bookingType: 'venue_hire' | 'vip_tickets';
+  bookingType: 'venue_hire' | 'vip_tickets' | 'karaoke_booking';
   venue: 'manor' | 'hippie';
-  venueArea?: 'upstairs' | 'downstairs' | 'full_venue';
+  venueArea?: 'upstairs' | 'downstairs' | 'full_venue' | 'karaoke';
+  karaokeBoothId?: string; // For karaoke bookings
   bookingDate: string;
   startTime?: string;
   endTime?: string;
@@ -35,8 +36,33 @@ export interface BookingFilters {
 }
 
 export const bookingService = {
-  // Create VIP ticket bookings (multiple entries)
-  async createVipTicketBookings(data: CreateBookingData): Promise<BookingRow[]> {
+  // Check karaoke booth availability
+  async checkKaraokeBoothAvailability(
+    boothId: string,
+    bookingDate: string,
+    startTime: string,
+    endTime: string,
+    excludeBookingId?: string
+  ): Promise<boolean> {
+    const { data: isAvailable, error } = await supabase
+      .rpc('get_karaoke_booth_availability', {
+        booth_id: boothId,
+        booking_date: bookingDate,
+        start_time: startTime,
+        end_time: endTime,
+        exclude_booking_id: excludeBookingId
+      });
+
+    if (error) {
+      console.error('Error checking availability:', error);
+      throw new Error('Failed to check booth availability');
+    }
+
+    return isAvailable;
+  },
+
+  // Create VIP ticket booking (single entry with ticket quantity)
+  async createVipTicketBookings(data: CreateBookingData): Promise<BookingRow> {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -47,42 +73,45 @@ export const bookingService = {
       throw new Error('Ticket quantity and cost per ticket are required for VIP bookings');
     }
 
-    // Create array of booking objects (one per ticket)
-    const bookingEntries: BookingInsert[] = [];
-    for (let i = 0; i < data.ticketQuantity; i++) {
-      bookingEntries.push({
-        customer_name: data.customerName,
-        customer_email: data.customerEmail,
-        customer_phone: data.customerPhone,
-        booking_type: data.bookingType,
-        venue: data.venue,
-        booking_date: data.bookingDate,
-        ticket_quantity: 1, // Each entry represents one ticket
-        total_amount: data.costPerTicket,
-        special_requests: data.specialRequests,
-        staff_notes: data.staffNotes,
-        created_by: user.id,
-      });
-    }
+    // Create single booking entry with total ticket quantity and amount
+    const bookingData: BookingInsert = {
+      customer_name: data.customerName,
+      customer_email: data.customerEmail,
+      customer_phone: data.customerPhone,
+      booking_type: data.bookingType,
+      venue: data.venue,
+      booking_date: data.bookingDate,
+      ticket_quantity: data.ticketQuantity,
+      total_amount: data.costPerTicket * data.ticketQuantity,
+      special_requests: data.specialRequests,
+      staff_notes: data.staffNotes,
+      created_by: user.id,
+    };
 
-    const { data: bookings, error } = await supabase
+    const { data: booking, error } = await supabase
       .from('bookings')
-      .insert(bookingEntries)
-      .select();
+      .insert(bookingData)
+      .select()
+      .single();
 
     if (error) {
-      console.error('Error creating VIP ticket bookings:', error);
-      throw new Error(`Failed to create VIP ticket bookings: ${error.message}`);
+      console.error('Error creating VIP ticket booking:', error);
+      throw new Error(`Failed to create VIP ticket booking: ${error.message}`);
     }
 
-    return bookings;
+    return booking;
   },
 
-  // Create a new booking (handles both venue hire and VIP tickets)
-  async createBooking(data: CreateBookingData): Promise<BookingRow | BookingRow[]> {
-    // For VIP tickets, use the bulk creation method
+  // Create a new booking (handles venue hire, VIP tickets, and karaoke bookings)
+  async createBooking(data: CreateBookingData): Promise<BookingRow> {
+    // For VIP tickets, use the single entry creation method
     if (data.bookingType === 'vip_tickets') {
       return this.createVipTicketBookings(data);
+    }
+
+    // For karaoke bookings, use simplified creation (no conflict checking until migration applied)
+    if (data.bookingType === 'karaoke_booking') {
+      return this.createKaraokeBookingSimple(data);
     }
 
     // For venue hire, create single booking as before
@@ -119,6 +148,95 @@ export const bookingService = {
     if (error) {
       console.error('Error creating booking:', error);
       throw new Error(`Failed to create booking: ${error.message}`);
+    }
+
+    return booking;
+  },
+
+  // Create karaoke booking with proper schema
+  async createKaraokeBookingSimple(data: CreateBookingData): Promise<BookingRow> {
+    if (!data.karaokeBoothId) {
+      throw new Error('Karaoke booth ID is required for karaoke bookings');
+    }
+
+    if (!data.startTime || !data.endTime) {
+      throw new Error('Start time and end time are required for karaoke bookings');
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Get booth details for rate calculation
+    const { data: booth, error: boothError } = await supabase
+      .from('karaoke_booths')
+      .select('*')
+      .eq('id', data.karaokeBoothId)
+      .single();
+
+    if (boothError) {
+      console.error('Error fetching booth details:', boothError);
+      throw new Error('Failed to fetch booth details');
+    }
+
+    // Check if booth is available
+    if (!booth.is_available) {
+      throw new Error('Selected karaoke booth is currently unavailable');
+    }
+
+    // Check for booking conflicts
+    const isAvailable = await this.checkKaraokeBoothAvailability(
+      data.karaokeBoothId,
+      data.bookingDate,
+      data.startTime,
+      data.endTime
+    );
+
+    if (!isAvailable) {
+      throw new Error('Selected time slot is already booked for this karaoke booth');
+    }
+
+    // Calculate duration in hours
+    const startTime = new Date(`2000-01-01T${data.startTime}:00`);
+    const endTime = new Date(`2000-01-01T${data.endTime}:00`);
+    const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+
+    // Calculate total amount using booth's hourly rate
+    const hourlyRate = booth.hourly_rate || 25.00;
+    const totalAmount = hourlyRate * durationHours;
+
+    // Create booking data with proper karaoke_booking type
+    const bookingData: BookingInsert = {
+      customer_name: data.customerName,
+      customer_email: data.customerEmail,
+      customer_phone: data.customerPhone,
+      booking_type: 'karaoke_booking', // Now using proper type
+      venue: data.venue,
+      venue_area: null, // Not needed for karaoke bookings
+      karaoke_booth_id: data.karaokeBoothId, // Store booth ID directly
+      booking_date: data.bookingDate,
+      start_time: data.startTime,
+      end_time: data.endTime,
+      duration_hours: durationHours,
+      guest_count: data.guestCount,
+      special_requests: data.specialRequests,
+      total_amount: totalAmount,
+      staff_notes: data.staffNotes,
+      status: 'confirmed', // Auto-confirm karaoke bookings
+      created_by: user.id,
+    };
+
+    const { data: booking, error } = await supabase
+      .from('bookings')
+      .insert(bookingData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating karaoke booking:', error);
+      throw new Error(`Failed to create karaoke booking: ${error.message}`);
     }
 
     return booking;
@@ -183,6 +301,23 @@ export const bookingService = {
   },
 
   async updateBooking(id: string, updates: Partial<CreateBookingData>): Promise<BookingRow> {
+    // Check for karaoke booking conflicts if updating time/date/booth
+    if (updates.bookingType === 'karaoke_booking' && updates.karaokeBoothId) {
+      if (updates.bookingDate && updates.startTime && updates.endTime) {
+        const isAvailable = await this.checkKaraokeBoothAvailability(
+          updates.karaokeBoothId,
+          updates.bookingDate,
+          updates.startTime,
+          updates.endTime,
+          id // Exclude current booking from conflict check
+        );
+
+        if (!isAvailable) {
+          throw new Error('Selected time slot is already booked for this karaoke booth');
+        }
+      }
+    }
+
     const updateData: BookingUpdate = {
       customer_name: updates.customerName,
       customer_email: updates.customerEmail,
@@ -190,6 +325,7 @@ export const bookingService = {
       booking_type: updates.bookingType,
       venue: updates.venue,
       venue_area: updates.venueArea,
+      karaoke_booth_id: updates.karaokeBoothId,
       booking_date: updates.bookingDate,
       start_time: updates.startTime,
       end_time: updates.endTime,

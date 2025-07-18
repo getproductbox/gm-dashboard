@@ -64,7 +64,7 @@ export const RevenueTable = ({ data }: RevenueTableProps) => {
         <CardTitle>Revenue Transactions</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
+        <div className="rounded-md border border-gm-neutral-200 dark:border-gm-neutral-700">
           <Table>
             <TableHeader>
               <TableRow>

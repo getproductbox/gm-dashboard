@@ -11,10 +11,11 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, TestTube, DollarSign } from "lucide-react";
+import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, TestTube, DollarSign, Building } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useFeatureFlag } from "@/hooks/useFeatureFlag";
 import { LastSyncIndicator } from "./LastSyncIndicator";
+import { ThemeToggle } from "./ThemeToggle";
 
 const menuItems = [
   {
@@ -34,6 +35,12 @@ const menuItems = [
     url: "/bookings",
     icon: CalendarDays,
     flagKey: "showBookings",
+  },
+  {
+    title: "Booth Management",
+    url: "/booth-management",
+    icon: Building,
+    flagKey: "showBookings", // Use the same flag as bookings since it's related
   },
   {
     title: "Customers",
@@ -91,7 +98,7 @@ export function AppSidebar() {
   });
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
@@ -99,7 +106,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip={item.title}>
                     <Link to={item.url}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
@@ -112,7 +119,10 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <LastSyncIndicator />
+        <div className="space-y-2">
+          <ThemeToggle />
+          <LastSyncIndicator />
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

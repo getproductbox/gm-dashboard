@@ -11,18 +11,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Save } from "lucide-react";
 import { useCreateBooking } from "@/hooks/useBookings";
+import { useKaraokeBooths } from "@/hooks/useKaraoke";
+import { BookingCalendarView } from "./BookingCalendarView";
 
 const bookingFormSchema = z.object({
   customerName: z.string().min(2, "Customer name must be at least 2 characters"),
   customerEmail: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
   customerPhone: z.string().min(1, "Please enter a phone number").optional().or(z.literal("")),
-  bookingType: z.enum(["venue_hire", "vip_tickets"], {
+  bookingType: z.enum(["venue_hire", "vip_tickets", "karaoke_booking"], {
     required_error: "Please select a booking type"
   }),
   venue: z.enum(["manor", "hippie"], {
     required_error: "Please select a venue"
   }),
   venueArea: z.enum(["upstairs", "downstairs", "full_venue"]).optional(),
+  karaokeBoothId: z.string().optional(), // For karaoke bookings
   bookingDate: z.string().min(1, "Please select a date"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
@@ -65,6 +68,24 @@ const bookingFormSchema = z.object({
 }, {
   message: "Please specify number of guests for venue hire bookings",
   path: ["guestCount"],
+}).refine((data) => {
+  // Karaoke booth required for karaoke bookings
+  if (data.bookingType === "karaoke_booking" && !data.karaokeBoothId) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please select a karaoke booth for karaoke bookings",
+  path: ["karaokeBoothId"],
+}).refine((data) => {
+  // Start and end time required for karaoke bookings
+  if (data.bookingType === "karaoke_booking" && (!data.startTime || !data.endTime)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please specify start and end times for karaoke bookings",
+  path: ["startTime"],
 });
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
@@ -77,6 +98,7 @@ const venueOptions = [
 const bookingTypeOptions = [
   { value: "venue_hire", label: "Venue Hire" },
   { value: "vip_tickets", label: "VIP Tickets" },
+  { value: "karaoke_booking", label: "Karaoke Booking" },
 ];
 
 const venueAreaOptions = [
@@ -96,6 +118,7 @@ const timeSlots = [
 export const CreateBookingForm = () => {
   const navigate = useNavigate();
   const createBookingMutation = useCreateBooking();
+  const { data: karaokeBooths } = useKaraokeBooths();
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -106,6 +129,7 @@ export const CreateBookingForm = () => {
       bookingType: undefined,
       venue: undefined,
       venueArea: undefined,
+      karaokeBoothId: undefined,
       bookingDate: "",
       startTime: "",
       endTime: "",
@@ -119,8 +143,50 @@ export const CreateBookingForm = () => {
   });
 
   const bookingType = form.watch("bookingType");
+  const venue = form.watch("venue");
   const ticketQuantity = form.watch("ticketQuantity");
   const costPerTicket = form.watch("costPerTicket");
+  const karaokeBoothId = form.watch("karaokeBoothId");
+  const bookingDate = form.watch("bookingDate");
+  const startTime = form.watch("startTime");
+  const endTime = form.watch("endTime");
+
+  // Filter karaoke booths based on selected venue
+  const availableKaraokeBooths = karaokeBooths?.filter(booth => 
+    !venue || booth.venue === venue
+  ) || [];
+
+  // Get selected booth for dynamic time slots
+  const selectedBooth = availableKaraokeBooths.find(booth => booth.id === karaokeBoothId);
+
+  // Generate time slots based on booth operating hours
+  const generateTimeSlots = (startTime: string, endTime: string) => {
+    const slots = [];
+    const start = new Date(`1970-01-01T${startTime}:00`);
+    const end = new Date(`1970-01-01T${endTime}:00`);
+    
+    for (let time = new Date(start); time <= end; time.setMinutes(time.getMinutes() + 30)) {
+      const timeStr = time.toTimeString().slice(0, 5);
+      slots.push(timeStr);
+    }
+    
+    return slots;
+  };
+
+  // Available time slots based on selected booth or default
+  const availableTimeSlots = selectedBooth && selectedBooth.operating_hours_start && selectedBooth.operating_hours_end
+    ? generateTimeSlots(selectedBooth.operating_hours_start, selectedBooth.operating_hours_end)
+    : timeSlots;
+
+  // Calendar event handlers
+  const handleDateSelect = (date: string) => {
+    form.setValue("bookingDate", date);
+  };
+
+  const handleTimeSlotSelect = (startTime: string, endTime: string) => {
+    form.setValue("startTime", startTime);
+    form.setValue("endTime", endTime);
+  };
 
   // Calculate total amount for VIP tickets
   const calculateTotalAmount = () => {
@@ -143,6 +209,7 @@ export const CreateBookingForm = () => {
         bookingType: data.bookingType,
         venue: data.venue,
         venueArea: data.venueArea,
+        karaokeBoothId: data.karaokeBoothId || undefined,
         bookingDate: data.bookingDate,
         startTime: data.startTime || undefined,
         endTime: data.endTime || undefined,
@@ -304,6 +371,42 @@ export const CreateBookingForm = () => {
                 />
               )}
 
+              {/* Show karaoke booth selection for karaoke bookings */}
+              {bookingType === "karaoke_booking" && (
+                <FormField
+                  control={form.control}
+                  name="karaokeBoothId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Karaoke Booth *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select karaoke booth" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {availableKaraokeBooths.map((booth) => (
+                            <SelectItem key={booth.id} value={booth.id}>
+                              {booth.name} - {booth.venue} (£{booth.hourly_rate}/hour)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Select a karaoke booth for your booking
+                        {selectedBooth && selectedBooth.operating_hours_start && selectedBooth.operating_hours_end && (
+                          <span className="block text-sm text-blue-600 mt-1">
+                            Operating hours: {selectedBooth.operating_hours_start} - {selectedBooth.operating_hours_end}
+                          </span>
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               {/* Show booking date only after booking type is selected */}
               {bookingType && (
                 <FormField
@@ -321,6 +424,20 @@ export const CreateBookingForm = () => {
                 />
               )}
 
+              {/* Show calendar view for karaoke bookings */}
+              {bookingType === "karaoke_booking" && selectedBooth && bookingDate && (
+                <div className="col-span-2">
+                  <BookingCalendarView
+                    selectedBooth={selectedBooth}
+                    selectedDate={bookingDate}
+                    onDateSelect={handleDateSelect}
+                    onTimeSlotSelect={handleTimeSlotSelect}
+                    selectedStartTime={startTime}
+                    selectedEndTime={endTime}
+                  />
+                </div>
+              )}
+
               {/* Show time fields only for venue hire - just start and end time */}
               {bookingType === "venue_hire" && (
                 <div className="grid grid-cols-2 gap-4">
@@ -330,6 +447,61 @@ export const CreateBookingForm = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Start Time</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Start time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {availableTimeSlots.map((time) => (
+                              <SelectItem key={time} value={time}>
+                                {time}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Time</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="End time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {availableTimeSlots.map((time) => (
+                              <SelectItem key={time} value={time}>
+                                {time}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Show time fields for karaoke bookings when calendar view is not available */}
+              {bookingType === "karaoke_booking" && (!selectedBooth || !bookingDate) && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start Time *</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -354,7 +526,7 @@ export const CreateBookingForm = () => {
                     name="endTime"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>End Time</FormLabel>
+                        <FormLabel>End Time *</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -443,6 +615,26 @@ export const CreateBookingForm = () => {
                       )}
                     />
                   )}
+
+                  {/* Show guest count for karaoke bookings */}
+                  {bookingType === "karaoke_booking" && (
+                    <FormField
+                      control={form.control}
+                      name="guestCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Number of Guests *</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="1" max="20" placeholder="e.g. 6" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Number of people for your karaoke session
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               )}
 
@@ -459,55 +651,57 @@ export const CreateBookingForm = () => {
           </Card>
         </div>
 
-        {/* Additional Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Additional Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="specialRequests"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Special Requests / Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Any special requirements, dietary restrictions, or additional notes..."
-                      className="min-h-[80px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Customer facing notes and special requirements
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        {/* Additional Information - only show for non-VIP bookings */}
+        {bookingType && bookingType !== "vip_tickets" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="specialRequests"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Special Requests / Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Any special requirements, dietary restrictions, or additional notes..."
+                        className="min-h-[80px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Customer facing notes and special requirements
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="staffNotes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Staff Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Internal staff notes, reminders, or instructions..."
-                      className="min-h-[80px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Internal notes visible only to staff
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
+              <FormField
+                control={form.control}
+                name="staffNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Staff Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Internal staff notes, reminders, or instructions..."
+                        className="min-h-[80px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Internal notes visible only to staff
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Form Actions */}
         <div className="flex items-center justify-end space-x-4 pt-6 border-t">

@@ -47,14 +47,14 @@ export const ScheduleTable = ({ bookings }: ScheduleTableProps) => {
 
   if (bookings.length === 0) {
     return (
-      <div className="rounded-md border p-8 text-center">
-        <p className="text-gm-neutral-500">No bookings scheduled for today</p>
+      <div className="rounded-md border border-gm-neutral-200 dark:border-gm-neutral-700 p-8 text-center">
+        <p className="text-gm-neutral-500 dark:text-gm-neutral-400">No bookings scheduled for today</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border border-gm-neutral-200 dark:border-gm-neutral-700">
       <Table>
         <TableHeader>
           <TableRow>
@@ -72,7 +72,7 @@ export const ScheduleTable = ({ bookings }: ScheduleTableProps) => {
               <TableCell className="font-medium">
                 <div>
                   <div>{booking.start_time || 'All day'}</div>
-                  <div className="text-xs text-gm-neutral-500">
+                  <div className="text-xs text-gm-neutral-500 dark:text-gm-neutral-400">
                     {formatVenue(booking.venue)}
                     {booking.venue_area && ` - ${formatVenueArea(booking.venue_area)}`}
                   </div>
@@ -81,7 +81,7 @@ export const ScheduleTable = ({ bookings }: ScheduleTableProps) => {
               <TableCell>
                 <div>
                   <div>{formatBookingType(booking.booking_type)}</div>
-                  <div className="text-xs text-gm-neutral-500">
+                  <div className="text-xs text-gm-neutral-500 dark:text-gm-neutral-400">
                     {formatDuration(booking.duration_hours, booking.start_time, booking.end_time)}
                   </div>
                 </div>
@@ -89,7 +89,7 @@ export const ScheduleTable = ({ bookings }: ScheduleTableProps) => {
               <TableCell>
                 <div>
                   <div>{booking.customer_name}</div>
-                  <div className="text-xs text-gm-neutral-500">
+                  <div className="text-xs text-gm-neutral-500 dark:text-gm-neutral-400">
                     {booking.customer_phone || booking.customer_email || 'No contact'}
                   </div>
                 </div>

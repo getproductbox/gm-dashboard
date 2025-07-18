@@ -80,7 +80,7 @@ export const SimpleProfitLossTable = () => {
               </p>
             </div>
           ) : (
-            <div className="rounded-md border overflow-x-auto">
+            <div className="rounded-md border border-gm-neutral-200 dark:border-gm-neutral-700 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

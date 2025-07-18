@@ -52,12 +52,12 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
 
   return (
     <div className="relative">
-      <div className="bg-white rounded-lg border border-gm-neutral-200 overflow-hidden">
+      <div className="bg-white dark:bg-gm-neutral-900 rounded-lg border border-gm-neutral-200 dark:border-gm-neutral-700 overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead 
-                className="cursor-pointer hover:bg-gm-neutral-50"
+                className="cursor-pointer hover:bg-gm-neutral-50 dark:hover:bg-gm-neutral-800"
                 onClick={() => onSort('firstName')}
               >
                 <div className="flex items-center gap-1">
@@ -66,7 +66,7 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-gm-neutral-50"
+                className="cursor-pointer hover:bg-gm-neutral-50 dark:hover:bg-gm-neutral-800"
                 onClick={() => onSort('email')}
               >
                 <div className="flex items-center gap-1">
@@ -75,7 +75,7 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-gm-neutral-50"
+                className="cursor-pointer hover:bg-gm-neutral-50 dark:hover:bg-gm-neutral-800"
                 onClick={() => onSort('phone')}
               >
                 <div className="flex items-center gap-1">
@@ -84,7 +84,7 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-gm-neutral-50 text-center"
+                className="cursor-pointer hover:bg-gm-neutral-50 dark:hover:bg-gm-neutral-800 text-center"
                 onClick={() => onSort('totalBookings')}
               >
                 <div className="flex items-center justify-center gap-1">
@@ -93,7 +93,7 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-gm-neutral-50"
+                className="cursor-pointer hover:bg-gm-neutral-50 dark:hover:bg-gm-neutral-800"
                 onClick={() => onSort('lastVisit')}
               >
                 <div className="flex items-center gap-1">
@@ -102,7 +102,7 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-gm-neutral-50"
+                className="cursor-pointer hover:bg-gm-neutral-50 dark:hover:bg-gm-neutral-800"
                 onClick={() => onSort('customerSince')}
               >
                 <div className="flex items-center gap-1">
@@ -115,7 +115,7 @@ export const CustomersTable = ({ customers, sortField, sortDirection, onSort }: 
           </TableHeader>
           <TableBody>
             {customers.map((customer) => (
-              <TableRow key={customer.id} className="hover:bg-gm-neutral-25">
+              <TableRow key={customer.id} className="hover:bg-gm-neutral-25 dark:hover:bg-gm-neutral-800">
                 <TableCell className="font-medium">
                   {customer.firstName} {customer.lastName}
                 </TableCell>

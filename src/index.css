@@ -38,22 +38,15 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
 
-    /* GM Design System Colors */
+    /* GM Design System Colors - Light Mode */
     --gm-primary-500: 24 82% 51%;    /* #f97316 - Orange primary */
     --gm-neutral-25: 30 17% 98%;     /* Very light warm neutral */
     --gm-neutral-50: 30 17% 95%;     /* Light warm neutral */  
@@ -104,6 +97,20 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* GM Design System Colors - Dark Mode */
+    --gm-primary-500: 24 82% 55%;    /* Slightly brighter orange for dark mode */
+    --gm-neutral-25: 240 6% 10%;     /* Dark background */
+    --gm-neutral-50: 240 6% 14%;     /* Dark card background */
+    --gm-neutral-100: 240 5% 18%;    /* Dark border */
+    --gm-neutral-200: 240 5% 25%;    /* Darker border */
+    --gm-neutral-300: 240 4% 35%;    /* Muted border */
+    --gm-neutral-400: 240 4% 50%;    /* Placeholder text */
+    --gm-neutral-500: 240 4% 65%;    /* Secondary text */
+    --gm-neutral-600: 240 4% 75%;    /* Primary text muted */
+    --gm-neutral-700: 240 4% 85%;    /* Primary text */
+    --gm-neutral-800: 240 4% 90%;    /* Headings */
+    --gm-neutral-900: 240 4% 95%;    /* Light headings */
   }
 }
 
