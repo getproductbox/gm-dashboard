@@ -178,7 +178,8 @@ CREATE OR REPLACE FUNCTION public.get_karaoke_booth_availability(
     booth_id UUID,
     booking_date DATE,
     start_time TIME,
-    end_time TIME
+    end_time TIME,
+    exclude_booking_id UUID DEFAULT NULL
 ) RETURNS BOOLEAN AS $$
 BEGIN
     -- Check if booth exists and is available
@@ -191,11 +192,12 @@ BEGIN
     
     -- Check for conflicting bookings
     IF EXISTS (
-        SELECT 1 FROM public.bookings
-        WHERE karaoke_booth_id = booth_id
-        AND booking_date = booking_date
-        AND status != 'cancelled'
-        AND (start_time < end_time AND end_time > start_time)
+        SELECT 1 FROM public.bookings b
+        WHERE b.karaoke_booth_id = booth_id
+        AND b.booking_date = get_karaoke_booth_availability.booking_date
+        AND b.status != 'cancelled'
+        AND (exclude_booking_id IS NULL OR b.id != exclude_booking_id)
+        AND (get_karaoke_booth_availability.start_time < b.end_time AND get_karaoke_booth_availability.end_time > b.start_time)
     ) THEN
         RETURN false;
     END IF;

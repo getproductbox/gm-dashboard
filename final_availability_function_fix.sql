@@ -1,4 +1,6 @@
--- Update the karaoke booth availability function to handle excluding a specific booking
+-- Final fix for karaoke booth availability function
+-- This function signature matches what the JavaScript code is calling
+
 CREATE OR REPLACE FUNCTION public.get_karaoke_booth_availability(
     booth_id UUID,
     booking_date DATE,
@@ -33,4 +35,13 @@ BEGIN
     -- If no conflicts, booth is available
     RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql; 
+$$ LANGUAGE plpgsql;
+
+-- Test the function with a sample call
+SELECT public.get_karaoke_booth_availability(
+    'test-booth-id'::UUID,
+    '2024-01-01'::DATE,
+    '15:00'::TIME,
+    '16:00'::TIME,
+    NULL
+) AS test_result; 

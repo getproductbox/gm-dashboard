@@ -44,8 +44,8 @@ export const bookingService = {
     endTime: string,
     excludeBookingId?: string
   ): Promise<boolean> {
-    const { data: isAvailable, error } = await supabase
-      .rpc('get_karaoke_booth_availability', {
+    try {
+      console.log('Checking booth availability with params:', {
         booth_id: boothId,
         booking_date: bookingDate,
         start_time: startTime,
@@ -53,12 +53,32 @@ export const bookingService = {
         exclude_booking_id: excludeBookingId
       });
 
-    if (error) {
-      console.error('Error checking availability:', error);
-      throw new Error('Failed to check booth availability');
-    }
+      const { data: isAvailable, error } = await supabase
+        .rpc('get_karaoke_booth_availability', {
+          booth_id: boothId,
+          booking_date: bookingDate,
+          start_time: startTime,
+          end_time: endTime,
+          exclude_booking_id: excludeBookingId || null
+        });
 
-    return isAvailable;
+      if (error) {
+        console.error('Error checking availability:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(`Failed to check booth availability: ${error.message}`);
+      }
+
+      console.log('Availability check result:', isAvailable);
+      return isAvailable;
+    } catch (error) {
+      console.error('Exception in checkKaraokeBoothAvailability:', error);
+      throw error;
+    }
   },
 
   // Create VIP ticket booking (single entry with ticket quantity)

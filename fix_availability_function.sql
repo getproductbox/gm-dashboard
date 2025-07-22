@@ -1,4 +1,6 @@
--- Update the karaoke booth availability function to handle excluding a specific booking
+-- Fix for ambiguous column reference issue in karaoke booth availability function
+-- This should be executed against your Supabase database
+
 CREATE OR REPLACE FUNCTION public.get_karaoke_booth_availability(
     booth_id UUID,
     booking_date DATE,
@@ -33,4 +35,13 @@ BEGIN
     -- If no conflicts, booth is available
     RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql; 
+$$ LANGUAGE plpgsql;
+
+-- Test the function (optional)
+-- SELECT public.get_karaoke_booth_availability(
+--     '00000000-0000-0000-0000-000000000000'::UUID,
+--     '2024-01-01'::DATE,
+--     '15:00'::TIME,
+--     '16:00'::TIME,
+--     NULL
+-- ); 

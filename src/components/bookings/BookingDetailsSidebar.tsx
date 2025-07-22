@@ -8,12 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Save, Edit, X, Calendar, MapPin, Users, Ticket, DollarSign, Clock } from "lucide-react";
+import { Save, Edit, X, Calendar, MapPin, Users, Ticket, DollarSign, Clock, Calendar as CalendarIcon, Mic } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatDate, formatDateToISO } from "@/utils/dateUtils";
 import { BookingRow } from "@/services/bookingService";
 import { useUpdateBooking } from "@/hooks/useBookings";
+import { useKaraokeBooth } from "@/hooks/useKaraoke";
 
 const bookingUpdateSchema = z.object({
   customerName: z.string().min(2, "Customer name must be at least 2 characters"),
@@ -49,6 +54,11 @@ interface BookingDetailsSidebarProps {
 export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetailsSidebarProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const updateBookingMutation = useUpdateBooking();
+  
+  // Fetch karaoke booth details if this is a karaoke booking
+  const { data: karaokeBoothData } = useKaraokeBooth(
+    booking?.karaoke_booth_id || ""
+  );
 
   // Helper function to determine if booking is a karaoke booking
   const isKaraokeBooking = (bookingData: BookingRow) => {
@@ -439,9 +449,39 @@ export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetai
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Date</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} />
-                            </FormControl>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      formatDate(new Date(field.value))
+                                    ) : (
+                                      <span>Pick a date</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarComponent
+                                  mode="single"
+                                  selected={field.value ? new Date(field.value) : undefined}
+                                  onSelect={(date) => {
+                                    field.onChange(date ? formatDateToISO(date) : "");
+                                  }}
+                                  disabled={(date) =>
+                                    date < new Date(new Date().setHours(0, 0, 0, 0))
+                                  }
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -537,6 +577,15 @@ export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetai
                           </span>
                         )}
                       </div>
+                      {booking.karaoke_booth_id && karaokeBoothData && (
+                        <div className="flex items-center gap-2">
+                          <Mic className="h-4 w-4 text-gray-500" />
+                          <span className="font-medium">{karaokeBoothData.name}</span>
+                          <span className="text-sm text-gray-600">
+                            • £{karaokeBoothData.hourly_rate}/hour
+                          </span>
+                        </div>
+                      )}
                       {booking.start_time && (
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-gray-500" />
