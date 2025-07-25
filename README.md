@@ -88,16 +88,38 @@ The application will be available at `http://localhost:8080` with hot-reload ena
 ```
 src/
 ├── components/          # Reusable UI components
+│   ├── revenue/         # Revenue analytics components
+│   ├── ui/             # Base UI components (shadcn/ui)
+│   └── layout/         # Layout components
 ├── pages/              # Application pages/routes
 ├── hooks/              # Custom React hooks
 ├── lib/                # Utility functions
-└── types/              # TypeScript type definitions
+├── types/              # TypeScript type definitions
+└── integrations/       # External service integrations (Supabase)
+
+supabase/
+├── functions/          # Edge functions for Square sync
+└── migrations/         # Database migrations
 
 docs/
 ├── product/            # Product documentation and PRDs
 ├── design/             # Design specifications and assets
 ├── technical/          # Technical documentation
 └── user-guides/        # User manuals and guides
+```
+
+## Square Integration Architecture
+
+The system uses a simplified Square API integration:
+
+1. **Backend Sync**: `square-sync` function fetches payments and locations from Square
+2. **Data Storage**: Revenue data is stored in `revenue_events` table
+3. **Frontend**: Unified revenue page displays analytics with monthly/weekly/yearly views
+4. **Scheduled Updates**: Automatic sync via `square-cron` function
+
+### Data Flow
+```
+Square API → square-sync function → revenue_events table → Revenue Analytics Page
 ```
 
 ## Deployment

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Database State</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { margin: 5px; padding: 10px; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; max-height: 400px; overflow-y: auto; }
+        .error { color: red; }
+        .success { color: green; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>Database State Check</h1>
+    
+    <div class="test-section">
+        <h3>1. Check Sync Status</h3>
+        <button onclick="checkSyncStatus()">Check Sync Status</button>
+        <div id="sync-status-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Check July 2025 Revenue Events</h3>
+        <button onclick="checkJulyData()">Check July Data</button>
+        <div id="july-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Check Recent Revenue Events (Last 7 Days)</h3>
+        <button onclick="checkRecentData()">Check Recent Data</button>
+        <div id="recent-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. Check Square Locations</h3>
+        <button onclick="checkLocations()">Check Locations</button>
+        <div id="locations-result"></div>
+    </div>
+
+    <script>
+        // Supabase configuration
+        const supabaseUrl = 'https://plksvatjdylpuhjitbfc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsazN2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzIxNzI5NzQsImV4cCI6MjA0Nzc0ODk3NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function checkSyncStatus() {
+            const resultDiv = document.getElementById('sync-status-result');
+            resultDiv.innerHTML = '<p>Checking sync status...</p>';
+            
+            try {
+                const { data, error } = await supabase
+                    .from('square_sync_status')
+                    .select('*')
+                    .eq('environment', 'production')
+                    .single();
+                
+                if (error) {
+                    resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="success">Sync Status Retrieved!</p>
+                        <h4>Status: ${data.sync_status || 'Unknown'}</h4>
+                        <h4>Last Successful Sync: ${data.last_successful_sync ? new Date(data.last_successful_sync).toLocaleString() : 'Never'}</h4>
+                        <h4>Last Sync Attempt: ${data.last_sync_attempt ? new Date(data.last_sync_attempt).toLocaleString() : 'Never'}</h4>
+                        <h4>Progress: ${data.progress_percentage || 0}%</h4>
+                        <h4>Payments Fetched: ${data.payments_fetched || 0}</h4>
+                        <h4>Payments Synced: ${data.payments_synced || 0}</h4>
+                        <h4>Error Message: ${data.error_message || 'None'}</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkJulyData() {
+            const resultDiv = document.getElementById('july-result');
+            resultDiv.innerHTML = '<p>Checking July 2025 data...</p>';
+            
+            try {
+                const julyStart = '2025-07-01T00:00:00Z';
+                const julyEnd = '2025-07-31T23:59:59Z';
+                
+                const { data, error, count } = await supabase
+                    .from('revenue_events')
+                    .select('*', { count: 'exact' })
+                    .gte('payment_date', julyStart)
+                    .lte('payment_date', julyEnd)
+                    .order('payment_date', { ascending: false })
+                    .limit(20);
+                
+                if (error) {
+                    resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                } else {
+                    const totalAmount = data?.reduce((sum, event) => sum + event.amount_cents, 0) || 0;
+                    const doorAmount = data?.filter(e => e.revenue_type === 'door').reduce((sum, event) => sum + event.amount_cents, 0) || 0;
+                    const barAmount = data?.filter(e => e.revenue_type === 'bar').reduce((sum, event) => sum + event.amount_cents, 0) || 0;
+                    
+                    resultDiv.innerHTML = `
+                        <p class="success">July 2025 Data Retrieved!</p>
+                        <h4>Total Events: ${count}</h4>
+                        <h4>Total Revenue: $${(totalAmount / 100).toFixed(2)}</h4>
+                        <h4>Door Revenue: $${(doorAmount / 100).toFixed(2)}</h4>
+                        <h4>Bar Revenue: $${(barAmount / 100).toFixed(2)}</h4>
+                        <h4>Sample Events (${data?.length || 0}):</h4>
+                        <pre>${JSON.stringify(data?.slice(0, 5), null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkRecentData() {
+            const resultDiv = document.getElementById('recent-result');
+            resultDiv.innerHTML = '<p>Checking recent data...</p>';
+            
+            try {
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                
+                const { data, error, count } = await supabase
+                    .from('revenue_events')
+                    .select('*', { count: 'exact' })
+                    .gte('payment_date', sevenDaysAgo.toISOString())
+                    .order('payment_date', { ascending: false })
+                    .limit(20);
+                
+                if (error) {
+                    resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                } else {
+                    const totalAmount = data?.reduce((sum, event) => sum + event.amount_cents, 0) || 0;
+                    
+                    resultDiv.innerHTML = `
+                        <p class="success">Recent Data Retrieved!</p>
+                        <h4>Events in Last 7 Days: ${count}</h4>
+                        <h4>Total Revenue: $${(totalAmount / 100).toFixed(2)}</h4>
+                        <h4>Sample Events (${data?.length || 0}):</h4>
+                        <pre>${JSON.stringify(data?.slice(0, 5), null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkLocations() {
+            const resultDiv = document.getElementById('locations-result');
+            resultDiv.innerHTML = '<p>Checking Square locations...</p>';
+            
+            try {
+                const { data, error } = await supabase
+                    .from('square_locations')
+                    .select('*')
+                    .eq('environment', 'production');
+                
+                if (error) {
+                    resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="success">Locations Retrieved!</p>
+                        <h4>Total Locations: ${data?.length || 0}</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html> 

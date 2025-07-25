@@ -59,6 +59,13 @@
     --gm-neutral-700: 30 17% 25%;    /* Primary text */
     --gm-neutral-800: 30 17% 15%;    /* Headings */
     --gm-neutral-900: 30 17% 10%;    /* Dark headings */
+
+    /* Chart Colors */
+    --chart-1: 24 82% 51%;           /* GM Orange for Bar Revenue */
+    --chart-2: 142 76% 36%;          /* Green for Door Revenue */
+    --chart-3: 217 91% 60%;          /* Blue for Other Revenue */
+    --chart-4: 262 83% 58%;          /* Purple for quaternary data */
+    --chart-5: 0 84% 60%;            /* Red for negative data */
   }
 
   .dark {
@@ -97,6 +104,13 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Chart Colors - Dark Mode */
+    --chart-1: 24 82% 51%;           /* GM Orange for Bar Revenue */
+    --chart-2: 142 76% 36%;          /* Green for Door Revenue */
+    --chart-3: 217 91% 60%;          /* Blue for Other Revenue */
+    --chart-4: 262 83% 58%;          /* Purple for quaternary data */
+    --chart-5: 0 84% 60%;            /* Red for negative data */
 
     /* GM Design System Colors - Dark Mode */
     --gm-primary-500: 24 82% 55%;    /* Slightly brighter orange for dark mode */

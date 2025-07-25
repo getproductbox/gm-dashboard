@@ -7,7 +7,3 @@ export interface RevenueRow {
   doorDollars: number;
   doorPercent: number | null;
 }
-
-export interface RevenueComparisonTableProps {
-  selectedVenue?: string | null;
-}

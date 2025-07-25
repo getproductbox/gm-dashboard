@@ -92,23 +92,23 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="w-12 h-12 bg-gm-primary-500 rounded-lg flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-lg">GM</span>
           </div>
-          <h2 className="text-3xl font-bold text-gm-neutral-900">GM Staff Portal</h2>
-          <p className="text-gm-neutral-600 mt-2">Access your management dashboard</p>
+          <h2 className="text-3xl font-bold text-gm-neutral-900 dark:text-gm-neutral-100">GM Staff Portal</h2>
+          <p className="text-gm-neutral-600 dark:text-gm-neutral-400 mt-2">Access your management dashboard</p>
         </div>
 
         {showSuccessPage ? (
           <SignupSuccess onBackToLogin={handleBackToLogin} />
         ) : (
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-muted dark:bg-muted dark:text-muted-foreground">
+              <TabsTrigger value="login" className="data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:bg-background dark:data-[state=active]:text-foreground">Login</TabsTrigger>
+              <TabsTrigger value="signup" className="data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:bg-background dark:data-[state=active]:text-foreground">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">

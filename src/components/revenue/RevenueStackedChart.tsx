@@ -23,6 +23,12 @@ interface RevenueStackedChartProps {
     bar_revenue_dollars: number;
     total_revenue_dollars: number;
   }>;
+  yearlyData?: Array<{
+    year_start: string;
+    door_revenue_dollars: number;
+    bar_revenue_dollars: number;
+    total_revenue_dollars: number;
+  }>;
   activeTab: string;
   selectedVenue: string;
   isLoading: boolean;
@@ -31,6 +37,7 @@ interface RevenueStackedChartProps {
 export const RevenueStackedChart = ({ 
   monthlyData = [], 
   weeklyData = [], 
+  yearlyData = [],
   activeTab, 
   selectedVenue, 
   isLoading 
@@ -53,6 +60,10 @@ export const RevenueStackedChart = ({
     }).format(value);
   };
 
+  const formatYear = (yearString: string) => {
+    return format(new Date(yearString), 'yyyy');
+  };
+
   const chartData: RevenueChartData[] = activeTab === 'monthly' 
     ? monthlyData.map(item => ({
         period: formatMonth(item.month),
@@ -60,8 +71,15 @@ export const RevenueStackedChart = ({
         Bar: item.bar_revenue_dollars,
         total: item.total_revenue_dollars
       }))
-    : weeklyData.map(item => ({
+    : activeTab === 'weekly'
+    ? weeklyData.map(item => ({
         period: formatWeek(item.week_start),
+        Door: item.door_revenue_dollars,
+        Bar: item.bar_revenue_dollars,
+        total: item.total_revenue_dollars
+      }))
+    : yearlyData.map(item => ({
+        period: formatYear(item.year_start),
         Door: item.door_revenue_dollars,
         Bar: item.bar_revenue_dollars,
         total: item.total_revenue_dollars
@@ -91,7 +109,7 @@ export const RevenueStackedChart = ({
     <Card>
       <CardHeader>
         <CardTitle>
-          {activeTab === 'monthly' ? 'Monthly' : 'Weekly'} Revenue Chart
+          {activeTab === 'monthly' ? 'Monthly' : activeTab === 'weekly' ? 'Weekly' : 'Yearly'} Revenue Chart
           {selectedVenue !== 'all' && (
             <span className="text-base font-normal text-muted-foreground ml-2">
               - {selectedVenue}

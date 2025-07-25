@@ -212,6 +212,132 @@ export type Database = {
         }
         Relationships: []
       }
+      revenue_events: {
+        Row: {
+          id: string
+          square_payment_id: string
+          venue: string
+          revenue_type: string
+          amount_cents: number
+          currency: string
+          payment_date: string
+          payment_hour: number
+          payment_day_of_week: number
+          status: string
+          processed_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          square_payment_id: string
+          venue: string
+          revenue_type: string
+          amount_cents: number
+          currency?: string
+          payment_date: string
+          payment_hour: number
+          payment_day_of_week: number
+          status?: string
+          processed_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          square_payment_id?: string
+          venue?: string
+          revenue_type?: string
+          amount_cents?: number
+          currency?: string
+          payment_date?: string
+          payment_hour?: number
+          payment_day_of_week?: number
+          status?: string
+          processed_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      square_sync_status: {
+        Row: {
+          id: string
+          environment: string
+          sync_status: string
+          sync_session_id: string | null
+          progress_percentage: number
+          payments_fetched: number
+          payments_synced: number
+          last_sync_attempt: string
+          last_successful_sync: string | null
+          last_heartbeat: string
+          cursor_position: string | null
+          error_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          environment: string
+          sync_status?: string
+          sync_session_id?: string | null
+          progress_percentage?: number
+          payments_fetched?: number
+          payments_synced?: number
+          last_sync_attempt?: string
+          last_successful_sync?: string | null
+          last_heartbeat?: string
+          cursor_position?: string | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          environment?: string
+          sync_status?: string
+          sync_session_id?: string | null
+          progress_percentage?: number
+          payments_fetched?: number
+          payments_synced?: number
+          last_sync_attempt?: string
+          last_successful_sync?: string | null
+          last_heartbeat?: string
+          cursor_position?: string | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      square_payments_raw: {
+        Row: {
+          id: string
+          square_payment_id: string
+          raw_response: Json
+          synced_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          square_payment_id: string
+          raw_response: Json
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          square_payment_id?: string
+          raw_response?: Json
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -226,6 +352,113 @@ export type Database = {
           exclude_booking_id?: string
         }
         Returns: boolean
+      }
+      get_monthly_revenue_summary: {
+        Args: {
+          venue_filter?: string
+          month_date?: string
+        }
+        Returns: {
+          month: string
+          total_transactions: number
+          door_transactions: number
+          bar_transactions: number
+          door_revenue_cents: number
+          bar_revenue_cents: number
+          total_revenue_cents: number
+        }[]
+      }
+      get_weekly_revenue_summary: {
+        Args: {
+          venue_filter?: string
+          week_date?: string
+        }
+        Returns: {
+          week_start: string
+          total_transactions: number
+          door_transactions: number
+          bar_transactions: number
+          door_revenue_cents: number
+          bar_revenue_cents: number
+          total_revenue_cents: number
+        }[]
+      }
+      get_yearly_revenue_summary: {
+        Args: {
+          venue_filter?: string
+          year_date?: string
+        }
+        Returns: {
+          year_start: string
+          total_transactions: number
+          door_transactions: number
+          bar_transactions: number
+          door_revenue_cents: number
+          bar_revenue_cents: number
+          total_revenue_cents: number
+        }[]
+      }
+      get_available_weeks: {
+        Args: Record<string, never>
+        Returns: {
+          week_start: string
+          week_label: string
+        }[]
+      }
+      transform_recent_synced_transactions: {
+        Args: {
+          minutes_back?: number
+        }
+        Returns: {
+          success: boolean
+          processed_count: number
+          total_recent_synced: number
+          minutes_back: number
+          cutoff_time: string
+          sample_results: {
+            id: string
+            square_payment_id: string
+            venue: string
+            revenue_type: string
+            amount_cents: number
+            currency: string
+            payment_date: string
+            payment_hour: number
+            payment_day_of_week: number
+            status: string
+            processed_at: string
+            created_at: string
+            updated_at: string
+          }[]
+          message: string
+        }
+      }
+      transform_last_n_transactions: {
+        Args: {
+          transaction_count?: number
+        }
+        Returns: {
+          success: boolean
+          processed_count: number
+          total_available: number
+          transaction_count: number
+          sample_results: {
+            id: string
+            square_payment_id: string
+            venue: string
+            revenue_type: string
+            amount_cents: number
+            currency: string
+            payment_date: string
+            payment_hour: number
+            payment_day_of_week: number
+            status: string
+            processed_at: string
+            created_at: string
+            updated_at: string
+          }[]
+          message: string
+        }
       }
     }
     Enums: {
@@ -309,7 +542,7 @@ export type TablesUpdate<
 export type Enums<
   PublicEnumNameOrOptions extends
     | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
+  | { schema: keyof Database },
   EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
@@ -333,3 +566,4 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+

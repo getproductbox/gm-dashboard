@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Stacked Revenue Chart</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .revenue-breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+        .revenue-item { padding: 10px; border-radius: 4px; color: white; }
+        .bar { background: #f97316; }
+        .door { background: #22c55e; }
+        .other { background: #3b82f6; }
+    </style>
+</head>
+<body>
+    <h1>Test Stacked Revenue Chart Data</h1>
+    
+    <div class="test-section">
+        <h3>Check Revenue Events by Type</h3>
+        <button onclick="checkRevenueByType()">Check Revenue Breakdown</button>
+        <div id="revenue-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Weekly Revenue Aggregation</h3>
+        <button onclick="testWeeklyAggregation()">Test Weekly Data</button>
+        <div id="weekly-result"></div>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://gm-dashboard.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa3N2YXRqZHlscHVoaml0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NjQ5MzMsImV4cCI6MjA2NjM0MDkzM30.IdM8u1iq88C0ruwp7IkMB7PxwnfwmRyl6uLnBmZq5ys';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function checkRevenueByType() {
+            const resultDiv = document.getElementById('revenue-result');
+            resultDiv.innerHTML = 'Checking revenue by type...';
+            
+            try {
+                const { data, error } = await supabase
+                    .from('revenue_events')
+                    .select('amount_cents, revenue_type')
+                    .eq('status', 'completed')
+                    .order('payment_date', { ascending: false })
+                    .limit(50);
+
+                if (error) {
+                    resultDiv.innerHTML = `<pre>Error: ${JSON.stringify(error, null, 2)}</pre>`;
+                } else {
+                    const revenueByType = data.reduce((acc, event) => {
+                        const amount = event.amount_cents;
+                        acc.total += amount;
+                        acc[event.revenue_type] += amount;
+                        return acc;
+                    }, { total: 0, bar: 0, door: 0, other: 0 });
+
+                    const totalDollars = revenueByType.total / 100;
+                    const barDollars = revenueByType.bar / 100;
+                    const doorDollars = revenueByType.door / 100;
+                    const otherDollars = revenueByType.other / 100;
+
+                    resultDiv.innerHTML = `
+                        <h4>Revenue Breakdown (Last 50 Events):</h4>
+                        <div class="revenue-breakdown">
+                            <div class="revenue-item bar">
+                                <strong>Bar Revenue:</strong> $${barDollars.toLocaleString()}
+                                <br><small>${((barDollars / totalDollars) * 100).toFixed(1)}% of total</small>
+                            </div>
+                            <div class="revenue-item door">
+                                <strong>Door Revenue:</strong> $${doorDollars.toLocaleString()}
+                                <br><small>${((doorDollars / totalDollars) * 100).toFixed(1)}% of total</small>
+                            </div>
+                            <div class="revenue-item other">
+                                <strong>Other Revenue:</strong> $${otherDollars.toLocaleString()}
+                                <br><small>${((otherDollars / totalDollars) * 100).toFixed(1)}% of total</small>
+                            </div>
+                        </div>
+                        <p><strong>Total Revenue:</strong> $${totalDollars.toLocaleString()}</p>
+                        <h4>Sample Events:</h4>
+                        <pre>${JSON.stringify(data?.slice(0, 5), null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<pre>Exception: ${error.message}</pre>`;
+            }
+        }
+
+        async function testWeeklyAggregation() {
+            const resultDiv = document.getElementById('weekly-result');
+            resultDiv.innerHTML = 'Testing weekly aggregation...';
+            
+            try {
+                const now = new Date();
+                const weekStart = new Date(now);
+                weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
+
+                const { data, error } = await supabase
+                    .from('revenue_events')
+                    .select('amount_cents, revenue_type, payment_date')
+                    .eq('status', 'completed')
+                    .gte('payment_date', weekStart.toISOString())
+                    .lt('payment_date', weekEnd.toISOString());
+
+                if (error) {
+                    resultDiv.innerHTML = `<pre>Error: ${JSON.stringify(error, null, 2)}</pre>`;
+                } else {
+                    const revenueByType = data.reduce((acc, event) => {
+                        const amount = event.amount_cents;
+                        acc.total += amount;
+                        acc[event.revenue_type] += amount;
+                        return acc;
+                    }, { total: 0, bar: 0, door: 0, other: 0 });
+
+                    resultDiv.innerHTML = `
+                        <h4>This Week's Revenue (${weekStart.toDateString()} - ${weekEnd.toDateString()}):</h4>
+                        <div class="revenue-breakdown">
+                            <div class="revenue-item bar">
+                                <strong>Bar:</strong> $${(revenueByType.bar / 100).toLocaleString()}
+                            </div>
+                            <div class="revenue-item door">
+                                <strong>Door:</strong> $${(revenueByType.door / 100).toLocaleString()}
+                            </div>
+                            <div class="revenue-item other">
+                                <strong>Other:</strong> $${(revenueByType.other / 100).toLocaleString()}
+                            </div>
+                        </div>
+                        <p><strong>Total:</strong> $${(revenueByType.total / 100).toLocaleString()}</p>
+                        <p><strong>Events Count:</strong> ${data.length}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<pre>Exception: ${error.message}</pre>`;
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</body>
+</html> 
