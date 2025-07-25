@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, AlertTriangle, CheckCircle, Clock, Database } from 'lucide-react';
+import { Calendar, Download, AlertTriangle, CheckCircle, Clock, Database, Building } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface BackfillProgress {
@@ -27,14 +27,19 @@ interface BackfillSummary {
   date_range: { start_date: string; end_date: string };
 }
 
+interface LocationBackfillStatus {
+  isRunning: boolean;
+  progress: BackfillProgress | null;
+  summary: BackfillSummary | null;
+  error: string | null;
+  status: 'idle' | 'running' | 'completed' | 'completed_with_errors' | 'error';
+}
+
 export const BackfillManager = () => {
-  const [isRunning, setIsRunning] = useState(false);
   const [isTransforming, setIsTransforming] = useState(false);
   const [isDryRun, setIsDryRun] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [progress, setProgress] = useState<BackfillProgress | null>(null);
-  const [summary, setSummary] = useState<BackfillSummary | null>(null);
   const [transformResult, setTransformResult] = useState<{
     success: boolean;
     processed_count: number;
@@ -58,8 +63,14 @@ export const BackfillManager = () => {
     }>;
     message: string;
   } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string>('idle');
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
+  // Individual status tracking for each location
+  const [locationStatus, setLocationStatus] = useState<Record<string, LocationBackfillStatus>>({
+    hippie: { isRunning: false, progress: null, summary: null, error: null, status: 'idle' },
+    manor: { isRunning: false, progress: null, summary: null, error: null, status: 'idle' },
+    'hippie-door': { isRunning: false, progress: null, summary: null, error: null, status: 'idle' }
+  });
 
   // Set default dates (2 years ago to today)
   const getDefaultDates = () => {
@@ -75,12 +86,21 @@ export const BackfillManager = () => {
 
   const defaultDates = getDefaultDates();
 
-  const handleStartBackfill = async () => {
-    setIsRunning(true);
-    setError(null);
-    setProgress(null);
-    setSummary(null);
-    setStatus('running');
+  const handleStartBackfill = async (location: string) => {
+    setGlobalError(null);
+    
+    // Update status for this location
+    setLocationStatus(prev => ({
+      ...prev,
+      [location]: {
+        ...prev[location],
+        isRunning: true,
+        progress: null,
+        summary: null,
+        error: null,
+        status: 'running'
+      }
+    }));
 
     try {
       const backfillParams = {
@@ -89,9 +109,10 @@ export const BackfillManager = () => {
         dry_run: isDryRun
       };
 
-      console.log('Starting backfill with params:', backfillParams);
+      console.log(`Starting ${location} backfill with params:`, backfillParams);
 
-      const { data, error } = await supabase.functions.invoke('square-sync-backfill', {
+      const functionName = `square-sync-backfill-${location}`;
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: backfillParams
       });
 
@@ -100,25 +121,37 @@ export const BackfillManager = () => {
       }
 
       if (data.success) {
-        setProgress(data.progress);
-        setSummary(data.summary);
-        setStatus(data.progress.errors.length > 0 ? 'completed_with_errors' : 'completed');
+        setLocationStatus(prev => ({
+          ...prev,
+          [location]: {
+            ...prev[location],
+            progress: data.progress,
+            summary: data.summary,
+            status: data.progress.errors.length > 0 ? 'completed_with_errors' : 'completed',
+            isRunning: false
+          }
+        }));
       } else {
         throw new Error(data.error || 'Unknown error occurred');
       }
 
     } catch (err) {
-      console.error('Backfill error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
-      setStatus('error');
-    } finally {
-      setIsRunning(false);
+      console.error(`${location} backfill error:`, err);
+      setLocationStatus(prev => ({
+        ...prev,
+        [location]: {
+          ...prev[location],
+          error: err instanceof Error ? err.message : 'Unknown error occurred',
+          status: 'error',
+          isRunning: false
+        }
+      }));
     }
   };
 
   const handleTransformData = async () => {
     setIsTransforming(true);
-    setError(null);
+    setGlobalError(null);
     setTransformResult(null);
 
     try {
@@ -142,12 +175,10 @@ export const BackfillManager = () => {
       }
 
       setTransformResult(data);
-      setStatus('transform_completed');
 
     } catch (err) {
       console.error('Transform error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
-      setStatus('error');
+      setGlobalError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setIsTransforming(false);
     }
@@ -159,7 +190,7 @@ export const BackfillManager = () => {
     }
 
     try {
-      setStatus('clearing');
+      setGlobalError(null);
       
       // Clear revenue_events first (due to foreign key constraints)
       const { error: revenueError } = await supabase
@@ -182,19 +213,21 @@ export const BackfillManager = () => {
       }
 
       alert('Data cleared successfully!');
-      setStatus('idle');
-      setProgress(null);
-      setSummary(null);
-      setError(null);
+      
+      // Reset all location statuses
+      setLocationStatus({
+        hippie: { isRunning: false, progress: null, summary: null, error: null, status: 'idle' },
+        manor: { isRunning: false, progress: null, summary: null, error: null, status: 'idle' },
+        'hippie-door': { isRunning: false, progress: null, summary: null, error: null, status: 'idle' }
+      });
 
     } catch (err) {
       console.error('Clear data error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to clear data');
-      setStatus('error');
+      setGlobalError(err instanceof Error ? err.message : 'Failed to clear data');
     }
   };
 
-  const getStatusIcon = () => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'running':
         return <Clock className="h-4 w-4 animate-spin" />;
@@ -202,18 +235,14 @@ export const BackfillManager = () => {
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'completed_with_errors':
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case 'transform_completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'error':
         return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case 'clearing':
-        return <Database className="h-4 w-4 animate-spin" />;
       default:
-        return <Calendar className="h-4 w-4" />;
+        return <Building className="h-4 w-4" />;
     }
   };
 
-  const getStatusText = () => {
+  const getStatusText = (status: string) => {
     switch (status) {
       case 'running':
         return 'Backfill in progress...';
@@ -221,15 +250,17 @@ export const BackfillManager = () => {
         return 'Backfill completed successfully';
       case 'completed_with_errors':
         return 'Backfill completed with some errors';
-      case 'transform_completed':
-        return 'Transform completed successfully';
       case 'error':
         return 'Backfill failed';
-      case 'clearing':
-        return 'Clearing data...';
       default:
         return 'Ready to start backfill';
     }
+  };
+
+  const locationConfig = {
+    hippie: { name: 'Hippie', color: 'bg-blue-100 text-blue-800' },
+    manor: { name: 'Manor', color: 'bg-green-100 text-green-800' },
+    'hippie-door': { name: 'Hippie Door', color: 'bg-purple-100 text-purple-800' }
   };
 
   return (
@@ -240,62 +271,86 @@ export const BackfillManager = () => {
           Data Backfill Manager
         </CardTitle>
         <CardDescription>
-          Backfill historical Square payment data. This process will fetch data month by month to avoid overwhelming the API.
+          Backfill historical Square payment data for each location. Each location is processed separately to avoid API limits.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Status Display */}
-        <div className="flex items-center gap-2">
-          {getStatusIcon()}
-          <span className="font-medium">{getStatusText()}</span>
-          {status === 'running' && progress && (
-            <Badge variant="secondary">
-              {progress.completed_requests} / {progress.total_requests} months
-            </Badge>
-          )}
-        </div>
-
-        {/* Error Display */}
-        {error && (
+        {/* Global Error Display */}
+        {globalError && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{globalError}</AlertDescription>
           </Alert>
         )}
 
-        {/* Progress Display */}
-        {progress && status === 'running' && (
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Processing: {progress.current_date}</span>
-              <span>{progress.completed_requests} / {progress.total_requests} months</span>
-            </div>
-            <Progress value={(progress.completed_requests / progress.total_requests) * 100} />
-            <div className="text-sm text-muted-foreground">
-              Payments fetched: {progress.total_payments_fetched.toLocaleString()} | 
-              Payments synced: {progress.total_payments_synced.toLocaleString()}
-            </div>
-          </div>
-        )}
-
-        {/* Summary Display */}
-        {summary && (
-          <Alert>
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription>
-              <div className="space-y-1">
-                <div><strong>Backfill Summary:</strong></div>
-                <div>• Months processed: {summary.months_processed}</div>
-                <div>• Total payments fetched: {summary.total_payments_fetched.toLocaleString()}</div>
-                <div>• Total payments synced: {summary.total_payments_synced.toLocaleString()}</div>
-                <div>• Date range: {summary.date_range.start_date} to {summary.date_range.end_date}</div>
-                {summary.errors_count > 0 && (
-                  <div className="text-yellow-600">• Errors: {summary.errors_count}</div>
-                )}
+        {/* Location-specific Backfill Sections */}
+        {Object.entries(locationConfig).map(([locationKey, config]) => {
+          const status = locationStatus[locationKey];
+          return (
+            <div key={locationKey} className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(status.status)}
+                  <span className="font-medium">{config.name}</span>
+                  <Badge className={config.color}>
+                    {status.status === 'running' && status.progress 
+                      ? `${status.progress.completed_requests} / ${status.progress.total_requests} months`
+                      : status.status}
+                  </Badge>
+                </div>
+                <Button
+                  onClick={() => handleStartBackfill(locationKey)}
+                  disabled={status.isRunning}
+                  size="sm"
+                >
+                  {status.isRunning ? 'Running...' : `Start ${isDryRun ? 'Dry Run' : 'Backfill'}`}
+                </Button>
               </div>
-            </AlertDescription>
-          </Alert>
-        )}
+
+              {/* Location-specific Error */}
+              {status.error && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{status.error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Location-specific Progress */}
+              {status.progress && status.status === 'running' && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Processing: {status.progress.current_date}</span>
+                    <span>{status.progress.completed_requests} / {status.progress.total_requests} months</span>
+                  </div>
+                  <Progress value={(status.progress.completed_requests / status.progress.total_requests) * 100} />
+                  <div className="text-sm text-muted-foreground">
+                    Payments fetched: {status.progress.total_payments_fetched.toLocaleString()} | 
+                    Payments synced: {status.progress.total_payments_synced.toLocaleString()}
+                  </div>
+                </div>
+              )}
+
+              {/* Location-specific Summary */}
+              {status.summary && (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      <div><strong>{config.name} Summary:</strong></div>
+                      <div>• Months processed: {status.summary.months_processed}</div>
+                      <div>• Total payments fetched: {status.summary.total_payments_fetched.toLocaleString()}</div>
+                      <div>• Total payments synced: {status.summary.total_payments_synced.toLocaleString()}</div>
+                      <div>• Date range: {status.summary.date_range.start_date} to {status.summary.date_range.end_date}</div>
+                      {status.summary.errors_count > 0 && (
+                        <div className="text-yellow-600">• Errors: {status.summary.errors_count}</div>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          );
+        })}
 
         {/* Transform Result Display */}
         {transformResult && (
@@ -355,17 +410,10 @@ export const BackfillManager = () => {
         {/* Action Buttons */}
         <div className="flex gap-2">
           <Button
-            onClick={handleStartBackfill}
-            disabled={isRunning}
-            className="flex-1"
-          >
-            {isRunning ? 'Running...' : `Start ${isDryRun ? 'Dry Run' : 'Backfill'}`}
-          </Button>
-          
-          <Button
             onClick={handleTransformData}
-            disabled={isTransforming || !summary || status === 'running'}
+            disabled={isTransforming || Object.values(locationStatus).every(s => s.status === 'idle')}
             variant="secondary"
+            className="flex-1"
           >
             {isTransforming ? 'Transforming...' : 'Transform Data'}
           </Button>
@@ -373,7 +421,7 @@ export const BackfillManager = () => {
           <Button
             variant="outline"
             onClick={handleClearData}
-            disabled={isRunning || isTransforming || status === 'clearing'}
+            disabled={Object.values(locationStatus).some(s => s.isRunning) || isTransforming}
           >
             Clear Data
           </Button>
@@ -383,9 +431,8 @@ export const BackfillManager = () => {
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Important:</strong> This process will fetch data from Square API month by month. 
-            It may take several minutes to complete depending on the amount of data. 
-            Consider running a dry run first to see what data would be fetched.
+            <strong>Important:</strong> Each location is processed separately to avoid API limits. 
+            You can run multiple locations simultaneously. Consider running a dry run first to see what data would be fetched.
           </AlertDescription>
         </Alert>
       </CardContent>
