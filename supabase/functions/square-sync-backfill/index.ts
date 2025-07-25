@@ -265,58 +265,67 @@ serve(async (req) => {
   }
 });
 
+/**
+ * Fetch payments from Square API with automatic retry and exponential backoff
+ */
 async function fetchPaymentsForDateRange(
-  accessToken: string,
+  token: string,
   startDate: Date,
   endDate: Date,
-  locationId: string
+  locationId: string,
+  maxRetries: number = 3
 ): Promise<any[]> {
-  const allPayments: any[] = [];
   let cursor: string | null = null;
+  let allPayments: any[] = [];
   let requestCount = 0;
 
   do {
     requestCount++;
     console.log(`Making request ${requestCount} for date range ${startDate.toISOString()} to ${endDate.toISOString()} at location ${locationId}`);
 
-    // Build Square API URL – follow Square guidelines: if a cursor is provided
-    // it MUST be the only query parameter (other parameters are ignored and can
-    // lead to truncated result sets).
-    const url = new URL('https://connect.squareup.com/v2/payments');
+    let retries = 0;
+    let response: Response;
 
-    if (cursor) {
-      url.searchParams.append('cursor', cursor);
-    } else {
-      url.searchParams.append('sort_order', 'DESC');
-      url.searchParams.append('limit', '100');
+    // Retry loop with exponential backoff
+    while (retries <= maxRetries) {
+      try {
+        const url = buildPaymentsUrl(startDate, endDate, cursor, locationId);
+        response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Square-Version': '2025-07-16',
+            'Content-Type': 'application/json',
+          },
+        });
 
-      // Date filters only on the first request
-      url.searchParams.append('begin_time', startDate.toISOString());
-      url.searchParams.append('end_time', endDate.toISOString());
+        if (response.ok) {
+          break; // Success, exit retry loop
+        }
 
-      // Scope to a single location
-      url.searchParams.append('location_id', locationId);
+        // Handle rate limiting and server errors
+        if (response.status === 429 || response.status >= 500) {
+          const waitTime = Math.pow(2, retries) * 1000; // Exponential backoff: 1s, 2s, 4s
+          console.log(`Rate limit/server error (${response.status}), retrying in ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          retries++;
+          continue;
+        }
 
-      // Uncomment to fetch all statuses if desired
-      // url.searchParams.append('status', 'COMPLETED,PENDING,FAILED,CANCELED,VOIDED');
-    }
+        // For other errors, throw immediately
+        throw new Error(`Square API error: ${response.status} ${response.statusText}`);
 
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Square-Version": "2024-01-17",
-        "Content-Type": "application/json"
+      } catch (error) {
+        if (retries === maxRetries) {
+          throw new Error(`Failed after ${maxRetries} retries: ${error.message}`);
+        }
+        const waitTime = Math.pow(2, retries) * 1000;
+        console.log(`Request failed, retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        retries++;
       }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Square API Error Response: ${errorText}`);
-      throw new Error(`Square API error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const data = await response!.json();
     const payments = data.payments || [];
 
     if (cursor) {
@@ -324,21 +333,18 @@ async function fetchPaymentsForDateRange(
     } else {
       console.log(`→ Initial request returned ${payments.length} payments`);
     }
-    console.log(`Received ${payments.length} payments in this request`);
+
     allPayments.push(...payments);
-
-    // Check if we have more data
     cursor = data.cursor || null;
-    
-    // REMOVED: Request limit - let it fetch ALL transactions
-    // The cursor will be null when there's no more data, so this is safe
 
-    // Small delay between requests to be respectful to Square API
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Polite pause between requests
+    if (cursor) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
 
   } while (cursor);
 
-  console.log(`Total payments fetched for date range: ${allPayments.length}`);
+  console.log(`Total payments fetched: ${allPayments.length}`);
   return allPayments;
 }
 
