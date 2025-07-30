@@ -38,33 +38,59 @@ export default function Dashboard() {
     try {
       setIsLoading(true);
       
-      // Get current date ranges
+      // Get current date ranges using PostgreSQL-compatible calculations
       const now = new Date();
+      
+      // For weekly: Get the current week (Monday to Sunday)
       const currentWeekStart = getWeekStart(now);
+      const currentWeekEnd = new Date(currentWeekStart);
+      currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+      
+      // For monthly: Get the current month (1st to last day)
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      // For yearly: Get the current year (Jan 1 to Dec 31)
       const currentYearStart = new Date(now.getFullYear(), 0, 1);
+      const currentYearEnd = new Date(now.getFullYear(), 11, 31);
       
       // Get previous periods
       const previousWeekStart = new Date(currentWeekStart);
       previousWeekStart.setDate(previousWeekStart.getDate() - 7);
+      const previousWeekEnd = new Date(currentWeekStart);
+      previousWeekEnd.setDate(previousWeekEnd.getDate() - 1);
+      
       const previousMonthStart = new Date(currentMonthStart);
       previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
+      const previousMonthEnd = new Date(currentMonthStart);
+      previousMonthEnd.setDate(previousMonthEnd.getDate() - 1);
+      
       const previousYearStart = new Date(currentYearStart);
       previousYearStart.setFullYear(previousYearStart.getFullYear() - 1);
+      const previousYearEnd = new Date(currentYearEnd);
+      previousYearEnd.setFullYear(previousYearEnd.getFullYear() - 1);
       
       // Get same period last year
       const lastYearWeekStart = new Date(currentWeekStart);
       lastYearWeekStart.setFullYear(lastYearWeekStart.getFullYear() - 1);
+      const lastYearWeekEnd = new Date(currentWeekEnd);
+      lastYearWeekEnd.setFullYear(lastYearWeekEnd.getFullYear() - 1);
+      
       const lastYearMonthStart = new Date(currentMonthStart);
       lastYearMonthStart.setFullYear(lastYearMonthStart.getFullYear() - 1);
+      const lastYearMonthEnd = new Date(currentMonthEnd);
+      lastYearMonthEnd.setFullYear(lastYearMonthEnd.getFullYear() - 1);
+      
       const lastYearYearStart = new Date(currentYearStart);
       lastYearYearStart.setFullYear(lastYearYearStart.getFullYear() - 1);
+      const lastYearYearEnd = new Date(currentYearEnd);
+      lastYearYearEnd.setFullYear(lastYearYearEnd.getFullYear() - 1);
 
-      // Fetch revenue data for all periods
+      // Fetch revenue data for all periods using database functions
       const [weeklyData, monthlyData, yearlyData] = await Promise.all([
-        fetchPeriodRevenue(currentWeekStart, now, previousWeekStart, lastYearWeekStart),
-        fetchPeriodRevenue(currentMonthStart, now, previousMonthStart, lastYearMonthStart),
-        fetchPeriodRevenue(currentYearStart, now, previousYearStart, lastYearYearStart)
+        fetchPeriodRevenue(currentWeekStart, currentWeekEnd, previousWeekStart, previousWeekEnd, lastYearWeekStart, lastYearWeekEnd, 'weekly'),
+        fetchPeriodRevenue(currentMonthStart, currentMonthEnd, previousMonthStart, previousMonthEnd, lastYearMonthStart, lastYearMonthEnd, 'monthly'),
+        fetchPeriodRevenue(currentYearStart, currentYearEnd, previousYearStart, previousYearEnd, lastYearYearStart, lastYearYearEnd, 'yearly')
       ]);
 
       setDashboardData({
@@ -83,12 +109,15 @@ export default function Dashboard() {
     currentStart: Date, 
     currentEnd: Date, 
     previousStart: Date, 
-    previousYearStart: Date
+    previousEnd: Date,
+    previousYearStart: Date,
+    previousYearEnd: Date,
+    periodType: 'weekly' | 'monthly' | 'yearly'
   ): Promise<RevenueMetrics> => {
     const [currentRevenue, previousRevenue, previousYearRevenue] = await Promise.all([
-      getRevenueForPeriod(currentStart, currentEnd),
-      getRevenueForPeriod(previousStart, new Date(previousStart.getTime() + (currentEnd.getTime() - currentStart.getTime()))),
-      getRevenueForPeriod(previousYearStart, new Date(previousYearStart.getTime() + (currentEnd.getTime() - currentStart.getTime())))
+      getRevenueForPeriod(currentStart, currentEnd, periodType),
+      getRevenueForPeriod(previousStart, previousEnd, periodType),
+      getRevenueForPeriod(previousYearStart, previousYearEnd, periodType)
     ]);
 
     const changePercent = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
@@ -106,20 +135,60 @@ export default function Dashboard() {
     };
   };
 
-  const getRevenueForPeriod = async (startDate: Date, endDate: Date): Promise<number> => {
-    const { data, error } = await supabase
-      .from('revenue_events')
-      .select('amount_cents')
-      .eq('status', 'completed')
-      .gte('payment_date', startDate.toISOString())
-      .lte('payment_date', endDate.toISOString());
+  const getRevenueForPeriod = async (startDate: Date, endDate: Date, periodType: 'weekly' | 'monthly' | 'yearly'): Promise<number> => {
+    try {
+      let data;
+      let error;
 
-    if (error) {
-      console.error('Error fetching revenue:', error);
+      switch (periodType) {
+        case 'weekly': {
+          // For weekly periods, we need to get the specific week data
+          const weekStart = new Date(startDate);
+          weekStart.setHours(0, 0, 0, 0);
+          ({ data, error } = await supabase.rpc('get_weekly_revenue_summary', {
+            venue_filter: null,
+            week_date: weekStart.toISOString()
+          }));
+          break;
+        }
+        case 'monthly': {
+          // For monthly periods, we need to get the specific month data
+          const monthStart = new Date(startDate);
+          monthStart.setHours(0, 0, 0, 0);
+          ({ data, error } = await supabase.rpc('get_monthly_revenue_summary', {
+            venue_filter: null,
+            month_date: monthStart.toISOString()
+          }));
+          break;
+        }
+        case 'yearly': {
+          // For yearly periods, we need to get the specific year data
+          const yearStart = new Date(startDate);
+          yearStart.setHours(0, 0, 0, 0);
+          ({ data, error } = await supabase.rpc('get_yearly_revenue_summary', {
+            venue_filter: null,
+            year_date: yearStart.toISOString()
+          }));
+          break;
+        }
+      }
+
+      if (error) {
+        console.error('Error fetching revenue:', error);
+        return 0;
+      }
+
+      // If no data found for the specific period, return 0
+      if (!data || data.length === 0) {
+        return 0;
+      }
+
+      // Return the total revenue for the period in cents (no division by 100 here)
+      return data[0].total_revenue_cents || 0;
+    } catch (error) {
+      console.error('Error in getRevenueForPeriod:', error);
       return 0;
     }
-
-    return (data || []).reduce((sum, event) => sum + event.amount_cents, 0);
   };
 
   const getWeekStart = (date: Date): Date => {
@@ -168,17 +237,14 @@ export default function Dashboard() {
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-gm-neutral-900">Revenue Dashboard</h1>
-            <p className="text-gm-neutral-600">Loading revenue data...</p>
+            <p className="text-gm-neutral-600">Track your revenue performance across different time periods.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <CardContent className="p-6">
+                  <div className="h-6 bg-gray-200 rounded w-1/4 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-1/2"></div>
                 </CardContent>
               </Card>
             ))}

@@ -57,61 +57,18 @@ export const RevenueTimeChart = () => {
     try {
       setIsLoading(true);
       
-      const now = new Date();
-      let startDate: Date;
-      let endDate: Date;
-      let periods: Date[];
+      let revenueData: RevenueDataPoint[] = [];
 
-      // Determine date range and periods based on time scale
       switch (timeScale) {
         case 'weekly':
-          startDate = startOfWeek(addWeeks(now, -11)); // Last 12 weeks
-          endDate = endOfWeek(now);
-          periods = eachWeekOfInterval({ start: startDate, end: endDate });
+          revenueData = await fetchWeeklyRevenue();
           break;
         case 'monthly':
-          startDate = startOfMonth(addMonths(now, -11)); // Last 12 months
-          endDate = endOfMonth(now);
-          periods = eachMonthOfInterval({ start: startDate, end: endDate });
+          revenueData = await fetchMonthlyRevenue();
           break;
         case 'yearly':
-          startDate = startOfYear(addYears(now, -4)); // Last 5 years
-          endDate = endOfYear(now);
-          periods = eachYearOfInterval({ start: startDate, end: endDate });
+          revenueData = await fetchYearlyRevenue();
           break;
-      }
-
-      // Fetch revenue data for each period
-      const revenueData: RevenueDataPoint[] = [];
-      
-      for (let i = 0; i < periods.length - 1; i++) {
-        const periodStart = periods[i];
-        const periodEnd = periods[i + 1];
-        
-        const periodRevenue = await getRevenueForPeriod(periodStart, periodEnd);
-        
-        let periodLabel: string;
-        switch (timeScale) {
-          case 'weekly':
-            periodLabel = format(periodStart, 'MMM dd');
-            break;
-          case 'monthly':
-            periodLabel = format(periodStart, 'MMM yyyy');
-            break;
-          case 'yearly':
-            periodLabel = format(periodStart, 'yyyy');
-            break;
-        }
-
-        revenueData.push({
-          period: periodLabel,
-          revenue: periodRevenue.total / 100, // Convert cents to dollars
-          formattedRevenue: formatCurrency(periodRevenue.total / 100),
-          date: periodStart,
-          bar: periodRevenue.bar / 100,
-          door: periodRevenue.door / 100,
-          other: periodRevenue.other / 100
-        });
       }
 
       setData(revenueData);
@@ -122,27 +79,88 @@ export const RevenueTimeChart = () => {
     }
   };
 
-  const getRevenueForPeriod = async (startDate: Date, endDate: Date): Promise<{ total: number; bar: number; door: number; other: number }> => {
-    const { data, error } = await supabase
-      .from('revenue_events')
-      .select('amount_cents, revenue_type')
-      .eq('status', 'completed')
-      .gte('payment_date', startDate.toISOString())
-      .lt('payment_date', endDate.toISOString());
+  const fetchWeeklyRevenue = async (): Promise<RevenueDataPoint[]> => {
+    const { data, error } = await supabase.rpc('get_weekly_revenue_summary', {
+      venue_filter: null,
+      week_date: null
+    });
 
     if (error) {
-      console.error('Error fetching revenue:', error);
-      return { total: 0, bar: 0, door: 0, other: 0 };
+      console.error('Error fetching weekly revenue data:', error);
+      return [];
     }
 
-    const revenueByType = (data || []).reduce((acc, event) => {
-      const amount = event.amount_cents;
-      acc.total += amount;
-      acc[event.revenue_type] += amount;
-      return acc;
-    }, { total: 0, bar: 0, door: 0, other: 0 });
+    // Take the last 12 weeks
+    const weeklyData = data?.slice(0, 12) || [];
+    
+    return weeklyData.map((row) => {
+      const weekStart = new Date(row.week_start);
+      return {
+        period: format(weekStart, 'MMM dd'),
+        revenue: row.total_revenue_cents / 100,
+        formattedRevenue: formatCurrency(row.total_revenue_cents / 100),
+        date: weekStart,
+        bar: row.bar_revenue_cents / 100,
+        door: row.door_revenue_cents / 100,
+        other: 0 // No other revenue type in current schema
+      };
+    }).reverse(); // Reverse to show oldest to newest
+  };
 
-    return revenueByType;
+  const fetchMonthlyRevenue = async (): Promise<RevenueDataPoint[]> => {
+    const { data, error } = await supabase.rpc('get_monthly_revenue_summary', {
+      venue_filter: null,
+      month_date: null
+    });
+
+    if (error) {
+      console.error('Error fetching monthly revenue data:', error);
+      return [];
+    }
+
+    // Take the last 12 months
+    const monthlyData = data?.slice(0, 12) || [];
+    
+    return monthlyData.map((row) => {
+      const monthStart = new Date(row.month);
+      return {
+        period: format(monthStart, 'MMM yyyy'),
+        revenue: row.total_revenue_cents / 100,
+        formattedRevenue: formatCurrency(row.total_revenue_cents / 100),
+        date: monthStart,
+        bar: row.bar_revenue_cents / 100,
+        door: row.door_revenue_cents / 100,
+        other: 0 // No other revenue type in current schema
+      };
+    }).reverse(); // Reverse to show oldest to newest
+  };
+
+  const fetchYearlyRevenue = async (): Promise<RevenueDataPoint[]> => {
+    const { data, error } = await supabase.rpc('get_yearly_revenue_summary', {
+      venue_filter: null,
+      year_date: null
+    });
+
+    if (error) {
+      console.error('Error fetching yearly revenue data:', error);
+      return [];
+    }
+
+    // Take the last 5 years
+    const yearlyData = data?.slice(0, 5) || [];
+    
+    return yearlyData.map((row) => {
+      const yearStart = new Date(row.year_start);
+      return {
+        period: format(yearStart, 'yyyy'),
+        revenue: row.total_revenue_cents / 100,
+        formattedRevenue: formatCurrency(row.total_revenue_cents / 100),
+        date: yearStart,
+        bar: row.bar_revenue_cents / 100,
+        door: row.door_revenue_cents / 100,
+        other: 0 // No other revenue type in current schema
+      };
+    }).reverse(); // Reverse to show oldest to newest
   };
 
   const formatCurrency = (value: number): string => {
