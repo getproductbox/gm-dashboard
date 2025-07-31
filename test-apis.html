@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GM Booking Widget API Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            border-left: 4px solid #28a745;
+        }
+        .error {
+            border-left: 4px solid #dc3545;
+        }
+        .loading {
+            border-left: 4px solid #ffc107;
+        }
+        .api-url {
+            background: #e9ecef;
+            padding: 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <h1>GM Booking Widget API Tests</h1>
+    <p>This page tests all the new API endpoints for the booking widget.</p>
+
+    <div class="test-section">
+        <h2>1. Venue Configuration API</h2>
+        <p class="api-url">GET /venue-config-api</p>
+        <button class="test-button" onclick="testVenueConfig()">Test All Venues</button>
+        <button class="test-button" onclick="testVenueConfig('manor')">Test Manor Only</button>
+        <button class="test-button" onclick="testVenueConfig('hippie')">Test Hippie Only</button>
+        <div id="venue-config-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Karaoke Booths API</h2>
+        <p class="api-url">GET /karaoke-booths-api</p>
+        <button class="test-button" onclick="testKaraokeBooths()">Test All Booths</button>
+        <button class="test-button" onclick="testKaraokeBooths('manor')">Test Manor Booths</button>
+        <button class="test-button" onclick="testKaraokeBooths('hippie')">Test Hippie Booths</button>
+        <button class="test-button" onclick="testKaraokeBooths('manor', true)">Test Available Manor Booths</button>
+        <div id="karaoke-booths-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Time Slots API</h2>
+        <p class="api-url">GET /timeslots-api</p>
+        <button class="test-button" onclick="testTimeSlots()">Test Today</button>
+        <button class="test-button" onclick="testTimeSlots('manor', 'upstairs')">Test Manor Upstairs</button>
+        <button class="test-button" onclick="testTimeSlots('hippie', 'downstairs')">Test Hippie Downstairs</button>
+        <div id="timeslots-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Pricing API</h2>
+        <p class="api-url">GET /pricing-api</p>
+        <button class="test-button" onclick="testPricing()">Test Manor Upstairs (20 guests)</button>
+        <button class="test-button" onclick="testPricing('hippie', 'full_venue', 50)">Test Hippie Full Venue (50 guests)</button>
+        <button class="test-button" onclick="testPricing('manor', 'downstairs', 15, 6)">Test Manor Downstairs (15 guests, 6 hours)</button>
+        <div id="pricing-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Run All Tests</h2>
+        <button class="test-button" onclick="runAllTests()" style="background: #28a745;">Run All Tests</button>
+        <div id="all-tests-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://plksvatjdylpuhjitbfc.supabase.co/functions/v1';
+        const API_KEY = 'demo-api-key-2024';
+
+        function showResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${isError ? 'error' : 'success'}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.className = 'result loading';
+            element.textContent = 'Loading...';
+        }
+
+        async function makeApiCall(endpoint, params = {}) {
+            const url = new URL(`${API_BASE}/${endpoint}`);
+            Object.keys(params).forEach(key => {
+                if (params[key] !== undefined && params[key] !== null) {
+                    url.searchParams.append(key, params[key]);
+                }
+            });
+
+            const response = await fetch(url, {
+                headers: {
+                    'x-api-key': API_KEY
+                }
+            });
+
+            const data = await response.json();
+            return { status: response.status, data };
+        }
+
+        async function testVenueConfig(venue = null) {
+            showLoading('venue-config-result');
+            try {
+                const params = venue ? { venue } : {};
+                const result = await makeApiCall('venue-config-api', params);
+                showResult('venue-config-result', result);
+            } catch (error) {
+                showResult('venue-config-result', { error: error.message }, true);
+            }
+        }
+
+        async function testKaraokeBooths(venue = null, availableOnly = false) {
+            showLoading('karaoke-booths-result');
+            try {
+                const params = {};
+                if (venue) params.venue = venue;
+                if (availableOnly) params.available = 'true';
+                const result = await makeApiCall('karaoke-booths-api', params);
+                showResult('karaoke-booths-result', result);
+            } catch (error) {
+                showResult('karaoke-booths-result', { error: error.message }, true);
+            }
+        }
+
+        async function testTimeSlots(venue = null, venueArea = null) {
+            showLoading('timeslots-result');
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const params = { date: today };
+                if (venue) params.venue = venue;
+                if (venueArea) params.venue_area = venueArea;
+                const result = await makeApiCall('timeslots-api', params);
+                showResult('timeslots-result', result);
+            } catch (error) {
+                showResult('timeslots-result', { error: error.message }, true);
+            }
+        }
+
+        async function testPricing(venue = 'manor', venueArea = 'upstairs', guests = 20, duration = 4) {
+            showLoading('pricing-result');
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const params = {
+                    venue,
+                    venue_area: venueArea,
+                    date: today,
+                    guests,
+                    duration
+                };
+                const result = await makeApiCall('pricing-api', params);
+                showResult('pricing-result', result);
+            } catch (error) {
+                showResult('pricing-result', { error: error.message }, true);
+            }
+        }
+
+        async function runAllTests() {
+            showLoading('all-tests-result');
+            const results = [];
+
+            try {
+                // Test 1: Venue Config
+                console.log('Testing venue config...');
+                const venueConfig = await makeApiCall('venue-config-api');
+                results.push({ test: 'Venue Config', result: venueConfig });
+
+                // Test 2: Karaoke Booths
+                console.log('Testing karaoke booths...');
+                const karaokeBooths = await makeApiCall('karaoke-booths-api', { available: 'true' });
+                results.push({ test: 'Karaoke Booths', result: karaokeBooths });
+
+                // Test 3: Time Slots
+                console.log('Testing time slots...');
+                const today = new Date().toISOString().split('T')[0];
+                const timeSlots = await makeApiCall('timeslots-api', { date: today, venue: 'manor' });
+                results.push({ test: 'Time Slots', result: timeSlots });
+
+                // Test 4: Pricing
+                console.log('Testing pricing...');
+                const pricing = await makeApiCall('pricing-api', {
+                    venue: 'manor',
+                    venue_area: 'upstairs',
+                    date: today,
+                    guests: 20,
+                    duration: 4
+                });
+                results.push({ test: 'Pricing', result: pricing });
+
+                showResult('all-tests-result', {
+                    summary: 'All tests completed',
+                    total_tests: results.length,
+                    results: results
+                });
+
+            } catch (error) {
+                showResult('all-tests-result', { error: error.message }, true);
+            }
+        }
+    </script>
+</body>
+</html> 
