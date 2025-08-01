@@ -1,62 +1,81 @@
-# GM Booking Widget - Deployment
+# GM Booking Widget
 
-This directory contains the files needed to deploy the GM Booking Widget to Netlify.
+A standalone embeddable booking widget for external marketing websites.
+
+## Overview
+
+The GM Booking Widget allows external websites to embed a booking form that creates bookings directly in the GM dashboard system. The widget supports both venue hire and VIP ticket bookings.
 
 ## Files
 
-- `index.html` - Landing page for the widget hosting site
-- `widget.css` - Widget styles and theming
-- `gm-booking-widget-standalone.js` - Standalone widget functionality
-- `widget-loader.js` - Auto-initialization script
+- `gm-booking-widget-standalone-fixed.js` - Main widget JavaScript file
+- `widget.css` - Widget styles
+- `widget-loader.js` - Widget loader script for embedding
+- `index.html` - Demo page for testing the widget
+- `test.html` - Additional test page
 
-## Deployment Instructions
+## Deployment
 
-### 1. Deploy to Netlify
+The widget is hosted on Netlify at: `https://booking-widget.getproductbox.com`
 
-1. Go to [Netlify](https://netlify.com)
-2. Click "New site from Git" or "Deploy manually"
-3. Upload the contents of this directory
-4. Set the site name to: `booking-widget`
-5. Deploy
+### Updating the Widget
 
-### 2. Configure Custom Domain
+1. Make changes to the widget files in this directory
+2. Replace the corresponding files on Netlify
+3. The widget will be immediately available at the hosted URL
 
-1. In Netlify dashboard, go to Site settings > Domain management
-2. Click "Add custom domain"
-3. Enter: `booking-widget.getproductbox.com`
-4. Follow the DNS configuration instructions
+## API Integration
 
-### 3. DNS Configuration
+The widget connects to the GM booking API at:
+`https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/public-booking-api`
 
-Add this CNAME record to your DNS provider:
-```
-Type: CNAME
-Name: booking-widget
-Value: your-netlify-site.netlify.app
-```
+### Authentication
+- **Method**: Bearer Token
+- **Token**: Service role key from Supabase
 
-## Integration URLs
+### Supported Booking Types
 
-Once deployed, the widget will be available at:
+**VIP Tickets:**
+- Date must be a Saturday
+- Ticket quantity: 1-100
+- Venue-specific (Manor/Hippie)
 
-- **CSS**: `https://booking-widget.getproductbox.com/widget.css`
-- **JavaScript**: `https://booking-widget.getproductbox.com/gm-booking-widget-standalone.js`
+**Venue Hire:**
+- Any future date
+- Venue area selection (upstairs/downstairs/full_venue)
+- Guest count required
+- Optional start/end times
 
-## Usage Example
+## Widget Integration
 
 ```html
-<!-- Include the widget files -->
-<link rel="stylesheet" href="https://booking-widget.getproductbox.com/widget.css">
-<script src="https://booking-widget.getproductbox.com/gm-booking-widget-standalone.js"></script>
-
-<!-- Add the widget -->
-<div data-gm-widget="booking" data-venue="manor"></div>
+<script src="https://booking-widget.getproductbox.com/widget-loader.js"></script>
+<script>
+  window.GMBookingWidget.init({
+    preConfig: {
+      venue: 'manor',
+      bookingType: 'vip_tickets'
+    }
+  });
+</script>
 ```
 
-## Configuration Options
+## Pre-configuration Options
 
-- `data-venue`: "manor", "hippie", or "both"
-- `data-venue-area`: "upstairs", "downstairs", or "full_venue"
-- `data-theme`: "light" or "dark"
-- `data-primary-color`: Any CSS color
-- `data-show-special-requests`: "true" or "false" 
+- `venue`: 'manor' | 'hippie'
+- `bookingType`: 'venue_hire' | 'vip_tickets'
+
+## Development
+
+To test the widget locally:
+1. Open `index.html` in a browser
+2. The widget will load and be functional for testing
+
+## Testing
+
+Use the test pages to verify:
+- Form validation
+- API integration
+- Pre-configuration
+- Error handling
+- Success flows 

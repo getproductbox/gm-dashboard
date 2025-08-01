@@ -1,386 +1,359 @@
-# GM Booking Widget API Documentation
-
-## Overview
-
-This document provides comprehensive documentation for the GM Booking Widget APIs. These APIs provide dynamic data to the widget, enabling real-time venue information, availability checking, and pricing calculations.
+# API Documentation for GM Dashboard Booking System
 
 ## Base URL
-
-All APIs are hosted on Supabase Edge Functions:
-```
-https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/
-```
+All API endpoints are available at: `https://your-project.supabase.co/functions/v1/`
 
 ## Authentication
+All endpoints require the `x-api-key` header with your Supabase service role key.
 
-All APIs require an API key in the `x-api-key` header:
-```
-x-api-key: demo-api-key-2024
-```
-
-## API Endpoints
+## Available Endpoints
 
 ### 1. Venue Configuration API
+**Endpoint:** `venue-config-api`
 
-**Endpoint:** `GET /venue-config-api`
-
-**Description:** Returns venue and area configurations with capacities, descriptions, and pricing information.
+**Description:** Returns venue and area configurations including capacities, descriptions, and operating hours.
 
 **Query Parameters:**
-- `venue` (optional): Filter by specific venue (`manor` or `hippie`)
+- `venue` (optional): Filter by specific venue (e.g., 'manor', 'hippie')
 
 **Example Request:**
-```javascript
-const response = await fetch('https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/venue-config-api', {
-  headers: {
-    'x-api-key': 'demo-api-key-2024'
-  }
-});
+```bash
+curl -X GET "https://your-project.supabase.co/functions/v1/venue-config-api?venue=manor" \
+  -H "x-api-key: your-service-role-key"
 ```
 
 **Example Response:**
 ```json
 {
-  "success": true,
-  "venues": [
-    {
-      "id": "manor",
-      "name": "Manor",
-      "description": "Our flagship venue with multiple spaces for events",
-      "operating_hours": {
-        "start": "09:00",
-        "end": "23:00"
+  "venue": {
+    "id": "manor",
+    "name": "The Manor",
+    "description": "Premium venue with multiple areas available for hire",
+    "operating_hours": {
+      "open": "10:00",
+      "close": "02:00"
+    },
+    "areas": [
+      {
+        "id": "upstairs",
+        "name": "Upstairs",
+        "capacity": 50,
+        "description": "Exclusive upstairs area with premium amenities",
+        "base_price": 500,
+        "hourly_rate": 100
       },
-      "areas": [
-        {
-          "id": "upstairs",
-          "name": "Upstairs",
-          "capacity": 50,
-          "description": "Elegant upstairs space perfect for intimate gatherings",
-          "base_price": 500.00,
-          "hourly_rate": 100.00
-        },
-        {
-          "id": "downstairs",
-          "name": "Downstairs",
-          "capacity": 30,
-          "description": "Cozy downstairs area with bar access",
-          "base_price": 300.00,
-          "hourly_rate": 75.00
-        },
-        {
-          "id": "full_venue",
-          "name": "Full Venue",
-          "capacity": 80,
-          "description": "Complete venue access including all areas",
-          "base_price": 800.00,
-          "hourly_rate": 150.00
-        }
-      ]
-    }
-  ]
+      {
+        "id": "downstairs",
+        "name": "Downstairs",
+        "capacity": 80,
+        "description": "Main downstairs area with full facilities",
+        "base_price": 800,
+        "hourly_rate": 150
+      },
+      {
+        "id": "full_venue",
+        "name": "Full Venue",
+        "capacity": 130,
+        "description": "Complete venue hire including all areas",
+        "base_price": 1200,
+        "hourly_rate": 200
+      }
+    ]
+  }
 }
 ```
 
 ### 2. Karaoke Booths API
+**Endpoint:** `karaoke-booths-api`
 
-**Endpoint:** `GET /karaoke-booths-api`
-
-**Description:** Returns available karaoke booths with pricing and availability information.
+**Description:** Returns karaoke booth information from the database.
 
 **Query Parameters:**
-- `venue` (optional): Filter by venue (`manor` or `hippie`)
-- `available` (optional): Filter by availability (`true` or `false`)
+- `venue` (optional): Filter by venue
+- `available` (optional): Filter by availability (true/false)
 
 **Example Request:**
-```javascript
-const response = await fetch('https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/karaoke-booths-api?venue=manor&available=true', {
-  headers: {
-    'x-api-key': 'demo-api-key-2024'
-  }
-});
+```bash
+curl -X GET "https://your-project.supabase.co/functions/v1/karaoke-booths-api?venue=manor&available=true" \
+  -H "x-api-key: your-service-role-key"
 ```
 
 **Example Response:**
 ```json
 {
-  "success": true,
   "booths": [
     {
-      "id": "uuid",
-      "name": "Karaoke Room A",
+      "id": 1,
+      "name": "Booth A",
       "venue": "manor",
-      "capacity": 8,
-      "hourly_rate": 25.00,
-      "is_available": true,
-      "maintenance_notes": null,
-      "operating_hours_start": "10:00",
-      "operating_hours_end": "23:00"
+      "capacity": 6,
+      "available": true,
+      "hourly_rate": 50
     }
   ]
 }
 ```
 
 ### 3. Time Slots API
+**Endpoint:** `timeslots-api`
 
-**Endpoint:** `GET /timeslots-api`
+**Description:** Returns available time slots for a given date and venue/area, considering existing bookings.
 
-**Description:** Returns available time slots for a specific date, considering existing bookings.
+**Required Query Parameters:**
+- `date`: Date in YYYY-MM-DD format
 
-**Query Parameters:**
-- `date` (required): Date in YYYY-MM-DD format
-- `venue` (optional): Filter by venue
-- `venue_area` (optional): Filter by venue area
+**Optional Query Parameters:**
+- `venue`: Venue name (defaults to 'manor')
+- `venue_area`: Specific area within venue
 
 **Example Request:**
-```javascript
-const response = await fetch('https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/timeslots-api?date=2024-01-15&venue=manor&venue_area=upstairs', {
-  headers: {
-    'x-api-key': 'demo-api-key-2024'
-  }
-});
+```bash
+curl -X GET "https://your-project.supabase.co/functions/v1/timeslots-api?date=2024-01-15&venue=manor&venue_area=upstairs" \
+  -H "x-api-key: your-service-role-key"
 ```
 
 **Example Response:**
 ```json
 {
-  "success": true,
   "date": "2024-01-15",
   "venue": "manor",
   "venue_area": "upstairs",
-  "operating_hours": {
-    "start": "09:00",
-    "end": "23:00"
-  },
-  "available_slots": [
+  "time_slots": [
     {
-      "start": "09:00",
-      "end": "09:30",
+      "time": "10:00",
       "available": true
     },
     {
-      "start": "09:30",
-      "end": "10:00",
-      "available": false,
-      "conflicting_booking_id": "booking-uuid"
+      "time": "10:30",
+      "available": false
+    },
+    {
+      "time": "11:00",
+      "available": true
     }
   ]
 }
 ```
 
 ### 4. Pricing API
+**Endpoint:** `pricing-api`
 
-**Endpoint:** `GET /pricing-api`
+**Description:** Calculates pricing for venue bookings based on parameters.
 
-**Description:** Calculates pricing for venue bookings based on venue, area, date, and guest count.
-
-**Query Parameters:**
-- `venue` (required): Venue ID (`manor` or `hippie`)
-- `venue_area` (required): Venue area (`upstairs`, `downstairs`, or `full_venue`)
-- `date` (required): Date in YYYY-MM-DD format
-- `guests` (required): Number of guests
-- `duration` (optional): Duration in hours (default: 4)
+**Required Query Parameters:**
+- `venue`: Venue name
+- `venue_area`: Area within venue
+- `date`: Date in YYYY-MM-DD format
+- `guests`: Number of guests
+- `duration`: Duration in hours
 
 **Example Request:**
-```javascript
-const response = await fetch('https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/pricing-api?venue=manor&venue_area=upstairs&date=2024-01-15&guests=20&duration=4', {
-  headers: {
-    'x-api-key': 'demo-api-key-2024'
-  }
-});
+```bash
+curl -X GET "https://your-project.supabase.co/functions/v1/pricing-api?venue=manor&venue_area=upstairs&date=2024-01-15&guests=25&duration=3" \
+  -H "x-api-key: your-service-role-key"
 ```
 
 **Example Response:**
 ```json
 {
-  "success": true,
   "venue": "manor",
   "venue_area": "upstairs",
   "date": "2024-01-15",
-  "guest_count": 20,
-  "duration_hours": 4,
-  "base_price": 500.00,
-  "per_guest_surcharge": 25.00,
-  "total_price": 975.00,
-  "currency": "GBP",
-  "includes": [
-    "Basic setup",
-    "Staff support",
-    "Sound system"
-  ],
-  "addons": [
-    {
-      "id": "catering",
-      "name": "Catering Service",
-      "price": 200.00,
-      "description": "Professional catering for your event"
-    },
-    {
-      "id": "dj",
-      "name": "DJ Service",
-      "price": 150.00,
-      "description": "Professional DJ for entertainment"
-    }
+  "guests": 25,
+  "duration": 3,
+  "base_price": 500,
+  "per_guest_surcharge": 150,
+  "total_price": 950,
+  "available_addons": [
+    "Sound System",
+    "Lighting Package",
+    "Bar Service",
+    "Security Staff",
+    "Cleaning Service"
   ]
 }
 ```
 
 ## Widget Integration Guide
 
-### Step 1: Load Venue Configuration
+### For the Widget Team: Updated Integration Instructions
+
+The widget currently uses hardcoded data. To make it dynamic, you need to update the widget to fetch data from these APIs. Here's how to integrate:
+
+#### 1. Update Widget to Use Dynamic Venue Data
+
+Replace hardcoded venue data with API calls:
 
 ```javascript
-// Load venue configuration on widget initialization
-async function loadVenueConfig() {
+// Instead of hardcoded venues, fetch from API
+async function loadVenues() {
   try {
-    const response = await fetch('https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/venue-config-api', {
+    const response = await fetch('https://your-project.supabase.co/functions/v1/venue-config-api', {
       headers: {
-        'x-api-key': 'demo-api-key-2024'
+        'x-api-key': 'your-service-role-key'
       }
     });
-    
     const data = await response.json();
-    if (data.success) {
-      // Populate venue dropdowns
-      populateVenueDropdowns(data.venues);
-    }
+    return data.venues;
   } catch (error) {
-    console.error('Failed to load venue config:', error);
+    console.error('Error loading venues:', error);
+    return []; // Fallback to empty array
   }
 }
 ```
 
-### Step 2: Load Time Slots
+#### 2. Update Time Slot Loading
+
+Replace hardcoded time slots with dynamic API calls:
 
 ```javascript
-// Load available time slots for selected date
+// Instead of hardcoded time slots, fetch from API
 async function loadTimeSlots(date, venue, venueArea) {
   try {
-    const url = `https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/timeslots-api?date=${date}&venue=${venue}&venue_area=${venueArea}`;
-    const response = await fetch(url, {
-      headers: {
-        'x-api-key': 'demo-api-key-2024'
-      }
+    const params = new URLSearchParams({
+      date: date,
+      venue: venue,
+      venue_area: venueArea
     });
     
+    const response = await fetch(`https://your-project.supabase.co/functions/v1/timeslots-api?${params}`, {
+      headers: {
+        'x-api-key': 'your-service-role-key'
+      }
+    });
     const data = await response.json();
-    if (data.success) {
-      // Populate time slot dropdowns
-      populateTimeSlots(data.available_slots);
-    }
+    return data.time_slots.filter(slot => slot.available);
   } catch (error) {
-    console.error('Failed to load time slots:', error);
+    console.error('Error loading time slots:', error);
+    return []; // Fallback to empty array
   }
 }
 ```
 
-### Step 3: Calculate Pricing
+#### 3. Update Pricing Calculation
+
+Replace hardcoded pricing with dynamic API calls:
 
 ```javascript
-// Calculate pricing for selected options
-async function calculatePricing(venue, venueArea, date, guests, duration = 4) {
+// Instead of hardcoded pricing, fetch from API
+async function calculatePricing(venue, venueArea, date, guests, duration) {
   try {
-    const url = `https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/pricing-api?venue=${venue}&venue_area=${venueArea}&date=${date}&guests=${guests}&duration=${duration}`;
-    const response = await fetch(url, {
-      headers: {
-        'x-api-key': 'demo-api-key-2024'
-      }
+    const params = new URLSearchParams({
+      venue: venue,
+      venue_area: venueArea,
+      date: date,
+      guests: guests.toString(),
+      duration: duration.toString()
     });
     
+    const response = await fetch(`https://your-project.supabase.co/functions/v1/pricing-api?${params}`, {
+      headers: {
+        'x-api-key': 'your-service-role-key'
+      }
+    });
     const data = await response.json();
-    if (data.success) {
-      // Display pricing information
-      displayPricing(data);
-    }
+    return data;
   } catch (error) {
-    console.error('Failed to calculate pricing:', error);
+    console.error('Error calculating pricing:', error);
+    return null; // Fallback to null
   }
 }
 ```
 
-### Step 4: Load Karaoke Booths
+#### 4. Update Karaoke Booth Loading
+
+Replace hardcoded karaoke data with dynamic API calls:
 
 ```javascript
-// Load karaoke booths for selected venue
+// Instead of hardcoded karaoke booths, fetch from API
 async function loadKaraokeBooths(venue) {
   try {
-    const url = `https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/karaoke-booths-api?venue=${venue}&available=true`;
-    const response = await fetch(url, {
-      headers: {
-        'x-api-key': 'demo-api-key-2024'
-      }
+    const params = new URLSearchParams({
+      venue: venue,
+      available: 'true'
     });
     
+    const response = await fetch(`https://your-project.supabase.co/functions/v1/karaoke-booths-api?${params}`, {
+      headers: {
+        'x-api-key': 'your-service-role-key'
+      }
+    });
     const data = await response.json();
-    if (data.success) {
-      // Populate karaoke booth dropdowns
-      populateKaraokeBooths(data.booths);
-    }
+    return data.booths;
   } catch (error) {
-    console.error('Failed to load karaoke booths:', error);
+    console.error('Error loading karaoke booths:', error);
+    return []; // Fallback to empty array
   }
 }
 ```
+
+#### 5. Widget Implementation Checklist
+
+- [ ] Replace hardcoded venue data with `venue-config-api` calls
+- [ ] Replace hardcoded time slots with `timeslots-api` calls
+- [ ] Replace hardcoded pricing with `pricing-api` calls
+- [ ] Replace hardcoded karaoke data with `karaoke-booths-api` calls
+- [ ] Add error handling for API failures
+- [ ] Add loading states while fetching data
+- [ ] Add fallback to hardcoded data if APIs fail
+- [ ] Test all API integrations
+- [ ] Update widget documentation
+
+#### 6. Error Handling Best Practices
+
+```javascript
+// Example error handling pattern
+async function safeApiCall(apiFunction, fallbackData) {
+  try {
+    const result = await apiFunction();
+    return result;
+  } catch (error) {
+    console.error('API call failed:', error);
+    return fallbackData; // Return fallback data
+  }
+}
+
+// Usage example
+const venues = await safeApiCall(loadVenues, defaultVenues);
+```
+
+#### 7. Rate Limiting Considerations
+
+- Implement caching for venue configurations (they don't change often)
+- Cache time slots for a few minutes to avoid excessive API calls
+- Implement exponential backoff for failed API calls
+- Consider implementing a simple in-memory cache
+
+#### 8. Testing the APIs
+
+Use the provided `test-apis.html` file to test all API endpoints before integrating with the widget.
 
 ## Error Handling
 
-All APIs return consistent error responses:
-
-```json
-{
-  "success": false,
-  "message": "Error description"
-}
-```
-
-Common HTTP status codes:
+All endpoints return appropriate HTTP status codes:
 - `200`: Success
-- `400`: Bad Request (missing/invalid parameters)
+- `400`: Bad request (missing parameters)
 - `401`: Unauthorized (invalid API key)
-- `405`: Method Not Allowed
-- `500`: Internal Server Error
+- `404`: Not found (venue not found, etc.)
+- `500`: Internal server error
 
 ## Rate Limiting
 
-APIs include basic rate limiting:
-- Maximum 10 requests per minute per IP
-- Returns 429 status code when limit exceeded
+- Implement reasonable rate limiting on your end
+- Consider caching responses for static data
+- Handle API failures gracefully in your widget
 
 ## CORS Support
 
-All APIs support CORS for cross-origin requests from widget domains.
-
-## Testing
-
-You can test the APIs using curl:
-
-```bash
-# Test venue config API
-curl -H "x-api-key: demo-api-key-2024" \
-  "https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/venue-config-api"
-
-# Test pricing API
-curl -H "x-api-key: demo-api-key-2024" \
-  "https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/pricing-api?venue=manor&venue_area=upstairs&date=2024-01-15&guests=20"
-```
+All endpoints support CORS and can be called from web browsers.
 
 ## Widget Implementation Checklist
 
-- [ ] Load venue configuration on widget initialization
-- [ ] Populate venue and area dropdowns dynamically
-- [ ] Load time slots when date/venue/area changes
-- [ ] Calculate and display pricing when options change
-- [ ] Load karaoke booths for karaoke bookings
-- [ ] Handle API errors gracefully
-- [ ] Show loading states during API calls
-- [ ] Validate guest counts against venue capacities
-- [ ] Display operating hours and availability
-- [ ] Show pricing breakdown and add-ons
-
-## Next Steps
-
-1. Deploy the new API endpoints to Supabase
-2. Update the widget to use dynamic data instead of hardcoded values
-3. Test all API integrations
-4. Add real-time availability checking
-5. Implement pricing display in the widget 
+- [ ] Set up API key authentication
+- [ ] Implement error handling for API failures
+- [ ] Add loading states while fetching data
+- [ ] Test all API endpoints
+- [ ] Implement fallback mechanisms
+- [ ] Add proper error messages for users
+- [ ] Test widget on different marketing sites
+- [ ] Monitor API usage and performance 

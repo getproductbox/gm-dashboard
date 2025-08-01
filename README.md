@@ -15,6 +15,7 @@ GM Admin is an **admin-only application** designed exclusively for venue staff a
 - **Analytics & Reporting**: Revenue tracking, performance metrics, and trend analysis
 - **Multi-Venue Support**: Scalable architecture for managing multiple venues
 - **Mobile Optimization**: Touch-friendly tools for venue floor management
+- **External Booking Widget**: Embeddable booking form for marketing websites
 
 ### Target Users
 
@@ -59,6 +60,8 @@ This project is built with modern web technologies:
 - **State Management**: TanStack React Query
 - **Icons**: Lucide React
 - **Charts**: Recharts for analytics visualization
+- **Backend**: Supabase for database and Edge Functions
+- **Widget**: Standalone embeddable booking form
 
 ## Development Setup
 
@@ -98,8 +101,13 @@ src/
 └── integrations/       # External service integrations (Supabase)
 
 supabase/
-├── functions/          # Edge functions for Square sync
+├── functions/          # Edge functions for Square sync and booking API
 └── migrations/         # Database migrations
+
+widget-deploy/          # Standalone booking widget for external sites
+├── gm-booking-widget-standalone.js
+├── widget.css
+└── widget-loader.js
 
 docs/
 ├── product/            # Product documentation and PRDs
@@ -122,18 +130,43 @@ The system uses a simplified Square API integration:
 Square API → square-sync function → revenue_events table → Revenue Analytics Page
 ```
 
+## External Booking Widget
+
+The platform includes an embeddable booking widget for marketing websites:
+
+- **Widget URL**: `https://booking-widget.getproductbox.com`
+- **API Endpoint**: `https://plksvatjdylpuhjitbfc.supabase.co/functions/v1/public-booking-api`
+- **Supported Booking Types**: Venue hire and VIP tickets
+- **Pre-configuration**: Supports venue and booking type pre-selection
+
+### Widget Integration
+```html
+<script src="https://booking-widget.getproductbox.com/widget-loader.js"></script>
+<script>
+  window.GMBookingWidget.init({
+    preConfig: {
+      venue: 'manor',
+      bookingType: 'vip_tickets'
+    }
+  });
+</script>
+```
+
 ## Deployment
 
-### Lovable Platform
-Simply open [Lovable](https://lovable.dev/projects/d98ece8d-5a7b-4edf-ae49-b14db925e5c2) and click on Share → Publish.
+### Production Deployment
+The application is deployed using PowerShell scripts for automated deployment:
+
+```powershell
+# Deploy to production
+.\scripts\deploy.ps1
+```
+
+### Widget Deployment
+The booking widget is hosted on Netlify at `booking-widget.getproductbox.com` and can be updated by replacing files in the `widget-deploy/` directory.
 
 ### Custom Domain
-To connect a custom domain:
-1. Navigate to Project > Settings > Domains
-2. Click "Connect Domain"
-3. Follow the setup instructions
-
-Read more: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+The application is hosted at `gm-dashboard.getproductbox.com` with custom domain configuration.
 
 ## Success Metrics
 
@@ -147,11 +180,12 @@ Read more: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/cus
 - Complete audit trails for all booking and customer data changes
 - Secure handling of customer information and payment data
 - Staff authentication with session management
+- API key authentication for external booking widget
 
 ## Support & Documentation
 
 - **Product Requirements**: See `docs/product/prd/main-product-prd.md`
-- **API Documentation**: Coming in Stage 2
+- **API Documentation**: See `docs/technical/`
 - **User Guides**: Available in `docs/user-guides/`
 - **Technical Specs**: See `docs/technical/`
 
@@ -161,6 +195,5 @@ This is an internal GM project. For development questions or feature requests, p
 
 ---
 
-**Project URL**: https://lovable.dev/projects/d98ece8d-5a7b-4edf-ae49-b14db925e5c2
-
-<!-- Test deployment - added for shipping process verification -->
+**Production URL**: https://gm-dashboard.getproductbox.com
+**Widget URL**: https://booking-widget.getproductbox.com

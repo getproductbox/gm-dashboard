@@ -1,207 +1,153 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Types for the time slots API
-interface TimeSlot {
-  start: string;
-  end: string;
-  available: boolean;
-  conflicting_booking_id?: string;
+// Define CORS headers inline
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
 }
-
-interface TimeSlotsResponse {
-  success: boolean;
-  date: string;
-  venue?: string;
-  venue_area?: string;
-  operating_hours: {
-    start: string;
-    end: string;
-  };
-  available_slots: TimeSlot[];
-  message?: string;
-}
-
-// Generate time slots from start to end time
-function generateTimeSlots(startTime: string, endTime: string, intervalMinutes: number = 30): string[] {
-  const slots: string[] = [];
-  const start = new Date(`2000-01-01T${startTime}`);
-  const end = new Date(`2000-01-01T${endTime}`);
-  
-  let current = new Date(start);
-  while (current < end) {
-    slots.push(current.toTimeString().slice(0, 5));
-    current.setMinutes(current.getMinutes() + intervalMinutes);
-  }
-  
-  return slots;
-}
-
-// Check if two time ranges overlap
-function isTimeOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
-  const s1 = new Date(`2000-01-01T${start1}`);
-  const e1 = new Date(`2000-01-01T${end1}`);
-  const s2 = new Date(`2000-01-01T${start2}`);
-  const e2 = new Date(`2000-01-01T${end2}`);
-  
-  return s1 < e2 && s2 < e1;
-}
-
-// API key validation
-const validateApiKey = (request: Request): boolean => {
-  const apiKey = request.headers.get('x-api-key');
-  const validApiKey = Deno.env.get('PUBLIC_BOOKING_API_KEY') || 'demo-api-key-2024';
-  return apiKey === validApiKey;
-};
 
 serve(async (req) => {
-  // Handle CORS
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
-      },
-    });
+    return new Response('ok', { headers: corsHeaders })
   }
 
-  // Add CORS headers to all responses
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
-  };
-
   try {
-    // Only allow GET requests
-    if (req.method !== 'GET') {
+    // Get environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const API_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    // Debug: Log environment variables (remove in production)
+    console.log('SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing')
+    console.log('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'Set' : 'Missing')
+
+    // Check if environment variables are available
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing environment variables')
       return new Response(
-        JSON.stringify({ success: false, message: 'Method not allowed' }),
-        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        JSON.stringify({ error: 'Server configuration error' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
+
+    // Initialize Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Validate API key
-    if (!validateApiKey(req)) {
+    const apiKey = req.headers.get('x-api-key')
+    if (!apiKey || apiKey !== API_KEY) {
       return new Response(
-        JSON.stringify({ success: false, message: 'Invalid API key' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        JSON.stringify({ error: 'Invalid API key' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
-    // Get query parameters
-    const url = new URL(req.url);
-    const date = url.searchParams.get('date');
-    const venue = url.searchParams.get('venue');
-    const venueArea = url.searchParams.get('venue_area');
+    const url = new URL(req.url)
+    const date = url.searchParams.get('date')
+    const venue = url.searchParams.get('venue')
+    const venueArea = url.searchParams.get('venue_area')
+
+    console.log('Request parameters:', { date, venue, venueArea })
 
     if (!date) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Date parameter is required' 
-        } as TimeSlotsResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        JSON.stringify({ error: 'Date parameter is required' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
-    // Validate date format
-    const bookingDate = new Date(date);
-    if (isNaN(bookingDate.getTime())) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid date format. Use YYYY-MM-DD' 
-        } as TimeSlotsResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Get existing bookings for the date
+    console.log('Querying bookings for date:', date, 'venue:', venue || 'manor')
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get existing bookings for the date and venue
-    let query = supabase
+    const { data: existingBookings, error } = await supabase
       .from('bookings')
-      .select('id, venue, venue_area, start_time, end_time, status')
-      .eq('booking_date', date)
-      .neq('status', 'cancelled');
-
-    if (venue) {
-      query = query.eq('venue', venue);
-    }
-
-    if (venueArea) {
-      query = query.eq('venue_area', venueArea);
-    }
-
-    const { data: existingBookings, error } = await query;
+      .select('start_time, end_time, venue, venue_area, booking_type, karaoke_booth_id')
+      .eq('booking_date', date) // Use booking_date instead of date
+      .eq('venue', venue || 'manor')
+      .eq('status', 'confirmed') // Only check confirmed bookings
 
     if (error) {
-      console.error('Error fetching existing bookings:', error);
+      console.error('Database error:', error)
       return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Failed to fetch existing bookings'
-        } as TimeSlotsResponse),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        JSON.stringify({ error: 'Database error', details: error.message }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
-    // Determine operating hours based on venue
-    let operatingHours = { start: '09:00', end: '23:00' };
-    if (venue === 'hippie') {
-      operatingHours = { start: '10:00', end: '23:00' };
+    console.log('Found existing bookings:', existingBookings?.length || 0)
+
+    // Generate time slots (30-minute intervals)
+    const timeSlots = []
+    const startHour = 10 // 10:00 AM
+    const endHour = 26 // 2:00 AM next day (24 + 2)
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+        
+        // Check if this time slot conflicts with existing bookings
+        const isBooked = existingBookings?.some(booking => {
+          const bookingStart = booking.start_time
+          const bookingEnd = booking.end_time
+          const slotTime = time
+          
+          // Check if the venue area matches (if specified)
+          if (venueArea && booking.venue_area !== venueArea) {
+            return false
+          }
+          
+          // Only check venue hire bookings for venue area conflicts
+          if (booking.booking_type === 'venue_hire') {
+            return slotTime >= bookingStart && slotTime < bookingEnd
+          }
+          
+          // For karaoke bookings, we don't need to check venue area conflicts
+          // since karaoke booths are separate from venue areas
+          return false
+        }) || false
+
+        timeSlots.push({
+          time,
+          available: !isBooked
+        })
+      }
     }
 
-    // Generate all possible time slots
-    const allSlots = generateTimeSlots(operatingHours.start, operatingHours.end);
-    const timeSlots: TimeSlot[] = [];
-
-    // Check availability for each slot
-    for (let i = 0; i < allSlots.length - 1; i++) {
-      const start = allSlots[i];
-      const end = allSlots[i + 1];
-      
-      // Check if this slot conflicts with any existing booking
-      const conflictingBooking = existingBookings.find(booking => 
-        booking.start_time && booking.end_time &&
-        isTimeOverlap(start, end, booking.start_time, booking.end_time)
-      );
-
-      timeSlots.push({
-        start,
-        end,
-        available: !conflictingBooking,
-        conflicting_booking_id: conflictingBooking?.id
-      });
-    }
+    console.log('Generated time slots:', timeSlots.length)
 
     return new Response(
-      JSON.stringify({
-        success: true,
+      JSON.stringify({ 
         date,
-        venue,
+        venue: venue || 'manor',
         venue_area: venueArea,
-        operating_hours: operatingHours,
-        available_slots: timeSlots
-      } as TimeSlotsResponse),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+        time_slots: timeSlots,
+        existing_bookings_count: existingBookings?.length || 0
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('Error:', error)
     return new Response(
-      JSON.stringify({
-        success: false,
-        message: 'An unexpected error occurred. Please try again.'
-      } as TimeSlotsResponse),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
   }
-}); 
+}) 

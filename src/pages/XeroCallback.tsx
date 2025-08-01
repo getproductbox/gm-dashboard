@@ -24,7 +24,7 @@ export default function XeroCallback() {
   const [processing, setProcessing] = useState(true);
   const [result, setResult] = useState<CallbackResult | null>(null);
 
-  const redirectUri = 'https://preview--gm-dashboard.lovable.app/auth/xero/callback';
+  const redirectUri = 'https://gm-dashboard.getproductbox.com/auth/xero/callback';
 
   useEffect(() => {
     const processCallback = async () => {

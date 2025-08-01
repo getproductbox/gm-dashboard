@@ -6,12 +6,14 @@ interface CreateBookingRequest {
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
+  bookingType: 'venue_hire' | 'vip_tickets';
   venue: 'manor' | 'hippie';
-  venueArea: 'upstairs' | 'downstairs' | 'full_venue';
+  venueArea?: 'upstairs' | 'downstairs' | 'full_venue';
   bookingDate: string;
   startTime?: string;
   endTime?: string;
-  guestCount: number;
+  guestCount?: number;
+  ticketQuantity?: number;
   specialRequests?: string;
 }
 
@@ -21,6 +23,12 @@ interface CreateBookingResponse {
   message: string;
   errors?: Record<string, string>;
 }
+
+// Helper function to check if date is a Saturday
+const isSaturday = (dateString: string): boolean => {
+  const date = new Date(dateString);
+  return date.getDay() === 6; // 6 = Saturday
+};
 
 // Validation schema
 const validateBookingRequest = (data: Partial<CreateBookingRequest>): { isValid: boolean; errors: Record<string, string> } => {
@@ -35,8 +43,8 @@ const validateBookingRequest = (data: Partial<CreateBookingRequest>): { isValid:
     errors.venue = 'Valid venue (manor or hippie) is required';
   }
 
-  if (!data.venueArea || !['upstairs', 'downstairs', 'full_venue'].includes(data.venueArea)) {
-    errors.venueArea = 'Valid venue area is required';
+  if (!data.bookingType || !['venue_hire', 'vip_tickets'].includes(data.bookingType)) {
+    errors.bookingType = 'Valid booking type is required';
   }
 
   if (!data.bookingDate) {
@@ -49,10 +57,35 @@ const validateBookingRequest = (data: Partial<CreateBookingRequest>): { isValid:
     if (bookingDate < today) {
       errors.bookingDate = 'Booking date cannot be in the past';
     }
+
+    // For VIP tickets, validate that the date is a Saturday
+    if (data.bookingType === 'vip_tickets' && !isSaturday(data.bookingDate)) {
+      errors.bookingDate = 'VIP tickets are only available on Saturdays';
+    }
   }
 
-  if (!data.guestCount || data.guestCount < 1) {
-    errors.guestCount = 'Guest count must be at least 1';
+  // Venue area validation for venue hire
+  if (data.bookingType === 'venue_hire') {
+    if (!data.venueArea || !['upstairs', 'downstairs', 'full_venue'].includes(data.venueArea)) {
+      errors.venueArea = 'Valid venue area is required for venue hire bookings';
+    }
+  }
+
+  // Guest count validation for venue hire
+  if (data.bookingType === 'venue_hire') {
+    if (!data.guestCount || data.guestCount < 1) {
+      errors.guestCount = 'Guest count must be at least 1 for venue hire bookings';
+    }
+  }
+
+  // Ticket quantity validation for VIP tickets
+  if (data.bookingType === 'vip_tickets') {
+    if (!data.ticketQuantity || data.ticketQuantity < 1) {
+      errors.ticketQuantity = 'Ticket quantity must be at least 1 for VIP ticket bookings';
+    }
+    if (data.ticketQuantity && data.ticketQuantity > 100) {
+      errors.ticketQuantity = 'Ticket quantity cannot exceed 100';
+    }
   }
 
   // At least one contact method required
@@ -99,14 +132,6 @@ const checkRateLimit = (ip: string): boolean => {
   return true;
 };
 
-// API key validation
-const validateApiKey = (request: Request): boolean => {
-  const apiKey = request.headers.get('x-api-key');
-  // For now, we'll use a simple key. In production, this should be stored securely
-  const validApiKey = Deno.env.get('PUBLIC_BOOKING_API_KEY') || 'demo-api-key-2024';
-  return apiKey === validApiKey;
-};
-
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -115,7 +140,7 @@ serve(async (req) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },
     });
   }
@@ -124,7 +149,7 @@ serve(async (req) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 
   try {
@@ -144,14 +169,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, message: 'Rate limit exceeded. Please try again later.' }),
         { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate API key
-    if (!validateApiKey(req)) {
-      return new Response(
-        JSON.stringify({ success: false, message: 'Invalid API key' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -177,24 +194,31 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Prepare booking data
-    const bookingData = {
+    // Prepare booking data based on booking type
+    const bookingData: any = {
       customer_name: requestData.customerName.trim(),
       customer_email: requestData.customerEmail?.trim() || null,
       customer_phone: requestData.customerPhone?.trim() || null,
-      booking_type: 'venue_hire',
+      booking_type: requestData.bookingType,
       venue: requestData.venue,
-      venue_area: requestData.venueArea,
       booking_date: requestData.bookingDate,
-      start_time: requestData.startTime || null,
-      end_time: requestData.endTime || null,
-      guest_count: requestData.guestCount,
       special_requests: requestData.specialRequests?.trim() || null,
       status: 'pending', // Default status for external bookings
-      total_amount: null, // Will be calculated later if needed
       payment_status: 'unpaid',
       created_by: null, // External booking, no user
     };
+
+    // Add booking type specific fields
+    if (requestData.bookingType === 'venue_hire') {
+      bookingData.venue_area = requestData.venueArea;
+      bookingData.start_time = requestData.startTime || null;
+      bookingData.end_time = requestData.endTime || null;
+      bookingData.guest_count = requestData.guestCount;
+      bookingData.total_amount = null; // Will be calculated later if needed
+    } else if (requestData.bookingType === 'vip_tickets') {
+      bookingData.ticket_quantity = requestData.ticketQuantity;
+      bookingData.total_amount = null; // Pricing handled by marketing site
+    }
 
     // Insert booking into database
     const { data: booking, error } = await supabase
