@@ -53,13 +53,19 @@ export const useRevenueDashboard = () => {
     doorVariance: 0 
   });
 
-  const fetchPeriodMetrics = useCallback(async (startDate: Date, endDate: Date): Promise<PeriodMetrics> => {
-    const { data, error } = await supabase
+  const fetchPeriodMetrics = useCallback(async (startDate: Date, endDate: Date, venueFilter?: string | null): Promise<PeriodMetrics> => {
+    let query = supabase
       .from('revenue_events')
       .select('*')
       .eq('status', 'completed')
       .gte('payment_date', startDate.toISOString())
       .lte('payment_date', endDate.toISOString());
+    
+    if (venueFilter && venueFilter !== 'all') {
+      query = query.eq('venue', venueFilter);
+    }
+    
+    const { data, error } = await query;
 
     if (error) {
       console.error('Supabase query error:', error);
@@ -140,7 +146,7 @@ export const useRevenueDashboard = () => {
     };
   }, []);
 
-  const fetchAllMetrics = useCallback(async (startDate: Date, endDate: Date) => {
+  const fetchAllMetrics = useCallback(async (startDate: Date, endDate: Date, venueFilter?: string | null) => {
     if (!startDate || !endDate) {
       toast.error('Please select both start and end dates');
       return;
@@ -156,10 +162,10 @@ export const useRevenueDashboard = () => {
       const ranges = getComparisonRanges(startDate, endDate);
 
       const [currentMetrics, lastWeekMetrics, lastMonthMetrics, lastYearMetrics] = await Promise.all([
-        fetchPeriodMetrics(ranges.current.start, ranges.current.end),
-        fetchPeriodMetrics(ranges.lastWeek.start, ranges.lastWeek.end),
-        fetchPeriodMetrics(ranges.lastMonth.start, ranges.lastMonth.end),
-        fetchPeriodMetrics(ranges.lastYear.start, ranges.lastYear.end)
+        fetchPeriodMetrics(ranges.current.start, ranges.current.end, venueFilter),
+        fetchPeriodMetrics(ranges.lastWeek.start, ranges.lastWeek.end, venueFilter),
+        fetchPeriodMetrics(ranges.lastMonth.start, ranges.lastMonth.end, venueFilter),
+        fetchPeriodMetrics(ranges.lastYear.start, ranges.lastYear.end, venueFilter)
       ]);
 
       setCurrentPeriod(currentMetrics);

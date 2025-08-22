@@ -257,6 +257,97 @@ export const useKaraokeBoothsWithAvailability = (date: string, venue?: 'manor' |
   };
 };
 
+// ===== HOLDS AND AVAILABILITY (EDGE FUNCTIONS) =====
+
+export const useKaraokeAvailability = (params: { boothId?: string; venue?: 'manor' | 'hippie'; minCapacity?: number; bookingDate?: string; granularityMinutes?: number; action?: 'boothsForSlot'; startTime?: string; endTime?: string }) => {
+  return useQuery({
+    queryKey: ['karaoke-availability', params],
+    queryFn: () => karaokeService.getAvailability({
+      boothId: params.boothId,
+      venue: params.venue,
+      minCapacity: params.minCapacity,
+      bookingDate: params.bookingDate!,
+      granularityMinutes: params.granularityMinutes,
+      action: params.action,
+      startTime: params.startTime,
+      endTime: params.endTime,
+    }),
+    enabled: (!!params.bookingDate && (!!params.boothId || !!params.venue)) || params.action === 'boothsForSlot',
+    staleTime: 30_000,
+  });
+};
+
+export const useCreateKaraokeHold = () => {
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (payload: { boothId: string; venue: 'manor' | 'hippie'; bookingDate: string; startTime: string; endTime: string; sessionId: string; customerEmail?: string; ttlMinutes?: number }) => 
+      karaokeService.createHold(payload),
+    onError: (error: Error) => {
+      toast({ title: 'Failed to create hold', description: error.message, variant: 'destructive' });
+    },
+  });
+};
+
+export const useExtendKaraokeHold = () => {
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (payload: { holdId: string; sessionId: string; ttlMinutes?: number }) => karaokeService.extendHold(payload),
+    onError: (error: Error) => {
+      toast({ title: 'Failed to extend hold', description: error.message, variant: 'destructive' });
+    },
+  });
+};
+
+export const useReleaseKaraokeHold = () => {
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (payload: { holdId: string; sessionId: string }) => karaokeService.releaseHold(payload),
+    onError: (error: Error) => {
+      toast({ title: 'Failed to release hold', description: error.message, variant: 'destructive' });
+    },
+  });
+};
+
+export const useFinalizeKaraokeHold = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (payload: { holdId: string; sessionId: string; customerName: string; customerEmail?: string; customerPhone?: string; guestCount?: number }) => 
+      karaokeService.finalizeHold(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast({ title: 'Booking confirmed', description: 'Your karaoke booking has been created.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to finalize booking', description: error.message, variant: 'destructive' });
+    },
+  });
+};
+
+export const useActiveKaraokeHolds = (params: { boothId?: string; bookingDate?: string }) => {
+  return useQuery({
+    queryKey: ['karaoke-holds', params.boothId, params.bookingDate],
+    queryFn: () => karaokeService.getActiveHolds({ boothId: params.boothId!, bookingDate: params.bookingDate! }),
+    enabled: !!params.boothId && !!params.bookingDate,
+    refetchInterval: 10_000,
+  });
+};
+
+export const useStaffReleaseKaraokeHold = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (holdId: string) => karaokeService.staffReleaseHold(holdId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['karaoke-holds'] });
+      toast({ title: 'Hold released', description: 'The hold has been released.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to release hold', description: error.message, variant: 'destructive' });
+    },
+  });
+};
+
 /**
  * Hook for booth management operations
  */

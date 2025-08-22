@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Clock, Users } from "lucide-react";
 import { useBookings } from "@/hooks/useBookings";
+import { useKaraokeAvailability } from "@/hooks/useKaraoke";
 import { KaraokeBoothRow } from "@/types/karaoke";
 
 interface BookingCalendarViewProps {
@@ -40,6 +41,12 @@ export const BookingCalendarView = ({
   );
   
   const { data: bookings } = useBookings();
+  const localDateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
+  const { data: availability } = useKaraokeAvailability({
+    boothId: selectedBooth?.id,
+    bookingDate: localDateStr,
+    granularityMinutes: 60,
+  });
 
   const handlePreviousDay = () => {
     const previousDay = new Date(currentDate);
@@ -66,7 +73,7 @@ export const BookingCalendarView = ({
     if (!selectedBooth) return [];
 
     const slots: TimeSlot[] = [];
-    const currentDateStr = currentDate.toISOString().split('T')[0];
+    const currentDateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
     
     // Get existing bookings for this booth on this date
     const existingBookings = (bookings || []).filter(booking => 
@@ -84,7 +91,7 @@ export const BookingCalendarView = ({
       const startTime = `${hour.toString().padStart(2, '0')}:00`;
       const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
       
-      // Check if this slot conflicts with existing bookings
+      // Check if this slot conflicts with existing bookings or active holds
       const conflictingBooking = existingBookings.find(booking => {
         const bookingStart = booking.start_time;
         const bookingEnd = booking.end_time;
@@ -93,12 +100,16 @@ export const BookingCalendarView = ({
         return (startTime < bookingEnd && endTime > bookingStart);
       });
 
+      // If availability API exists, prefer it for holds awareness
+      const availabilitySlot = (availability?.slots || []).find((s: any) => s.startTime === startTime && s.endTime === endTime);
+      const isAvailableByApi = availabilitySlot ? availabilitySlot.available : !conflictingBooking;
+
       const isSelected = selectedStartTime === startTime && selectedEndTime === endTime;
       
       slots.push({
         startTime,
         endTime,
-        isAvailable: !conflictingBooking,
+        isAvailable: isAvailableByApi,
         isSelected,
         existingBooking: conflictingBooking ? {
           id: conflictingBooking.id,
@@ -112,6 +123,12 @@ export const BookingCalendarView = ({
   }, [selectedBooth, currentDate, bookings, selectedStartTime, selectedEndTime]);
 
   const handleSlotClick = (slot: TimeSlot) => {
+    // Allow deselect even if slot is not available (when re-clicking the selected one)
+    const isSameAsSelected = selectedStartTime === slot.startTime && selectedEndTime === slot.endTime;
+    if (isSameAsSelected) {
+      onTimeSlotSelect?.(slot.startTime, slot.endTime); // parent toggles
+      return;
+    }
     if (slot.isAvailable) {
       onTimeSlotSelect?.(slot.startTime, slot.endTime);
     }

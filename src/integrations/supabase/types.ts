@@ -25,6 +25,7 @@ export type Database = {
           duration_hours: number | null
           guest_count: number | null
           ticket_quantity: number | null
+          ticket_checkins: Json | null
           special_requests: string | null
           status: string
           total_amount: number | null
@@ -51,6 +52,7 @@ export type Database = {
           duration_hours?: number | null
           guest_count?: number | null
           ticket_quantity?: number | null
+          ticket_checkins?: Json | null
           special_requests?: string | null
           status?: string
           total_amount?: number | null
@@ -77,6 +79,7 @@ export type Database = {
           duration_hours?: number | null
           guest_count?: number | null
           ticket_quantity?: number | null
+          ticket_checkins?: Json | null
           special_requests?: string | null
           status?: string
           total_amount?: number | null

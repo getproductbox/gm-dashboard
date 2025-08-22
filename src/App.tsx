@@ -14,13 +14,12 @@ import Bookings from "./pages/Bookings";
 import CreateBooking from "./pages/CreateBooking";
 import DesignSystem from "./pages/DesignSystem";
 import NotFound from "./pages/NotFound";
+import RunSheet from "./pages/RunSheet";
 import Customers from "./pages/Customers";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 
 import Revenue from "./pages/Revenue";
-import XeroCallback from "./pages/XeroCallback";
-import ProfitLoss from "./pages/ProfitLoss";
 import BoothManagement from "./pages/BoothManagement";
 
 const queryClient = new QueryClient();
@@ -60,6 +59,11 @@ const App = () => (
                   <CreateBooking />
                 </ProtectedRoute>
               } />
+              <Route path="/run-sheet" element={
+                <ProtectedRoute>
+                  <RunSheet />
+                </ProtectedRoute>
+              } />
               <Route path="/customers" element={
                 <ProtectedRoute>
                   <Customers />
@@ -70,11 +74,6 @@ const App = () => (
                   <Revenue />
                 </ProtectedRoute>
               } />
-              <Route path="/profit-loss" element={
-                <ProtectedRoute>
-                  <ProfitLoss />
-                </ProtectedRoute>
-              } />
               <Route path="/settings" element={
                 <ProtectedRoute>
                   <Settings />
@@ -83,11 +82,6 @@ const App = () => (
               <Route path="/design" element={
                 <ProtectedRoute>
                   <DesignSystem />
-                </ProtectedRoute>
-              } />
-              <Route path="/xero/callback" element={
-                <ProtectedRoute>
-                  <XeroCallback />
                 </ProtectedRoute>
               } />
               <Route path="/booth-management" element={

@@ -40,6 +40,7 @@ export function DashboardLayout({ children, headerActions }: DashboardLayoutProp
     if (path === '/revenue') return ['Revenue'];
     if (path === '/reports') return ['Reports'];
     if (path === '/settings') return ['Settings'];
+    if (path === '/run-sheet') return ['Run Sheet'];
     if (path === '/design') return ['Design System'];
     if (path === '/api-test') return ['API Test'];
     if (path === '/feature-flags') return ['Feature Flags'];

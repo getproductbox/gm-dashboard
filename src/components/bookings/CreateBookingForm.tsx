@@ -15,7 +15,9 @@ import { Save, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate, formatDateToISO } from "@/utils/dateUtils";
 import { useCreateBooking } from "@/hooks/useBookings";
-import { useKaraokeBooths } from "@/hooks/useKaraoke";
+import { useKaraokeBooths, useCreateKaraokeHold, useReleaseKaraokeHold, useFinalizeKaraokeHold, useKaraokeAvailability } from "@/hooks/useKaraoke";
+import { karaokeService } from "@/services/karaokeService";
+import { useToast } from "@/hooks/use-toast";
 import { BookingCalendarView } from "./BookingCalendarView";
 
 const bookingFormSchema = z.object({
@@ -81,15 +83,6 @@ const bookingFormSchema = z.object({
 }, {
   message: "Please select a karaoke booth for karaoke bookings",
   path: ["karaokeBoothId"],
-}).refine((data) => {
-  // Start and end time required for karaoke bookings
-  if (data.bookingType === "karaoke_booking" && (!data.startTime || !data.endTime)) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Please specify start and end times for karaoke bookings",
-  path: ["startTime"],
 });
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
@@ -123,6 +116,12 @@ export const CreateBookingForm = () => {
   const navigate = useNavigate();
   const createBookingMutation = useCreateBooking();
   const { data: karaokeBooths } = useKaraokeBooths();
+  const createHold = useCreateKaraokeHold();
+  const releaseHold = useReleaseKaraokeHold();
+  const finalizeHold = useFinalizeKaraokeHold();
+  const { toast } = useToast();
+  const [activeHoldId, setActiveHoldId] = useState<string | null>(null);
+  const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -154,10 +153,14 @@ export const CreateBookingForm = () => {
   const bookingDate = form.watch("bookingDate");
   const startTime = form.watch("startTime");
   const endTime = form.watch("endTime");
+  const guestCountVal = form.watch("guestCount");
+  const guestCountNum = guestCountVal ? parseInt(guestCountVal) : 1;
+
+  const [availableBoothsForSlot, setAvailableBoothsForSlot] = useState<any[] | null>(null);
 
   // Filter karaoke booths based on selected venue
   const availableKaraokeBooths = karaokeBooths?.filter(booth => 
-    !venue || booth.venue === venue
+    (!venue || booth.venue === venue) && booth.is_available
   ) || [];
 
   // Get selected booth for dynamic time slots
@@ -182,14 +185,72 @@ export const CreateBookingForm = () => {
     ? generateTimeSlots(selectedBooth.operating_hours_start, selectedBooth.operating_hours_end)
     : timeSlots;
 
+  // Venue-level availability for karaoke (choose time first, then booth)
+  const { data: venueAvailability } = useKaraokeAvailability({
+    venue: bookingType === 'karaoke_booking' ? venue : undefined,
+    bookingDate: bookingType === 'karaoke_booking' ? bookingDate : undefined,
+    minCapacity: bookingType === 'karaoke_booking' ? guestCountNum : undefined,
+    granularityMinutes: 60,
+  });
+
   // Calendar event handlers
   const handleDateSelect = (date: string) => {
     form.setValue("bookingDate", date);
   };
 
   const handleTimeSlotSelect = (startTime: string, endTime: string) => {
+    // Toggle selection: if the same slot is clicked again, deselect and release hold
+    const currentStart = form.getValues("startTime");
+    const currentEnd = form.getValues("endTime");
+    if (currentStart === startTime && currentEnd === endTime) {
+      // Deselect
+      form.setValue("startTime", "");
+      form.setValue("endTime", "");
+      if (activeHoldId) {
+        const sessionIdPrev = localStorage.getItem('karaoke_session_id') || '';
+        if (sessionIdPrev) {
+          releaseHold.mutate({ holdId: activeHoldId, sessionId: sessionIdPrev });
+        }
+        setActiveHoldId(null);
+        setHoldExpiresAt(null);
+      }
+      return;
+    }
+
     form.setValue("startTime", startTime);
     form.setValue("endTime", endTime);
+    const type = form.getValues("bookingType");
+    const venueVal = form.getValues("venue");
+    const dateVal = form.getValues("bookingDate");
+    if (type === 'karaoke_booking' && venueVal && dateVal) {
+      // Release any existing hold when changing slot
+      if (activeHoldId) {
+        const sessionIdPrev = localStorage.getItem('karaoke_session_id') || '';
+        if (sessionIdPrev) {
+          releaseHold.mutate({ holdId: activeHoldId, sessionId: sessionIdPrev });
+        }
+        setActiveHoldId(null);
+        setHoldExpiresAt(null);
+      }
+      // Fetch booths available for this slot
+      karaokeService.getAvailability({
+        action: 'boothsForSlot',
+        venue: venueVal,
+        bookingDate: dateVal,
+        startTime,
+        endTime,
+        minCapacity: guestCountNum,
+      }).then((res: any) => {
+        const list = res?.availableBooths || [];
+        setAvailableBoothsForSlot(list);
+        // If current booth not in list, clear selection
+        if (form.getValues('karaokeBoothId') && !list.find((b: any) => b.id === form.getValues('karaokeBoothId'))) {
+          form.setValue('karaokeBoothId', undefined as unknown as string);
+        }
+      }).catch(() => {
+        setAvailableBoothsForSlot([]);
+      });
+    }
   };
 
   // Calculate total amount for VIP tickets
@@ -206,25 +267,42 @@ export const CreateBookingForm = () => {
 
   const onSubmit = async (data: BookingFormValues) => {
     try {
-      await createBookingMutation.mutateAsync({
-        customerName: data.customerName,
-        customerEmail: data.customerEmail || undefined,
-        customerPhone: data.customerPhone || undefined,
-        bookingType: data.bookingType,
-        venue: data.venue,
-        venueArea: data.venueArea,
-        karaokeBoothId: data.karaokeBoothId || undefined,
-        bookingDate: data.bookingDate,
-        startTime: data.startTime || undefined,
-        endTime: data.endTime || undefined,
-        durationHours: undefined, // Let backend calculate from start/end times
-        guestCount: data.guestCount ? parseInt(data.guestCount) : undefined,
-        ticketQuantity: data.ticketQuantity ? parseInt(data.ticketQuantity) : undefined,
-        specialRequests: data.specialRequests || undefined,
-        totalAmount: data.totalAmount ? parseFloat(data.totalAmount) : undefined,
-        costPerTicket: data.costPerTicket ? parseFloat(data.costPerTicket) : undefined,
-        staffNotes: data.staffNotes || undefined,
-      });
+      if (data.bookingType === 'karaoke_booking') {
+        if (!activeHoldId) {
+          toast({ title: 'Hold required', description: 'Select a time slot to create a hold before confirming.', variant: 'destructive' });
+          return;
+        }
+        // Finalize from hold if available, else fall back to direct booking creation
+        const sessionId = localStorage.getItem('karaoke_session_id') || '';
+        await finalizeHold.mutateAsync({
+          holdId: activeHoldId,
+          sessionId,
+          customerName: data.customerName,
+          customerEmail: data.customerEmail || undefined,
+          customerPhone: data.customerPhone || undefined,
+          guestCount: data.guestCount ? parseInt(data.guestCount) : undefined,
+        });
+      } else {
+        await createBookingMutation.mutateAsync({
+          customerName: data.customerName,
+          customerEmail: data.customerEmail || undefined,
+          customerPhone: data.customerPhone || undefined,
+          bookingType: data.bookingType,
+          venue: data.venue,
+          venueArea: data.venueArea,
+          karaokeBoothId: data.karaokeBoothId || undefined,
+          bookingDate: data.bookingDate,
+          startTime: data.startTime || undefined,
+          endTime: data.endTime || undefined,
+          durationHours: undefined,
+          guestCount: data.guestCount ? parseInt(data.guestCount) : undefined,
+          ticketQuantity: data.ticketQuantity ? parseInt(data.ticketQuantity) : undefined,
+          specialRequests: data.specialRequests || undefined,
+          totalAmount: data.totalAmount ? parseFloat(data.totalAmount) : undefined,
+          costPerTicket: data.costPerTicket ? parseFloat(data.costPerTicket) : undefined,
+          staffNotes: data.staffNotes || undefined,
+        });
+      }
       
       navigate('/bookings');
     } catch (error) {
@@ -375,43 +453,7 @@ export const CreateBookingForm = () => {
                 />
               )}
 
-              {/* Show karaoke booth selection for karaoke bookings */}
-              {bookingType === "karaoke_booking" && (
-                <FormField
-                  control={form.control}
-                  name="karaokeBoothId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Karaoke Booth *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select karaoke booth" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {availableKaraokeBooths.map((booth) => (
-                            <SelectItem key={booth.id} value={booth.id}>
-                              {booth.name} - {booth.venue} (£{booth.hourly_rate}/hour)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Select a karaoke booth for your booking
-                        {selectedBooth && selectedBooth.operating_hours_start && selectedBooth.operating_hours_end && (
-                          <span className="block text-sm text-blue-600 mt-1">
-                            Operating hours: {selectedBooth.operating_hours_start} - {selectedBooth.operating_hours_end}
-                          </span>
-                        )}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              {/* Show booking date only after booking type is selected */}
+              {/* Show booking date early in the flow for all types */}
               {bookingType && (
                 <FormField
                   control={form.control}
@@ -458,18 +500,116 @@ export const CreateBookingForm = () => {
                 />
               )}
 
-              {/* Show calendar view for karaoke bookings */}
-              {bookingType === "karaoke_booking" && selectedBooth && bookingDate && (
+              {/* Booth selection moved below time slots; rendered after time is chosen */}
+
+              
+
+              {/* Show venue-level availability grid for karaoke bookings */}
+              {bookingType === "karaoke_booking" && venue && bookingDate && (
                 <div className="col-span-2">
-                  <BookingCalendarView
-                    selectedBooth={selectedBooth}
-                    selectedDate={bookingDate}
-                    onDateSelect={handleDateSelect}
-                    onTimeSlotSelect={handleTimeSlotSelect}
-                    selectedStartTime={startTime}
-                    selectedEndTime={endTime}
-                  />
+                  <div className="mb-2 text-sm text-gray-600">Select a time slot</div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {(venueAvailability?.slots || []).map((s: any) => {
+                      const isSelected = startTime === s.startTime && endTime === s.endTime;
+                      const disabled = !s.available;
+                      return (
+                        <button
+                          key={`${s.startTime}-${s.endTime}`}
+                          onClick={() => handleTimeSlotSelect(s.startTime, s.endTime)}
+                          disabled={disabled}
+                          className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+                            isSelected ? 'bg-blue-500 text-white border-blue-500' : disabled ? 'bg-red-100 text-red-700 border-red-200' : 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
+                          } ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          {s.startTime} - {s.endTime}
+                          {Array.isArray(s.capacities) && s.capacities.length > 0 && (
+                            <div className="text-xs mt-1 text-gray-700">Caps: {s.capacities.join(', ')}</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!startTime && (
+                    <div className="mt-2 text-xs text-gray-500">Pick a date, then choose a time slot to see available booths.</div>
+                  )}
+                  {activeHoldId && holdExpiresAt && (
+                    <div className="mt-3 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">
+                      Hold created. Expires at: {new Date(holdExpiresAt).toLocaleTimeString()}.
+                      Submitting the form will confirm the booking.
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {/* Karaoke booth field placeholder when time not selected */}
+              {bookingType === "karaoke_booking" && bookingDate && !(startTime && endTime) && (
+                <div className="col-span-2 text-sm text-gray-500">Select a time slot to see available booths.</div>
+              )}
+
+              {/* Karaoke booth dropdown below time slots, after time selected */}
+              {bookingType === "karaoke_booking" && bookingDate && startTime && endTime && (
+                <FormField
+                  control={form.control}
+                  name="karaokeBoothId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Karaoke Booth *</FormLabel>
+                      <Select onValueChange={(v) => {
+                        // On booth selection, create a hold for the selected booth and times
+                        field.onChange(v);
+                        const timeStart = form.getValues('startTime');
+                        const timeEnd = form.getValues('endTime');
+                        const dateVal = form.getValues('bookingDate');
+                        const venueVal = form.getValues('venue');
+                        if (timeStart && timeEnd && dateVal && venueVal) {
+                          // Release previous hold if exists
+                          if (activeHoldId) {
+                            const sessionIdPrev = localStorage.getItem('karaoke_session_id') || '';
+                            if (sessionIdPrev) {
+                              releaseHold.mutate({ holdId: activeHoldId, sessionId: sessionIdPrev });
+                            }
+                            setActiveHoldId(null);
+                            setHoldExpiresAt(null);
+                          }
+                          const sessionId = localStorage.getItem('karaoke_session_id') || crypto.randomUUID();
+                          localStorage.setItem('karaoke_session_id', sessionId);
+                          createHold.mutate({
+                            boothId: v,
+                            venue: venueVal,
+                            bookingDate: dateVal,
+                            startTime: timeStart,
+                            endTime: timeEnd,
+                            sessionId,
+                            customerEmail: form.getValues('customerEmail') || undefined,
+                            ttlMinutes: 10,
+                          }, {
+                            onSuccess: (res: any) => {
+                              setActiveHoldId(res.hold?.id || null);
+                              setHoldExpiresAt(res.hold?.expires_at || null);
+                            }
+                          });
+                        }
+                      }} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select karaoke booth" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {(availableBoothsForSlot ?? availableKaraokeBooths).map((booth) => (
+                            <SelectItem key={booth.id} value={booth.id}>
+                              {booth.name} - cap {booth.capacity} (£{booth.hourly_rate}/hour)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Select a karaoke booth that supports your group size
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
 
               {/* Show time fields only for venue hire - just start and end time */}
@@ -527,60 +667,7 @@ export const CreateBookingForm = () => {
                 </div>
               )}
 
-              {/* Show time fields for karaoke bookings when calendar view is not available */}
-              {bookingType === "karaoke_booking" && (!selectedBooth || !bookingDate) && (
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="startTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Time *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Start time" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {timeSlots.map((time) => (
-                              <SelectItem key={time} value={time}>
-                                {time}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="endTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Time *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="End time" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {timeSlots.map((time) => (
-                              <SelectItem key={time} value={time}>
-                                {time}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
+              {/* For karaoke bookings, we use calendar time slots only; hide manual time inputs */}
 
               {/* Show guest/ticket fields only after booking type is selected */}
               {bookingType && (
@@ -619,8 +706,8 @@ export const CreateBookingForm = () => {
                     />
                   )}
 
-                  {/* Show cost per ticket for VIP tickets, total amount for venue hire */}
-                  {bookingType === "vip_tickets" ? (
+                  {/* Show cost per ticket for VIP tickets */}
+                  {bookingType === "vip_tickets" && (
                     <FormField
                       control={form.control}
                       name="costPerTicket"
@@ -634,7 +721,10 @@ export const CreateBookingForm = () => {
                         </FormItem>
                       )}
                     />
-                  ) : (
+                  )}
+
+                  {/* Show total amount only for venue hire (hide for karaoke) */}
+                  {bookingType === "venue_hire" && (
                     <FormField
                       control={form.control}
                       name="totalAmount"

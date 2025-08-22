@@ -185,3 +185,61 @@ export interface KaraokeBoothFilters {
 export type KaraokeBookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
 export type KaraokeVenue = 'manor' | 'hippie';
 export type PaymentStatus = 'unpaid' | 'deposit_paid' | 'paid' | 'refunded'; 
+
+// Holds and availability
+export interface AvailabilitySlot {
+  startTime: string; // HH:MM
+  endTime: string;   // HH:MM
+  available: boolean;
+  blockedBy?: 'booking' | 'hold';
+  capacities?: number[]; // available booth capacities for this slot (venue-level)
+}
+
+export interface AvailabilityResponse {
+  boothId: string;
+  bookingDate: string; // YYYY-MM-DD
+  granularityMinutes: number;
+  slots: AvailabilitySlot[];
+}
+
+export interface KaraokeHoldRow {
+  id: string;
+  booth_id: string;
+  venue: KaraokeVenue;
+  booking_date: string; // YYYY-MM-DD
+  start_time: string;   // HH:MM:SS
+  end_time: string;     // HH:MM:SS
+  session_id: string;
+  customer_email: string | null;
+  status: 'active' | 'released' | 'consumed' | 'expired';
+  expires_at: string; // ISO timestamp
+  booking_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateHoldRequest {
+  boothId: string;
+  bookingDate: string; // YYYY-MM-DD
+  startTime: string;   // HH:MM
+  endTime: string;     // HH:MM
+  sessionId: string;
+  customerEmail?: string;
+  venue: KaraokeVenue;
+  ttlMinutes?: number;
+}
+
+export interface ModifyHoldRequest {
+  holdId: string;
+  sessionId: string;
+  ttlMinutes?: number; // for extend
+}
+
+export interface FinalizeHoldRequest {
+  holdId: string;
+  sessionId: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  guestCount?: number;
+}

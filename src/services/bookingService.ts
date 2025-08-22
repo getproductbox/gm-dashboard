@@ -35,6 +35,22 @@ export interface BookingFilters {
   search?: string;
 }
 
+export async function updateVipTicketCheckins(bookingId: string, checkins: (string | null)[]): Promise<BookingRow> {
+  const { data: booking, error } = await supabase
+    .from('bookings')
+    .update({ ticket_checkins: checkins })
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error updating ticket checkins:', error);
+    throw new Error(`Failed to update ticket checkins: ${error.message}`);
+  }
+
+  return booking as BookingRow;
+}
+
 export const bookingService = {
   // Check karaoke booth availability
   async checkKaraokeBoothAvailability(

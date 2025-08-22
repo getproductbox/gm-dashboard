@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, TestTube, DollarSign, Building } from "lucide-react";
+import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, TestTube, DollarSign, Building, ListChecks } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { LastSyncIndicator } from "./LastSyncIndicator";
@@ -24,6 +24,11 @@ const menuItems = [
     title: "Dashboard",
     url: "/dashboard",
     icon: Home,
+  },
+  {
+    title: "Run Sheet",
+    url: "/run-sheet",
+    icon: ListChecks,
   },
   {
     title: "Calendar",
@@ -49,11 +54,6 @@ const menuItems = [
     title: "Revenue",
     url: "/revenue",
     icon: DollarSign,
-  },
-  {
-    title: "Profit & Loss",
-    url: "/profit-loss",
-    icon: BarChart3,
   },
   {
     title: "Settings", 

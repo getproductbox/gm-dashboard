@@ -325,5 +325,88 @@ export const karaokeService = {
     return hourlyRate * durationHours;
   },
 
+  // ===== HOLDS AND AVAILABILITY (EDGE FUNCTIONS) =====
+
+  async getAvailability(params: { boothId?: string; venue?: 'manor' | 'hippie'; minCapacity?: number; bookingDate: string; granularityMinutes?: number; action?: 'boothsForSlot'; startTime?: string; endTime?: string }) {
+    const { data, error } = await supabase.functions.invoke('karaoke-availability', {
+      body: params,
+    });
+    if (error) {
+      throw new Error(error.message || 'Failed to fetch availability');
+    }
+    return data;
+  },
+
+  async createHold(params: { boothId: string; venue: 'manor' | 'hippie'; bookingDate: string; startTime: string; endTime: string; sessionId: string; customerEmail?: string; ttlMinutes?: number }) {
+    const { data, error } = await supabase.functions.invoke('karaoke-holds', {
+      body: params,
+      headers: { 'x-action': 'create' },
+    });
+    if (error) {
+      throw new Error(error.message || 'Failed to create hold');
+    }
+    return data;
+  },
+
+  async extendHold(params: { holdId: string; sessionId: string; ttlMinutes?: number }) {
+    const { data, error } = await supabase.functions.invoke('karaoke-holds', {
+      body: params,
+      headers: { 'x-action': 'extend' },
+    });
+    if (error) {
+      throw new Error(error.message || 'Failed to extend hold');
+    }
+    return data;
+  },
+
+  async releaseHold(params: { holdId: string; sessionId: string }) {
+    const { data, error } = await supabase.functions.invoke('karaoke-holds', {
+      body: params,
+      headers: { 'x-action': 'release' },
+    });
+    if (error) {
+      throw new Error(error.message || 'Failed to release hold');
+    }
+    return data;
+  },
+
+  async finalizeHold(params: { holdId: string; sessionId: string; customerName: string; customerEmail?: string; customerPhone?: string; guestCount?: number }) {
+    const { data, error } = await supabase.functions.invoke('karaoke-book', {
+      body: params,
+    });
+    if (error) {
+      throw new Error(error.message || 'Failed to finalize hold');
+    }
+    return data;
+  },
+
+  // ===== STAFF/ADMIN HOLDS QUERIES =====
+  async getActiveHolds(params: { boothId: string; bookingDate: string }) {
+    const { data, error } = await supabase
+      .from('karaoke_booth_holds' as any)
+      .select('*')
+      .eq('booth_id', params.boothId)
+      .eq('booking_date', params.bookingDate)
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString())
+      .order('start_time', { ascending: true });
+    if (error) {
+      throw new Error(error.message || 'Failed to fetch active holds');
+    }
+    return data;
+  },
+
+  async staffReleaseHold(holdId: string) {
+    const { data, error } = await supabase
+      .from('karaoke_booth_holds' as any)
+      .update({ status: 'released' })
+      .eq('id', holdId)
+      .select()
+      .single();
+    if (error) {
+      throw new Error(error.message || 'Failed to release hold');
+    }
+    return data;
+  },
 
 }; 

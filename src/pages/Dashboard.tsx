@@ -2,10 +2,11 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, TrendingUp, TrendingDown, Calendar, BarChart3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DollarSign, TrendingUp, TrendingDown, Calendar, BarChart3, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { RevenueTimeChart } from "@/components/revenue/RevenueTimeChart";
 
 interface RevenueMetrics {
@@ -17,6 +18,20 @@ interface RevenueMetrics {
   previousYearFormatted: string;
   changePercent: number;
   changePercentYear: number;
+  // New metrics for attendance and spend per head
+  currentAttendance: number;
+  previousAttendance: number;
+  previousYearAttendance: number;
+  currentSpendPerHead: number;
+  previousSpendPerHead: number;
+  previousYearSpendPerHead: number;
+  currentSpendPerHeadFormatted: string;
+  previousSpendPerHeadFormatted: string;
+  previousYearSpendPerHeadFormatted: string;
+  attendanceChangePercent: number;
+  attendanceChangePercentYear: number;
+  spendPerHeadChangePercent: number;
+  spendPerHeadChangePercentYear: number;
 }
 
 interface DashboardData {
@@ -29,69 +44,29 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    fetchRevenueData();
-  }, []);
+
+
+
 
   const fetchRevenueData = async () => {
     try {
       setIsLoading(true);
       
-      // Get current date ranges using PostgreSQL-compatible calculations
-      const now = new Date();
+      console.log('=== FETCHING DASHBOARD STATS (ALL VENUES) ===');
       
-      // For weekly: Get the current week (Monday to Sunday)
-      const currentWeekStart = getWeekStart(now);
-      const currentWeekEnd = new Date(currentWeekStart);
-      currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+      // Dashboard stats always use ALL venues (no filtering)
+      const venueFilter = null;
       
-      // For monthly: Get the current month (1st to last day)
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
-      // For yearly: Get the current year (Jan 1 to Dec 31)
-      const currentYearStart = new Date(now.getFullYear(), 0, 1);
-      const currentYearEnd = new Date(now.getFullYear(), 11, 31);
-      
-      // Get previous periods
-      const previousWeekStart = new Date(currentWeekStart);
-      previousWeekStart.setDate(previousWeekStart.getDate() - 7);
-      const previousWeekEnd = new Date(currentWeekStart);
-      previousWeekEnd.setDate(previousWeekEnd.getDate() - 1);
-      
-      const previousMonthStart = new Date(currentMonthStart);
-      previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
-      const previousMonthEnd = new Date(currentMonthStart);
-      previousMonthEnd.setDate(previousMonthEnd.getDate() - 1);
-      
-      const previousYearStart = new Date(currentYearStart);
-      previousYearStart.setFullYear(previousYearStart.getFullYear() - 1);
-      const previousYearEnd = new Date(currentYearEnd);
-      previousYearEnd.setFullYear(previousYearEnd.getFullYear() - 1);
-      
-      // Get same period last year
-      const lastYearWeekStart = new Date(currentWeekStart);
-      lastYearWeekStart.setFullYear(lastYearWeekStart.getFullYear() - 1);
-      const lastYearWeekEnd = new Date(currentWeekEnd);
-      lastYearWeekEnd.setFullYear(lastYearWeekEnd.getFullYear() - 1);
-      
-      const lastYearMonthStart = new Date(currentMonthStart);
-      lastYearMonthStart.setFullYear(lastYearMonthStart.getFullYear() - 1);
-      const lastYearMonthEnd = new Date(currentMonthEnd);
-      lastYearMonthEnd.setFullYear(lastYearMonthEnd.getFullYear() - 1);
-      
-      const lastYearYearStart = new Date(currentYearStart);
-      lastYearYearStart.setFullYear(lastYearYearStart.getFullYear() - 1);
-      const lastYearYearEnd = new Date(currentYearEnd);
-      lastYearYearEnd.setFullYear(lastYearYearEnd.getFullYear() - 1);
-
-      // Fetch revenue data for all periods using database functions
+      // Use RPC approach for ALL periods - same as revenue chart
       const [weeklyData, monthlyData, yearlyData] = await Promise.all([
-        fetchPeriodRevenue(currentWeekStart, currentWeekEnd, previousWeekStart, previousWeekEnd, lastYearWeekStart, lastYearWeekEnd, 'weekly'),
-        fetchPeriodRevenue(currentMonthStart, currentMonthEnd, previousMonthStart, previousMonthEnd, lastYearMonthStart, lastYearMonthEnd, 'monthly'),
-        fetchPeriodRevenue(currentYearStart, currentYearEnd, previousYearStart, previousYearEnd, lastYearYearStart, lastYearYearEnd, 'yearly')
+        calculateRollingFromWeeklyRPC(7, venueFilter),    // Use weekly RPC for 7 days
+        calculateRollingFromWeeklyRPC(28, venueFilter),   // Use weekly RPC for 28 days  
+        calculateRollingFromWeeklyRPC(365, venueFilter)   // Use weekly RPC for 365 days
       ]);
+
+      console.log('Dashboard Stats Results (All Venues):', { weeklyData, monthlyData, yearlyData });
 
       setDashboardData({
         weekly: weeklyData,
@@ -105,68 +80,706 @@ export default function Dashboard() {
     }
   };
 
-  const fetchPeriodRevenue = async (
+  const calculateRollingFromWeeklyRPC = async (daysBack: number, venueFilter: string | null): Promise<RevenueMetrics> => {
+    try {
+      console.log(`Calculating rolling ${daysBack} days using weekly RPC (same as chart)...`);
+      
+      // Fetch revenue data (same as revenue chart)
+      const { data: revenueData, error: revenueError } = await supabase.rpc('get_weekly_revenue_summary', {
+        venue_filter: venueFilter,
+        week_date: null
+      });
+
+      if (revenueError) {
+        console.error('Error fetching weekly revenue data:', revenueError);
+        return createEmptyMetrics();
+      }
+
+      // Fetch attendance data (always from Hippie Door regardless of venue filter)
+      // Attendance represents foot traffic - people entering through the door
+      const { data: attendanceData, error: attendanceError } = await supabase.rpc('get_weekly_revenue_summary', {
+        venue_filter: 'Hippie Door',
+        week_date: null
+      });
+
+      if (attendanceError) {
+        console.error('Error fetching weekly attendance data:', attendanceError);
+        return createEmptyMetrics();
+      }
+
+      // Create attendance map by week - always use door_transactions
+      const attendanceMap = new Map();
+      (attendanceData || []).forEach((row) => {
+        attendanceMap.set(row.week_start, row.door_transactions || 0);
+      });
+
+      const now = new Date();
+      const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
+      const previousCutoffDate = new Date(now.getTime() - (daysBack * 2 * 24 * 60 * 60 * 1000));
+      
+      // For year-over-year, go back 1 year from the cutoff date
+      const yearAgoCutoffDate = new Date(cutoffDate);
+      yearAgoCutoffDate.setFullYear(yearAgoCutoffDate.getFullYear() - 1);
+      const yearAgoEndDate = new Date(now);
+      yearAgoEndDate.setFullYear(yearAgoEndDate.getFullYear() - 1);
+
+      let currentTotal = 0;
+      let previousTotal = 0;
+      let yearAgoTotal = 0;
+      let currentAttendance = 0;
+      let previousAttendance = 0;
+      let yearAgoAttendance = 0;
+
+      console.log(`Date ranges for ${daysBack} days:`, {
+        current: `${cutoffDate.toISOString()} to ${now.toISOString()}`,
+        previous: `${previousCutoffDate.toISOString()} to ${cutoffDate.toISOString()}`,
+        yearAgo: `${yearAgoCutoffDate.toISOString()} to ${yearAgoEndDate.toISOString()}`
+      });
+
+      (revenueData || []).forEach((week) => {
+        const weekStart = new Date(week.week_start);
+        const revenue = week.total_revenue_cents || 0;
+        const attendance = attendanceMap.get(week.week_start) || 0;
+        
+        // Current period: weeks that overlap with last N days
+        if (weekStart >= cutoffDate || (weekStart < cutoffDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > cutoffDate.getTime())) {
+          currentTotal += revenue;
+          currentAttendance += attendance;
+          console.log(`Current: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (door transactions)`);
+        }
+        // Previous period: weeks that overlap with previous N days
+        else if (weekStart >= previousCutoffDate || (weekStart < previousCutoffDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > previousCutoffDate.getTime())) {
+          previousTotal += revenue;
+          previousAttendance += attendance;
+          console.log(`Previous: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (door transactions)`);
+        }
+        // Year ago period: weeks that overlap with same period last year
+        else if ((weekStart >= yearAgoCutoffDate && weekStart <= yearAgoEndDate) || 
+                 (weekStart < yearAgoCutoffDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > yearAgoCutoffDate.getTime()) ||
+                 (weekStart < yearAgoEndDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > yearAgoEndDate.getTime())) {
+          yearAgoTotal += revenue;
+          yearAgoAttendance += attendance;
+          console.log(`Year ago: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (door transactions)`);
+        }
+      });
+
+      // Calculate spend per head (revenue / attendance)
+      const currentSpendPerHead = currentAttendance > 0 ? (currentTotal / 100) / currentAttendance : 0;
+      const previousSpendPerHead = previousAttendance > 0 ? (previousTotal / 100) / previousAttendance : 0;
+      const yearAgoSpendPerHead = yearAgoAttendance > 0 ? (yearAgoTotal / 100) / yearAgoAttendance : 0;
+
+      // Calculate change percentages
+      const changePercent = previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0;
+      const changePercentYear = yearAgoTotal > 0 ? ((currentTotal - yearAgoTotal) / yearAgoTotal) * 100 : 0;
+      const attendanceChangePercent = previousAttendance > 0 ? ((currentAttendance - previousAttendance) / previousAttendance) * 100 : 0;
+      const attendanceChangePercentYear = yearAgoAttendance > 0 ? ((currentAttendance - yearAgoAttendance) / yearAgoAttendance) * 100 : 0;
+      const spendPerHeadChangePercent = previousSpendPerHead > 0 ? ((currentSpendPerHead - previousSpendPerHead) / previousSpendPerHead) * 100 : 0;
+      const spendPerHeadChangePercentYear = yearAgoSpendPerHead > 0 ? ((currentSpendPerHead - yearAgoSpendPerHead) / yearAgoSpendPerHead) * 100 : 0;
+
+      console.log(`${daysBack} days totals:`, {
+        revenue: { venue: venueFilter || 'All', current: currentTotal/100, previous: previousTotal/100, yearAgo: yearAgoTotal/100 },
+        attendance: { source: 'Door transactions only', current: currentAttendance, previous: previousAttendance, yearAgo: yearAgoAttendance },
+        spendPerHead: { calculation: `${venueFilter || 'All'} revenue ÷ door attendance`, current: currentSpendPerHead, previous: previousSpendPerHead, yearAgo: yearAgoSpendPerHead }
+      });
+
+      return {
+        current: currentTotal,
+        previous: previousTotal,
+        previousYear: yearAgoTotal,
+        currentFormatted: formatCurrency(currentTotal),
+        previousFormatted: formatCurrency(previousTotal),
+        previousYearFormatted: formatCurrency(yearAgoTotal),
+        changePercent,
+        changePercentYear,
+        currentAttendance,
+        previousAttendance,
+        previousYearAttendance: yearAgoAttendance,
+        currentSpendPerHead,
+        previousSpendPerHead,
+        previousYearSpendPerHead: yearAgoSpendPerHead,
+        currentSpendPerHeadFormatted: `$${currentSpendPerHead.toFixed(2)}`,
+        previousSpendPerHeadFormatted: `$${previousSpendPerHead.toFixed(2)}`,
+        previousYearSpendPerHeadFormatted: `$${yearAgoSpendPerHead.toFixed(2)}`,
+        attendanceChangePercent,
+        attendanceChangePercentYear,
+        spendPerHeadChangePercent,
+        spendPerHeadChangePercentYear
+      };
+
+    } catch (error) {
+      console.error(`Error in calculateRollingFromWeeklyRPC for ${daysBack} days:`, error);
+      return createEmptyMetrics();
+    }
+  };
+
+  // Helper function to create empty metrics
+  const createEmptyMetrics = (): RevenueMetrics => ({
+    current: 0,
+    previous: 0,
+    previousYear: 0,
+    currentFormatted: '$0',
+    previousFormatted: '$0',
+    previousYearFormatted: '$0',
+    changePercent: 0,
+    changePercentYear: 0,
+    currentAttendance: 0,
+    previousAttendance: 0,
+    previousYearAttendance: 0,
+    currentSpendPerHead: 0,
+    previousSpendPerHead: 0,
+    previousYearSpendPerHead: 0,
+    currentSpendPerHeadFormatted: '$0.00',
+    previousSpendPerHeadFormatted: '$0.00',
+    previousYearSpendPerHeadFormatted: '$0.00',
+    attendanceChangePercent: 0,
+    attendanceChangePercentYear: 0,
+    spendPerHeadChangePercent: 0,
+    spendPerHeadChangePercentYear: 0
+  });
+
+  const calculateSimpleRollingPeriod = async (daysBack: number, venueFilter: string | null): Promise<RevenueMetrics> => {
+    try {
+      console.log(`Calculating simple rolling ${daysBack} days with direct query...`);
+      
+      const now = new Date();
+      
+      // Current period: last N days
+      let currentQuery = supabase
+        .from('revenue_events')
+        .select('amount_cents')
+        .eq('status', 'completed')
+        .gte('payment_date', new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000)).toISOString());
+
+      if (venueFilter) {
+        currentQuery = currentQuery.eq('venue', venueFilter);
+      }
+
+      // Previous period: N days before that
+      let previousQuery = supabase
+        .from('revenue_events')
+        .select('amount_cents')
+        .eq('status', 'completed')
+        .gte('payment_date', new Date(now.getTime() - (daysBack * 2 * 24 * 60 * 60 * 1000)).toISOString())
+        .lt('payment_date', new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000)).toISOString());
+
+      if (venueFilter) {
+        previousQuery = previousQuery.eq('venue', venueFilter);
+      }
+
+      // Year ago period: same N days last year
+      const yearAgo = new Date();
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      let yearAgoQuery = supabase
+        .from('revenue_events')
+        .select('amount_cents')
+        .eq('status', 'completed')
+        .gte('payment_date', new Date(yearAgo.getTime() - (daysBack * 24 * 60 * 60 * 1000)).toISOString())
+        .lte('payment_date', yearAgo.toISOString());
+
+      if (venueFilter) {
+        yearAgoQuery = yearAgoQuery.eq('venue', venueFilter);
+      }
+
+      const [currentResult, previousResult, yearAgoResult] = await Promise.all([
+        currentQuery,
+        previousQuery,
+        yearAgoQuery
+      ]);
+
+      // Check for errors
+      if (currentResult.error || previousResult.error || yearAgoResult.error) {
+        console.error('Errors in simple rolling period:', {
+          current: currentResult.error,
+          previous: previousResult.error,
+          yearAgo: yearAgoResult.error
+        });
+      }
+
+      const currentRevenue = (currentResult.data || []).reduce((sum, event) => sum + event.amount_cents, 0);
+      const previousRevenue = (previousResult.data || []).reduce((sum, event) => sum + event.amount_cents, 0);
+      const yearAgoRevenue = (yearAgoResult.data || []).reduce((sum, event) => sum + event.amount_cents, 0);
+
+      console.log(`Simple ${daysBack} days: current=${currentResult.data?.length} events ($${currentRevenue/100}), previous=${previousResult.data?.length} events ($${previousRevenue/100}), yearAgo=${yearAgoResult.data?.length} events ($${yearAgoRevenue/100})`);
+
+      const changePercent = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+      const changePercentYear = yearAgoRevenue > 0 ? ((currentRevenue - yearAgoRevenue) / yearAgoRevenue) * 100 : 0;
+
+      return {
+        current: currentRevenue,
+        previous: previousRevenue,
+        previousYear: yearAgoRevenue,
+        currentFormatted: formatCurrency(currentRevenue),
+        previousFormatted: formatCurrency(previousRevenue),
+        previousYearFormatted: formatCurrency(yearAgoRevenue),
+        changePercent,
+        changePercentYear,
+        // Attendance not calculated in this function
+        currentAttendance: 0,
+        previousAttendance: 0,
+        previousYearAttendance: 0,
+        currentSpendPerHead: 0,
+        previousSpendPerHead: 0,
+        previousYearSpendPerHead: 0,
+        currentSpendPerHeadFormatted: '$0.00',
+        previousSpendPerHeadFormatted: '$0.00',
+        previousYearSpendPerHeadFormatted: '$0.00',
+        attendanceChangePercent: 0,
+        attendanceChangePercentYear: 0,
+        spendPerHeadChangePercent: 0,
+        spendPerHeadChangePercentYear: 0
+      };
+
+    } catch (error) {
+      console.error(`Error in calculateSimpleRollingPeriod for ${daysBack} days:`, error);
+      return createEmptyMetrics();
+    }
+  };
+
+  const calculateRollingPeriodFromRPC = async (
+    rpcType: 'weekly' | 'monthly' | 'yearly',
+    daysBack: number,
+    venueFilter: string | null
+  ): Promise<RevenueMetrics> => {
+    try {
+      console.log(`Calculating rolling ${daysBack} days using ${rpcType} RPC...`);
+      
+      // Fetch the summary data using RPC (same as revenue chart)
+      let data, error;
+      if (rpcType === 'weekly') {
+        ({ data, error } = await supabase.rpc('get_weekly_revenue_summary', {
+          venue_filter: venueFilter,
+          week_date: null
+        }));
+      } else if (rpcType === 'monthly') {
+        ({ data, error } = await supabase.rpc('get_monthly_revenue_summary', {
+          venue_filter: venueFilter,
+          month_date: null
+        }));
+      } else {
+        ({ data, error } = await supabase.rpc('get_yearly_revenue_summary', {
+          venue_filter: venueFilter,
+          year_date: null
+        }));
+      }
+      
+      if (error) {
+        console.error(`Error fetching ${rpcType} revenue:`, error);
+        return createEmptyMetrics();
+      }
+      
+      // Calculate rolling period totals from the aggregated data
+      const now = new Date();
+      const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
+      const previousCutoffDate = new Date(now.getTime() - (daysBack * 2 * 24 * 60 * 60 * 1000));
+      const yearAgoCutoffDate = new Date(cutoffDate.getTime());
+      yearAgoCutoffDate.setFullYear(yearAgoCutoffDate.getFullYear() - 1);
+      
+      console.log(`Date filters for ${daysBack} days:`, {
+        now: now.toISOString(),
+        cutoffDate: cutoffDate.toISOString(),
+        previousCutoffDate: previousCutoffDate.toISOString(),
+        yearAgoCutoffDate: yearAgoCutoffDate.toISOString()
+      });
+      
+      let currentTotal = 0;
+      let previousTotal = 0; 
+      let yearAgoTotal = 0;
+      
+      if (Array.isArray(data)) {
+        data.forEach((row) => {
+          const rowDate = new Date(row.week_start || row.month_start || row.year_start);
+          
+          console.log(`Processing row: ${rowDate.toISOString()}, revenue: $${(row.total_revenue_cents || 0) / 100}`);
+          
+          // Current period: last N days
+          if (rowDate >= cutoffDate) {
+            currentTotal += row.total_revenue_cents || 0;
+            console.log(`  -> Added to current: $${(row.total_revenue_cents || 0) / 100}`);
+          }
+          // Previous period: N days before that  
+          else if (rowDate >= previousCutoffDate && rowDate < cutoffDate) {
+            previousTotal += row.total_revenue_cents || 0;
+            console.log(`  -> Added to previous: $${(row.total_revenue_cents || 0) / 100}`);
+          }
+          // Year ago period - more flexible matching
+          else {
+            const yearAgoStart = new Date(yearAgoCutoffDate);
+            const yearAgoEnd = new Date(now);
+            yearAgoEnd.setFullYear(yearAgoEnd.getFullYear() - 1);
+            
+            if (rowDate >= yearAgoStart && rowDate <= yearAgoEnd) {
+              yearAgoTotal += row.total_revenue_cents || 0;
+              console.log(`  -> Added to year ago: $${(row.total_revenue_cents || 0) / 100}`);
+            }
+          }
+        });
+      }
+      
+      const changePercent = previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0;
+      const changePercentYear = yearAgoTotal > 0 ? ((currentTotal - yearAgoTotal) / yearAgoTotal) * 100 : 0;
+      
+      console.log(`${daysBack} days via RPC: current=$${currentTotal/100}, previous=$${previousTotal/100}, yearAgo=$${yearAgoTotal/100}`);
+      
+      return {
+        current: currentTotal,
+        previous: previousTotal,
+        previousYear: yearAgoTotal,
+        currentFormatted: formatCurrency(currentTotal),
+        previousFormatted: formatCurrency(previousTotal),
+        previousYearFormatted: formatCurrency(yearAgoTotal),
+        changePercent,
+        changePercentYear,
+        // Attendance not calculated in this function
+        currentAttendance: 0,
+        previousAttendance: 0,
+        previousYearAttendance: 0,
+        currentSpendPerHead: 0,
+        previousSpendPerHead: 0,
+        previousYearSpendPerHead: 0,
+        currentSpendPerHeadFormatted: '$0.00',
+        previousSpendPerHeadFormatted: '$0.00',
+        previousYearSpendPerHeadFormatted: '$0.00',
+        attendanceChangePercent: 0,
+        attendanceChangePercentYear: 0,
+        spendPerHeadChangePercent: 0,
+        spendPerHeadChangePercentYear: 0
+      };
+      
+    } catch (error) {
+      console.error(`Error in calculateRollingPeriodFromRPC for ${daysBack} days:`, error);
+      return createEmptyMetrics();
+    }
+  };
+
+  const fetchAllDataWithPagination = async (daysBack: number) => {
+    const allData: { amount_cents: number }[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+    
+    console.log(`Fetching all data for last ${daysBack} days with pagination...`);
+    
+    while (hasMore) {
+      const { data, error, count } = await supabase
+        .from('revenue_events')
+        .select('amount_cents', { count: 'exact' })
+        .eq('status', 'completed')
+        .gte('payment_date', new Date(Date.now() - (daysBack * 24 * 60 * 60 * 1000)).toISOString())
+        .range(from, from + pageSize - 1);
+      
+      if (error) {
+        console.error(`Error fetching page starting at ${from}:`, error);
+        break;
+      }
+      
+      if (data && data.length > 0) {
+        allData.push(...data);
+        console.log(`Fetched page: ${from}-${from + data.length - 1}, total so far: ${allData.length}`);
+        from += pageSize;
+        hasMore = data.length === pageSize; // Continue if we got a full page
+      } else {
+        hasMore = false;
+      }
+    }
+    
+    const total = allData.reduce((sum, event) => sum + event.amount_cents, 0);
+    console.log(`✅ Last ${daysBack} days: ${allData.length} events, $${(total/100).toLocaleString()}`);
+    
+    return { events: allData.length, total };
+  };
+
+  const testDirectDatabaseQueries = async () => {
+    try {
+      console.log('=== TESTING WITH PAGINATION ===');
+      
+      await fetchAllDataWithPagination(7);
+      await fetchAllDataWithPagination(28);
+      await fetchAllDataWithPagination(365);
+      
+      console.log('=== END PAGINATION TEST ===');
+      
+    } catch (error) {
+      console.error('Error in direct database test:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchRevenueData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchSimpleRollingRevenue = async (
     currentStart: Date, 
     currentEnd: Date, 
     previousStart: Date, 
     previousEnd: Date,
-    previousYearStart: Date,
-    previousYearEnd: Date,
-    periodType: 'weekly' | 'monthly' | 'yearly'
+    comparisonStart: Date,
+    comparisonEnd: Date,
+    venueFilter: string | null = null
   ): Promise<RevenueMetrics> => {
-    const [currentRevenue, previousRevenue, previousYearRevenue] = await Promise.all([
-      getRevenueForPeriod(currentStart, currentEnd, periodType),
-      getRevenueForPeriod(previousStart, previousEnd, periodType),
-      getRevenueForPeriod(previousYearStart, previousYearEnd, periodType)
+    const [currentRevenue, previousRevenue, comparisonRevenue] = await Promise.all([
+      getDirectRevenueForPeriod(currentStart, currentEnd, venueFilter),
+      getDirectRevenueForPeriod(previousStart, previousEnd, venueFilter),
+      getDirectRevenueForPeriod(comparisonStart, comparisonEnd, venueFilter)
     ]);
 
     const changePercent = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
-    const changePercentYear = previousYearRevenue > 0 ? ((currentRevenue - previousYearRevenue) / previousYearRevenue) * 100 : 0;
+    const changePercentYear = comparisonRevenue > 0 ? ((currentRevenue - comparisonRevenue) / comparisonRevenue) * 100 : 0;
+
+    const result = {
+      current: currentRevenue,
+      previous: previousRevenue,
+      previousYear: comparisonRevenue,
+      currentFormatted: formatCurrency(currentRevenue),
+      previousFormatted: formatCurrency(previousRevenue),
+      previousYearFormatted: formatCurrency(comparisonRevenue),
+      changePercent,
+      changePercentYear,
+      // Attendance not calculated in this function
+      currentAttendance: 0,
+      previousAttendance: 0,
+      previousYearAttendance: 0,
+      currentSpendPerHead: 0,
+      previousSpendPerHead: 0,
+      previousYearSpendPerHead: 0,
+      currentSpendPerHeadFormatted: '$0.00',
+      previousSpendPerHeadFormatted: '$0.00',
+      previousYearSpendPerHeadFormatted: '$0.00',
+      attendanceChangePercent: 0,
+      attendanceChangePercentYear: 0,
+      spendPerHeadChangePercent: 0,
+      spendPerHeadChangePercentYear: 0
+    };
+
+    console.log('fetchSimpleRollingRevenue result:', result);
+    return result;
+  };
+
+  const fetchRollingPeriodRevenue = async (
+    currentStart: Date, 
+    currentEnd: Date, 
+    previousStart: Date, 
+    previousEnd: Date,
+    comparisonStart: Date,
+    comparisonEnd: Date,
+    venueFilter: string | null = null
+  ): Promise<RevenueMetrics> => {
+    const [currentRevenue, previousRevenue, comparisonRevenue] = await Promise.all([
+      getRollingRevenueForPeriod(currentStart, currentEnd, venueFilter),
+      getRollingRevenueForPeriod(previousStart, previousEnd, venueFilter),
+      getRollingRevenueForPeriod(comparisonStart, comparisonEnd, venueFilter)
+    ]);
+
+    const changePercent = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+    const changePercentYear = comparisonRevenue > 0 ? ((currentRevenue - comparisonRevenue) / comparisonRevenue) * 100 : 0;
 
     return {
       current: currentRevenue,
       previous: previousRevenue,
-      previousYear: previousYearRevenue,
+      previousYear: comparisonRevenue,
       currentFormatted: formatCurrency(currentRevenue),
       previousFormatted: formatCurrency(previousRevenue),
-      previousYearFormatted: formatCurrency(previousYearRevenue),
+      previousYearFormatted: formatCurrency(comparisonRevenue),
       changePercent,
-      changePercentYear
+      changePercentYear,
+      // Attendance not calculated in this function
+      currentAttendance: 0,
+      previousAttendance: 0,
+      previousYearAttendance: 0,
+      currentSpendPerHead: 0,
+      previousSpendPerHead: 0,
+      previousYearSpendPerHead: 0,
+      currentSpendPerHeadFormatted: '$0.00',
+      previousSpendPerHeadFormatted: '$0.00',
+      previousYearSpendPerHeadFormatted: '$0.00',
+      attendanceChangePercent: 0,
+      attendanceChangePercentYear: 0,
+      spendPerHeadChangePercent: 0,
+      spendPerHeadChangePercentYear: 0
     };
   };
 
-  const getRevenueForPeriod = async (startDate: Date, endDate: Date, periodType: 'weekly' | 'monthly' | 'yearly'): Promise<number> => {
+  const fetchDaysBackRevenue = async (daysBack: number, venueFilter: string | null = null): Promise<RevenueMetrics> => {
     try {
-      let data;
-      let error;
+      console.log(`Fetching ${daysBack} days back revenue, venue: ${venueFilter || 'all'}`);
+      
+      // Current period: last N days
+      let currentQuery = supabase
+        .from('revenue_events')
+        .select('amount_cents')
+        .eq('status', 'completed')
+        .gte('payment_date', new Date(Date.now() - (daysBack * 24 * 60 * 60 * 1000)).toISOString());
+
+      if (venueFilter) {
+        currentQuery = currentQuery.eq('venue', venueFilter);
+      }
+
+      // Previous period: N days before that
+      let previousQuery = supabase
+        .from('revenue_events')
+        .select('amount_cents')
+        .eq('status', 'completed')
+        .gte('payment_date', new Date(Date.now() - (daysBack * 2 * 24 * 60 * 60 * 1000)).toISOString())
+        .lt('payment_date', new Date(Date.now() - (daysBack * 24 * 60 * 60 * 1000)).toISOString());
+
+      if (venueFilter) {
+        previousQuery = previousQuery.eq('venue', venueFilter);
+      }
+
+      // Year ago period: same N days last year
+      const yearAgo = new Date();
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      let yearAgoQuery = supabase
+        .from('revenue_events')
+        .select('amount_cents')
+        .eq('status', 'completed')
+        .gte('payment_date', new Date(yearAgo.getTime() - (daysBack * 24 * 60 * 60 * 1000)).toISOString())
+        .lt('payment_date', yearAgo.toISOString());
+
+      if (venueFilter) {
+        yearAgoQuery = yearAgoQuery.eq('venue', venueFilter);
+      }
+
+      const [currentResult, previousResult, yearAgoResult] = await Promise.all([
+        currentQuery,
+        previousQuery,
+        yearAgoQuery
+      ]);
+
+      const currentRevenue = (currentResult.data || []).reduce((sum, event) => sum + event.amount_cents, 0);
+      const previousRevenue = (previousResult.data || []).reduce((sum, event) => sum + event.amount_cents, 0);
+      const yearAgoRevenue = (yearAgoResult.data || []).reduce((sum, event) => sum + event.amount_cents, 0);
+
+      const changePercent = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+      const changePercentYear = yearAgoRevenue > 0 ? ((currentRevenue - yearAgoRevenue) / yearAgoRevenue) * 100 : 0;
+
+      console.log(`${daysBack} days: current=$${currentRevenue/100}, previous=$${previousRevenue/100}, yearAgo=$${yearAgoRevenue/100}`);
+
+      return {
+        current: currentRevenue,
+        previous: previousRevenue,
+        previousYear: yearAgoRevenue,
+        currentFormatted: formatCurrency(currentRevenue),
+        previousFormatted: formatCurrency(previousRevenue),
+        previousYearFormatted: formatCurrency(yearAgoRevenue),
+        changePercent,
+        changePercentYear,
+        // Attendance not calculated in this function
+        currentAttendance: 0,
+        previousAttendance: 0,
+        previousYearAttendance: 0,
+        currentSpendPerHead: 0,
+        previousSpendPerHead: 0,
+        previousYearSpendPerHead: 0,
+        currentSpendPerHeadFormatted: '$0.00',
+        previousSpendPerHeadFormatted: '$0.00',
+        previousYearSpendPerHeadFormatted: '$0.00',
+        attendanceChangePercent: 0,
+        attendanceChangePercentYear: 0,
+        spendPerHeadChangePercent: 0,
+        spendPerHeadChangePercentYear: 0
+      };
+    } catch (error) {
+      console.error(`Error fetching ${daysBack} days revenue:`, error);
+      return createEmptyMetrics();
+    }
+  };
+
+  const getDirectRevenueForPeriod = async (startDate: Date, endDate: Date, venueFilter: string | null = null): Promise<number> => {
+    try {
+      // Ensure we use the full day range
+      const startOfDay = new Date(startDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      console.log(`Fetching revenue from ${startOfDay.toISOString()} to ${endOfDay.toISOString()}, venue: ${venueFilter || 'all'}`);
+      
+      let query = supabase
+        .from('revenue_events')
+        .select('amount_cents')
+        .eq('status', 'completed')
+        .gte('payment_date', startOfDay.toISOString())
+        .lte('payment_date', endOfDay.toISOString());
+
+      if (venueFilter) {
+        query = query.eq('venue', venueFilter);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching direct revenue:', error);
+        return 0;
+      }
+
+      // Sum up all revenue for the period in cents
+      const totalRevenue = (data || []).reduce((sum, event) => sum + event.amount_cents, 0);
+      console.log(`Found ${data?.length || 0} events, total revenue: $${totalRevenue / 100} (${totalRevenue} cents)`);
+      return totalRevenue; // Return in cents to match formatCurrency expectation
+    } catch (error) {
+      console.error('Error in getDirectRevenueForPeriod:', error);
+      return 0;
+    }
+  };
+
+  const getRollingRevenueForPeriod = async (startDate: Date, endDate: Date, venueFilter: string | null = null): Promise<number> => {
+    try {
+      let query = supabase
+        .from('revenue_events')
+        .select('amount_cents')
+        .eq('status', 'completed')
+        .gte('payment_date', startDate.toISOString())
+        .lte('payment_date', endDate.toISOString());
+
+      if (venueFilter) {
+        query = query.eq('venue', venueFilter);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching rolling revenue:', error);
+        return 0;
+      }
+
+      // Sum up all revenue for the period
+      const totalRevenue = (data || []).reduce((sum, event) => sum + event.amount_cents, 0);
+      return totalRevenue;
+    } catch (error) {
+      console.error('Error in getRollingRevenueForPeriod:', error);
+      return 0;
+    }
+  };
+
+  const getRevenueForPeriod = async (startDate: Date, endDate: Date, periodType: 'weekly' | 'monthly' | 'yearly', venueFilter: string | null = null): Promise<number> => {
+    try {
+      let data, error;
 
       switch (periodType) {
         case 'weekly': {
-          // For weekly periods, we need to get the specific week data
           const weekStart = new Date(startDate);
           weekStart.setHours(0, 0, 0, 0);
           ({ data, error } = await supabase.rpc('get_weekly_revenue_summary', {
-            venue_filter: null,
+            venue_filter: venueFilter,
             week_date: weekStart.toISOString()
           }));
           break;
         }
         case 'monthly': {
-          // For monthly periods, we need to get the specific month data
           const monthStart = new Date(startDate);
           monthStart.setHours(0, 0, 0, 0);
           ({ data, error } = await supabase.rpc('get_monthly_revenue_summary', {
-            venue_filter: null,
+            venue_filter: venueFilter,
             month_date: monthStart.toISOString()
           }));
           break;
         }
         case 'yearly': {
-          // For yearly periods, we need to get the specific year data
           const yearStart = new Date(startDate);
           yearStart.setHours(0, 0, 0, 0);
           ({ data, error } = await supabase.rpc('get_yearly_revenue_summary', {
-            venue_filter: null,
+            venue_filter: venueFilter,
             year_date: yearStart.toISOString()
           }));
           break;
@@ -183,7 +796,7 @@ export default function Dashboard() {
         return 0;
       }
 
-      // Return the total revenue for the period in cents (no division by 100 here)
+      // Return the total revenue for the period in cents
       return data[0].total_revenue_cents || 0;
     } catch (error) {
       console.error('Error in getRevenueForPeriod:', error);
@@ -263,67 +876,168 @@ export default function Dashboard() {
           <p className="text-gm-neutral-600">Track your revenue performance across different time periods.</p>
         </div>
 
-        {/* Revenue Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Weekly Revenue */}
+
+
+        {/* Metrics Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6" key={refreshKey}>
+          {/* Last 7 Days Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Weekly</CardTitle>
+              <CardTitle className="text-sm font-medium">Last 7 Days</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.weekly.currentFormatted}</div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-1">
+            <CardContent className="space-y-4">
+              {/* Revenue */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <DollarSign className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Revenue</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.weekly.currentFormatted}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                 {getTrendIcon(dashboardData?.weekly.changePercent || 0)}
                 <span className={getTrendColor(dashboardData?.weekly.changePercent || 0)}>
-                  {formatPercent(dashboardData?.weekly.changePercent || 0)} vs last week
-                </span>
+                    {formatPercent(dashboardData?.weekly.changePercent || 0)} vs previous
+                  </span>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                <div>Last week: {dashboardData?.weekly.previousFormatted}</div>
-                <div>This week last year: {dashboardData?.weekly.previousYearFormatted}</div>
+
+              {/* Attendance */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Attendance</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.weekly.currentAttendance.toLocaleString()}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                  {getTrendIcon(dashboardData?.weekly.attendanceChangePercent || 0)}
+                  <span className={getTrendColor(dashboardData?.weekly.attendanceChangePercent || 0)}>
+                    {formatPercent(dashboardData?.weekly.attendanceChangePercent || 0)} vs previous
+                </span>
+                </div>
+              </div>
+
+              {/* Spend per Head */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">$ per Head</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.weekly.currentSpendPerHeadFormatted}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                  {getTrendIcon(dashboardData?.weekly.spendPerHeadChangePercent || 0)}
+                  <span className={getTrendColor(dashboardData?.weekly.spendPerHeadChangePercent || 0)}>
+                    {formatPercent(dashboardData?.weekly.spendPerHeadChangePercent || 0)} vs previous
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Monthly Revenue */}
+          {/* Last 28 Days Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly</CardTitle>
+              <CardTitle className="text-sm font-medium">Last 28 Days</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.monthly.currentFormatted}</div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-1">
+            <CardContent className="space-y-4">
+              {/* Revenue */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <DollarSign className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Revenue</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.monthly.currentFormatted}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                 {getTrendIcon(dashboardData?.monthly.changePercent || 0)}
                 <span className={getTrendColor(dashboardData?.monthly.changePercent || 0)}>
-                  {formatPercent(dashboardData?.monthly.changePercent || 0)} vs last month
-                </span>
+                    {formatPercent(dashboardData?.monthly.changePercent || 0)} vs previous
+                  </span>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                <div>Last month: {dashboardData?.monthly.previousFormatted}</div>
-                <div>This month last year: {dashboardData?.monthly.previousYearFormatted}</div>
+
+              {/* Attendance */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Attendance</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.monthly.currentAttendance.toLocaleString()}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                  {getTrendIcon(dashboardData?.monthly.attendanceChangePercent || 0)}
+                  <span className={getTrendColor(dashboardData?.monthly.attendanceChangePercent || 0)}>
+                    {formatPercent(dashboardData?.monthly.attendanceChangePercent || 0)} vs previous
+                </span>
+                </div>
+              </div>
+
+              {/* Spend per Head */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">$ per Head</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.monthly.currentSpendPerHeadFormatted}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                  {getTrendIcon(dashboardData?.monthly.spendPerHeadChangePercent || 0)}
+                  <span className={getTrendColor(dashboardData?.monthly.spendPerHeadChangePercent || 0)}>
+                    {formatPercent(dashboardData?.monthly.spendPerHeadChangePercent || 0)} vs previous
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Yearly Revenue */}
+          {/* Last 365 Days Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Yearly</CardTitle>
+              <CardTitle className="text-sm font-medium">Last 365 Days</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.yearly.currentFormatted}</div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-1">
+            <CardContent className="space-y-4">
+              {/* Revenue */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <DollarSign className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Revenue</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.yearly.currentFormatted}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                 {getTrendIcon(dashboardData?.yearly.changePercent || 0)}
                 <span className={getTrendColor(dashboardData?.yearly.changePercent || 0)}>
-                  {formatPercent(dashboardData?.yearly.changePercent || 0)} vs last year
-                </span>
+                    {formatPercent(dashboardData?.yearly.changePercent || 0)} vs previous
+                  </span>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                <div>Last year: {dashboardData?.yearly.previousFormatted}</div>
-                <div>Previous year: {dashboardData?.yearly.previousYearFormatted}</div>
+
+              {/* Attendance */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Attendance</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.yearly.currentAttendance.toLocaleString()}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                  {getTrendIcon(dashboardData?.yearly.attendanceChangePercent || 0)}
+                  <span className={getTrendColor(dashboardData?.yearly.attendanceChangePercent || 0)}>
+                    {formatPercent(dashboardData?.yearly.attendanceChangePercent || 0)} vs previous
+                </span>
+                </div>
+              </div>
+
+              {/* Spend per Head */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">$ per Head</span>
+                </div>
+                <div className="text-xl font-bold">{dashboardData?.yearly.currentSpendPerHeadFormatted}</div>
+                <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                  {getTrendIcon(dashboardData?.yearly.spendPerHeadChangePercent || 0)}
+                  <span className={getTrendColor(dashboardData?.yearly.spendPerHeadChangePercent || 0)}>
+                    {formatPercent(dashboardData?.yearly.spendPerHeadChangePercent || 0)} vs previous
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
