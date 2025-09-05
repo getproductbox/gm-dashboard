@@ -5,3 +5,6 @@ ADD COLUMN IF NOT EXISTS ticket_checkins JSONB;
 -- No changes needed for updated_at as trigger already exists (handle_bookings_updated_at)
 
 
+
+
+

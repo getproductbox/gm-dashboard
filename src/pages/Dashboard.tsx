@@ -95,10 +95,10 @@ export default function Dashboard() {
         return createEmptyMetrics();
       }
 
-      // Fetch attendance data (always from Hippie Door regardless of venue filter)
-      // Attendance represents foot traffic - people entering through the door
-      const { data: attendanceData, error: attendanceError } = await supabase.rpc('get_weekly_revenue_summary', {
-        venue_filter: 'Hippie Door',
+      // Fetch attendance data from revenue_event_items (sum of quantities)
+      // Attendance represents actual people count based on item quantities
+      const { data: attendanceData, error: attendanceError } = await supabase.rpc('get_weekly_attendance_summary' as any, {
+        venue_filter: null, // No venue filter - sum all items as mentioned by user
         week_date: null
       });
 
@@ -107,10 +107,10 @@ export default function Dashboard() {
         return createEmptyMetrics();
       }
 
-      // Create attendance map by week - always use door_transactions
+      // Create attendance map by week - use total_attendance from items
       const attendanceMap = new Map();
-      (attendanceData || []).forEach((row) => {
-        attendanceMap.set(row.week_start, row.door_transactions || 0);
+      (attendanceData as Array<{week_start: string, total_attendance: number}> || []).forEach((row) => {
+        attendanceMap.set(row.week_start, row.total_attendance || 0);
       });
 
       const now = new Date();
@@ -145,13 +145,13 @@ export default function Dashboard() {
         if (weekStart >= cutoffDate || (weekStart < cutoffDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > cutoffDate.getTime())) {
           currentTotal += revenue;
           currentAttendance += attendance;
-          console.log(`Current: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (door transactions)`);
+          console.log(`Current: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (item quantities)`);
         }
         // Previous period: weeks that overlap with previous N days
         else if (weekStart >= previousCutoffDate || (weekStart < previousCutoffDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > previousCutoffDate.getTime())) {
           previousTotal += revenue;
           previousAttendance += attendance;
-          console.log(`Previous: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (door transactions)`);
+          console.log(`Previous: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (item quantities)`);
         }
         // Year ago period: weeks that overlap with same period last year
         else if ((weekStart >= yearAgoCutoffDate && weekStart <= yearAgoEndDate) || 
@@ -159,7 +159,7 @@ export default function Dashboard() {
                  (weekStart < yearAgoEndDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > yearAgoEndDate.getTime())) {
           yearAgoTotal += revenue;
           yearAgoAttendance += attendance;
-          console.log(`Year ago: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (door transactions)`);
+          console.log(`Year ago: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (item quantities)`);
         }
       });
 
