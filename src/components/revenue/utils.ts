@@ -1,8 +1,10 @@
 export const formatCurrency = (amount: number) => {
+  // Convert from GST inclusive to GST exclusive by dividing by 1.1
+  const gstExclusiveAmount = amount / 1.1;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD'
-  }).format(amount);
+  }).format(gstExclusiveAmount);
 };
 
 export const formatPercent = (value: number | null) => {

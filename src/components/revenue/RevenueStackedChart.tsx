@@ -52,12 +52,14 @@ export const RevenueStackedChart = ({
   };
 
   const formatCurrency = (value: number) => {
+    // Convert from GST inclusive to GST exclusive by dividing by 1.1
+    const gstExclusiveAmount = value / 1.1;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(value);
+    }).format(gstExclusiveAmount);
   };
 
   const formatYear = (yearString: string) => {

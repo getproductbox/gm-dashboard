@@ -191,10 +191,12 @@ export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetai
 
   const formatCurrency = (amount: number | null) => {
     if (!amount) return '-';
+    // Convert from GST inclusive to GST exclusive by dividing by 1.1
+    const gstExclusiveAmount = amount / 1.1;
     return new Intl.NumberFormat('en-AU', {
       style: 'currency',
       currency: 'AUD'
-    }).format(amount);
+    }).format(gstExclusiveAmount);
   };
 
   const formatDate = (dateString: string) => {

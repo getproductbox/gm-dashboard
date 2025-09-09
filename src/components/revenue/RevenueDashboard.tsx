@@ -35,10 +35,12 @@ export const RevenueDashboard = () => {
   };
 
   const formatCurrency = (cents: number) => {
+    // Convert from GST inclusive to GST exclusive by dividing by 1.1
+    const gstExclusiveAmount = (cents / 100) / 1.1;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
-    }).format(cents / 100);
+    }).format(gstExclusiveAmount);
   };
 
   const formatPercentage = (value: number) => {

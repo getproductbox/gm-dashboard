@@ -812,12 +812,14 @@ export default function Dashboard() {
   };
 
   const formatCurrency = (cents: number): string => {
+    // Convert from GST inclusive to GST exclusive by dividing by 1.1
+    const gstExclusiveAmount = (cents / 100) / 1.1;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(cents / 100);
+    }).format(gstExclusiveAmount);
   };
 
   const formatPercent = (percent: number): string => {
