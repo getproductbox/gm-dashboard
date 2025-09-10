@@ -111,48 +111,65 @@ export const RevenueTimeChart = () => {
   };
 
   const fetchWeeklyRevenue = async (venueFilter: string | null): Promise<RevenueDataPoint[]> => {
-    // Fetch revenue data
-    const { data: revenueData, error: revenueError } = await supabase.rpc('get_weekly_revenue_summary', {
-      venue_filter: venueFilter,
-      week_date: null
-    });
-
-    if (revenueError) {
-      console.error('Error fetching weekly revenue data:', revenueError);
-      return [];
-    }
-
-    // Fetch attendance data (Hippie Door transactions)
-    const { data: attendanceData, error: attendanceError } = await supabase.rpc('get_weekly_revenue_summary', {
-      venue_filter: 'Hippie Door',
-      week_date: null
-    });
-
-    if (attendanceError) {
-      console.error('Error fetching weekly attendance data:', attendanceError);
-    }
-
-    // Create a map of attendance by week
-    const attendanceMap = new Map();
-    (attendanceData || []).forEach((row) => {
-      attendanceMap.set(row.week_start, row.door_transactions || 0);
-    });
-
-    // Take the last 12 weeks
-    const weeklyData = revenueData?.slice(0, 12) || [];
+    // Generate the last 12 weeks manually to ensure consistent week boundaries
+    const now = new Date();
+    const weeks = [];
     
-    return weeklyData.map((row) => {
-      const weekStart = new Date(row.week_start);
+    for (let i = 0; i < 12; i++) {
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - (weekStart.getDay() + 6) % 7 - (i * 7)); // Monday start
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      
+      weeks.push({ weekStart, weekEnd });
+    }
+    
+    // Fetch revenue and attendance for each week using simple SQL functions
+    const weekDataPromises = weeks.map(async (week) => {
+      const [revenueResult, barRevenueResult, doorRevenueResult, attendanceResult] = await Promise.all([
+        supabase.rpc('get_revenue_sum' as any, {
+          start_date: week.weekStart.toISOString(),
+          end_date: week.weekEnd.toISOString(),
+          venue_filter: venueFilter
+        }),
+        supabase.rpc('get_bar_revenue_sum' as any, {
+          start_date: week.weekStart.toISOString(),
+          end_date: week.weekEnd.toISOString(),
+          venue_filter: venueFilter
+        }),
+        supabase.rpc('get_door_revenue_sum' as any, {
+          start_date: week.weekStart.toISOString(),
+          end_date: week.weekEnd.toISOString(),
+          venue_filter: venueFilter
+        }),
+        supabase.rpc('get_attendance_sum' as any, {
+          start_date: week.weekStart.toISOString(),
+          end_date: week.weekEnd.toISOString(),
+          venue_filter: venueFilter
+        })
+      ]);
+
+      const revenue = (revenueResult.data as number) || 0;
+      const barRevenue = (barRevenueResult.data as number) || 0;
+      const doorRevenue = (doorRevenueResult.data as number) || 0;
+      const attendance = (attendanceResult.data as number) || 0;
+
       return {
-        period: format(weekStart, 'MMM dd'),
-        revenue: row.total_revenue_cents / 100,
-        formattedRevenue: formatCurrency(row.total_revenue_cents / 100),
-        date: weekStart,
-        bar: row.bar_revenue_cents / 100,
-        door: row.door_revenue_cents / 100,
-        attendance: attendanceMap.get(row.week_start) || 0
+        period: format(week.weekStart, 'MMM dd'),
+        revenue,
+        formattedRevenue: formatCurrency(revenue),
+        date: week.weekStart,
+        bar: barRevenue,
+        door: doorRevenue,
+        attendance
       };
-    }).reverse(); // Reverse to show oldest to newest
+    });
+
+    const weekData = await Promise.all(weekDataPromises);
+    
+    return weekData.reverse(); // Reverse to show oldest to newest
   };
 
   const fetchMonthlyRevenue = async (venueFilter: string | null): Promise<RevenueDataPoint[]> => {
@@ -167,35 +184,44 @@ export const RevenueTimeChart = () => {
       return [];
     }
 
-    // Fetch attendance data (Hippie Door transactions)
-    const { data: attendanceData, error: attendanceError } = await supabase.rpc('get_monthly_revenue_summary', {
-      venue_filter: 'Hippie Door',
-      month_date: null
-    });
-
-    if (attendanceError) {
-      console.error('Error fetching monthly attendance data:', attendanceError);
-    }
-
-    // Create a map of attendance by month
-    const attendanceMap = new Map();
-    (attendanceData || []).forEach((row) => {
-      attendanceMap.set(row.month, row.door_transactions || 0);
-    });
+    const months = (revenueData || []) as Array<{ month: string }>;
+    if (!months.length) return [];
 
     // Take the last 12 months
-    const monthlyData = revenueData?.slice(0, 12) || [];
+    const monthlyData = months.slice(0, 12);
     
-    return monthlyData.map((row) => {
+    // Fetch attendance for each month using the simple SQL function
+    const attendancePromises = monthlyData.map(async (row) => {
+      const monthStart = new Date(row.month);
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
+      
+      const { data: attendance, error: attendanceError } = await supabase.rpc('get_attendance_sum' as any, {
+        start_date: monthStart.toISOString(),
+        end_date: monthEnd.toISOString(),
+        venue_filter: venueFilter
+      });
+
+      if (attendanceError) {
+        console.error('Error fetching attendance for month:', attendanceError);
+        return 0;
+      }
+
+      return (attendance as number) || 0;
+    });
+
+    const attendanceData = await Promise.all(attendancePromises);
+    
+    return monthlyData.map((row, index) => {
       const monthStart = new Date(row.month);
       return {
         period: format(monthStart, 'MMM yyyy'),
-        revenue: row.total_revenue_cents / 100,
-        formattedRevenue: formatCurrency(row.total_revenue_cents / 100),
+        revenue: (row as any).total_revenue_cents,
+        formattedRevenue: formatCurrency((row as any).total_revenue_cents),
         date: monthStart,
-        bar: row.bar_revenue_cents / 100,
-        door: row.door_revenue_cents / 100,
-        attendance: attendanceMap.get(row.month) || 0
+        bar: (row as any).bar_revenue_cents,
+        door: (row as any).door_revenue_cents,
+        attendance: attendanceData[index] || 0
       };
     }).reverse(); // Reverse to show oldest to newest
   };
@@ -212,42 +238,52 @@ export const RevenueTimeChart = () => {
       return [];
     }
 
-    // Fetch attendance data (Hippie Door transactions)
-    const { data: attendanceData, error: attendanceError } = await supabase.rpc('get_yearly_revenue_summary', {
-      venue_filter: 'Hippie Door',
-      year_date: null
-    });
-
-    if (attendanceError) {
-      console.error('Error fetching yearly attendance data:', attendanceError);
-    }
-
-    // Create a map of attendance by year
-    const attendanceMap = new Map();
-    (attendanceData || []).forEach((row) => {
-      attendanceMap.set(row.year_start, row.door_transactions || 0);
-    });
+    const years = (revenueData || []) as Array<{ year_start: string }>;
+    if (!years.length) return [];
 
     // Take the last 5 years
-    const yearlyData = revenueData?.slice(0, 5) || [];
+    const yearlyData = years.slice(0, 5);
     
-    return yearlyData.map((row) => {
+    // Fetch attendance for each year using the simple SQL function
+    const attendancePromises = yearlyData.map(async (row) => {
+      const yearStart = new Date(row.year_start);
+      const yearEnd = new Date(yearStart);
+      yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+      
+      const { data: attendance, error: attendanceError } = await supabase.rpc('get_attendance_sum' as any, {
+        start_date: yearStart.toISOString(),
+        end_date: yearEnd.toISOString(),
+        venue_filter: venueFilter
+      });
+
+      if (attendanceError) {
+        console.error('Error fetching attendance for year:', attendanceError);
+        return 0;
+      }
+
+      return (attendance as number) || 0;
+    });
+
+    const attendanceData = await Promise.all(attendancePromises);
+    
+    return yearlyData.map((row, index) => {
       const yearStart = new Date(row.year_start);
       return {
         period: format(yearStart, 'yyyy'),
-        revenue: row.total_revenue_cents / 100,
-        formattedRevenue: formatCurrency(row.total_revenue_cents / 100),
+        revenue: (row as any).total_revenue_cents,
+        formattedRevenue: formatCurrency((row as any).total_revenue_cents),
         date: yearStart,
-        bar: row.bar_revenue_cents / 100,
-        door: row.door_revenue_cents / 100,
-        attendance: attendanceMap.get(row.year_start) || 0
+        bar: (row as any).bar_revenue_cents,
+        door: (row as any).door_revenue_cents,
+        attendance: attendanceData[index] || 0
       };
     }).reverse(); // Reverse to show oldest to newest
   };
 
   const formatCurrency = (value: number): string => {
-    // Convert from GST inclusive to GST exclusive by dividing by 1.1
-    const gstExclusiveAmount = value / 1.1;
+    // Convert from cents to dollars, then from GST inclusive to GST exclusive
+    const dollars = value / 100;
+    const gstExclusiveAmount = dollars / 1.1;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -328,7 +364,7 @@ export const RevenueTimeChart = () => {
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `$${value.toLocaleString()}`}
+                tickFormatter={(value) => `$${((value / 100) / 1.1).toLocaleString()}`}
               />
               <YAxis 
                 yAxisId="attendance"
@@ -350,7 +386,7 @@ export const RevenueTimeChart = () => {
                         <div className="grid gap-2">
                           <div className="flex items-center justify-between gap-2">
                             <div className="text-sm font-medium">{formatTooltipLabel(label)}</div>
-                            <div className="text-sm font-bold">${totalRevenue.toLocaleString()}</div>
+                            <div className="text-sm font-bold">${(totalRevenue / 100).toLocaleString()}</div>
                           </div>
                           <div className="grid gap-1">
                             {revenueItems.map((item, index) => (
@@ -364,7 +400,7 @@ export const RevenueTimeChart = () => {
                                     {item.name === 'bar' ? 'Bar' : 'Door'}
                                   </span>
                                 </div>
-                                <span className="text-xs font-medium">${(item.value || 0).toLocaleString()}</span>
+                                <span className="text-xs font-medium">${((Number(item.value) || 0) / 100).toLocaleString()}</span>
                               </div>
                             ))}
                             {attendanceItem && (

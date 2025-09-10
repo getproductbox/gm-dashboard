@@ -6,6 +6,10 @@ interface BackfillRequest {
   end_date?: string;   // ISO date string (e.g., "2024-12-31")
   dry_run?: boolean;   // If true, don't actually insert data
   location_id?: string; // Optional Square location ID override
+  start_time?: string;  // ISO datetime (e.g., "2025-08-01T00:00:00Z")
+  end_time?: string;    // ISO datetime (e.g., "2025-08-31T23:59:59Z")
+  locations?: string[]; // Optional list of location IDs to process
+  overlap_minutes?: number; // Optional overlap to subtract from start (default 5)
 }
 
 interface BackfillProgress {
@@ -40,14 +44,31 @@ serve(async (req) => {
       }
     }
 
-    // Set defaults
-    const startDate = backfillParams.start_date || new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 2 years ago
-    const endDate = backfillParams.end_date || new Date().toISOString().split('T')[0]; // Today
+    // Resolve time window (support datetimes + overlap). Fallback to date-only if provided.
+    const overlapMinutes = typeof backfillParams.overlap_minutes === 'number' && backfillParams.overlap_minutes >= 0
+      ? backfillParams.overlap_minutes
+      : 5;
+
+    const fallbackStart = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000); // 2 years ago
+    const fallbackEnd = new Date();
+
+    const startTime = backfillParams.start_time
+      ? new Date(backfillParams.start_time)
+      : (backfillParams.start_date ? new Date(`${backfillParams.start_date}T00:00:00Z`) : fallbackStart);
+
+    const endTime = backfillParams.end_time
+      ? new Date(backfillParams.end_time)
+      : (backfillParams.end_date ? new Date(`${backfillParams.end_date}T23:59:59.999Z`) : fallbackEnd);
+
+    const effectiveStart = new Date(startTime.getTime() - overlapMinutes * 60 * 1000);
+    const effectiveEnd = endTime;
+
     const dryRun = backfillParams.dry_run || false;
 
     console.log(`Backfill Parameters:`);
-    console.log(`- Start Date: ${startDate}`);
-    console.log(`- End Date: ${endDate}`);
+    console.log(`- Start Time: ${startTime.toISOString()}`);
+    console.log(`- End Time: ${endTime.toISOString()}`);
+    console.log(`- Effective Start (overlap ${overlapMinutes}m): ${effectiveStart.toISOString()}`);
     console.log(`- Dry Run: ${dryRun}`);
 
     const environment = 'production';
@@ -80,7 +101,7 @@ serve(async (req) => {
       });
 
     const progress: BackfillProgress = {
-      current_date: startDate,
+      current_date: effectiveStart.toISOString(),
       total_requests: 0,
       completed_requests: 0,
       total_payments_fetched: 0,
@@ -88,57 +109,53 @@ serve(async (req) => {
       errors: []
     };
 
-    // Generate list of months to process (YYYY-MM)
-    const monthsToProcess: string[] = [];
-    const currentDate = new Date(startDate);
-    const endDateObj = new Date(endDate);
-
-    while (currentDate <= endDateObj) {
-      const year = currentDate.getUTCFullYear();
-      const month = String(currentDate.getUTCMonth() + 1).padStart(2, '0');
-      monthsToProcess.push(`${year}-${month}`);
-      currentDate.setUTCMonth(currentDate.getUTCMonth() + 1);
+    // Resolve locations to process
+    let locations: string[] = [];
+    if (Array.isArray(backfillParams.locations) && backfillParams.locations.length > 0) {
+      locations = backfillParams.locations;
+    } else if (backfillParams.location_id) {
+      locations = [backfillParams.location_id];
+    } else {
+      const { data: locs, error: locErr } = await supabase
+        .from('square_locations')
+        .select('square_location_id')
+        .eq('is_active', true);
+      if (locErr) {
+        console.log('Failed to load locations from DB, falling back to default:', locErr.message);
+        locations = ['LGRBM02D8PCNM'];
+      } else {
+        locations = (locs || []).map((r: any) => r.square_location_id);
+        if (locations.length === 0) locations = ['LGRBM02D8PCNM'];
+      }
     }
 
-    console.log(`Processing ${monthsToProcess.length} months: ${monthsToProcess.join(', ')}`);
+    console.log(`Processing ${locations.length} location(s): ${locations.join(', ')}`);
 
-    // 🏪 Determine target Square location
-    const locationId = backfillParams.location_id || 'LGRBM02D8PCNM';
-    console.log(`Found ${locationId} active location: ${locationId}`);
+    const locationSummaries: Array<{ location_id: string; payments_fetched: number; payments_synced: number; }> = [];
 
-    // Process each location and month
-    for (const month of monthsToProcess) {
-      console.log(`\n--- Processing month: ${month} for location ${locationId} ---`);
-      progress.current_date = `${month} @ ${locationId}`;
+    // Process each location within the single time window
+    for (const locationId of locations) {
+      console.log(`\n--- Processing window ${effectiveStart.toISOString()} to ${effectiveEnd.toISOString()} for location ${locationId} ---`);
+      progress.current_date = `${effectiveStart.toISOString()} @ ${locationId}`;
 
       try {
-        // Ensure month boundaries in UTC
-        const [yearStr, monthStr] = month.split('-');
-        const yearNum = Number(yearStr);
-        const monthNum = Number(monthStr) - 1; // 0-indexed
-
-        const monthStart = new Date(Date.UTC(yearNum, monthNum, 1, 0, 0, 0, 0));
-        const monthEnd = new Date(Date.UTC(yearNum, monthNum + 1, 0, 23, 59, 59, 999));
-
-        console.log(`Month range: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`);
-
-        // Fetch payments for this location & month
-        const monthPayments = await fetchPaymentsForDateRange(
+        // Fetch payments for this location & window
+        const windowPayments = await fetchPaymentsForDateRange(
           productionToken,
-          monthStart,
-          monthEnd,
+          effectiveStart,
+          effectiveEnd,
           locationId
         );
 
-        progress.total_payments_fetched += monthPayments.length;
+        progress.total_payments_fetched += windowPayments.length;
         progress.total_requests++;
 
-        if (monthPayments.length > 0) {
-          console.log(`Found ${monthPayments.length} payments for ${month} @ ${locationId}`);
+        if (windowPayments.length > 0) {
+          console.log(`Found ${windowPayments.length} payments for location ${locationId} in window`);
 
           if (!dryRun) {
             // Insert payments into database
-            const paymentsToInsert = monthPayments.map(payment => ({
+            const paymentsToInsert = windowPayments.map(payment => ({
               square_payment_id: payment.id,
               raw_response: payment
             }));
@@ -154,14 +171,14 @@ serve(async (req) => {
             } else {
               const syncedCount = insertedData?.length || 0;
               progress.total_payments_synced += syncedCount;
-              console.log(`✅ Synced ${syncedCount} payments for ${month} @ ${locationId}`);
+              console.log(`✅ Synced ${syncedCount} payments for ${locationId} in window`);
             }
           } else {
-            console.log(`[DRY RUN] Would sync ${monthPayments.length} payments for ${month} @ ${locationId}`);
-            progress.total_payments_synced += monthPayments.length;
+            console.log(`[DRY RUN] Would sync ${windowPayments.length} payments for ${locationId} in window`);
+            progress.total_payments_synced += windowPayments.length;
           }
         } else {
-          console.log(`No payments found for ${month} @ ${locationId}`);
+          console.log(`No payments found for ${locationId} in window`);
         }
 
         progress.completed_requests++;
@@ -178,19 +195,24 @@ serve(async (req) => {
             onConflict: 'environment'
           });
 
-        // Polite 1-second delay between month pulls
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Polite 500ms delay between locations
+        await new Promise(resolve => setTimeout(resolve, 500));
 
       } catch (error) {
-        console.error(`Error processing ${month} @ ${locationId}:`, error);
-        progress.errors.push(`Error processing ${month} @ ${locationId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(`Error processing window for ${locationId}:`, error);
+        progress.errors.push(`Error processing ${locationId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         progress.completed_requests++;
       }
+
+      locationSummaries.push({
+        location_id: locationId,
+        payments_fetched: progress.total_payments_fetched,
+        payments_synced: progress.total_payments_synced
+      });
     }
 
-    // Note: Transformation is now handled separately via the UI
-    console.log('\n=== BACKFILL COMPLETED - TRANSFORM DATA SEPARATELY ===');
-    console.log(`Use the "Transform Data" button to convert synced payments to revenue events`);
+    // Note: Transformation is handled separately via UI/automation
+    console.log('\n=== BACKFILL COMPLETED - TRANSFORM SEPARATELY ===');
 
     // Update final status
     const finalStatus = progress.errors.length > 0 ? 'backfill_completed_with_errors' : 'backfill_completed';
@@ -220,11 +242,11 @@ serve(async (req) => {
       dry_run: dryRun,
       progress,
       summary: {
-        months_processed: monthsToProcess.length,
         total_payments_fetched: progress.total_payments_fetched,
         total_payments_synced: progress.total_payments_synced,
         errors_count: progress.errors.length,
-        date_range: { start_date: startDate, end_date: endDate }
+        locations: locationSummaries,
+        time_window: { start_time: startTime.toISOString(), end_time: endTime.toISOString(), overlap_minutes: overlapMinutes }
       }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

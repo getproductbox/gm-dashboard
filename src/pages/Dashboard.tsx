@@ -83,113 +83,56 @@ export default function Dashboard() {
 
   const calculateRollingFromWeeklyRPC = async (daysBack: number, venueFilter: string | null): Promise<RevenueMetrics> => {
     try {
-      console.log(`Calculating rolling ${daysBack} days using weekly RPC (same as chart)...`);
+      console.log(`Calculating rolling ${daysBack} days with simple queries...`);
       
-      // Fetch revenue data (same as revenue chart)
-      const { data: revenueData, error: revenueError } = await supabase.rpc('get_weekly_revenue_summary', {
-        venue_filter: venueFilter,
-        week_date: null
-      });
-
-      if (revenueError) {
-        console.error('Error fetching weekly revenue data:', revenueError);
-        return createEmptyMetrics();
-      }
-
-      // Fetch attendance data from revenue_event_items (sum of quantities)
-      // Attendance represents actual people count based on item quantities
-      const { data: attendanceData, error: attendanceError } = await supabase.rpc('get_weekly_attendance_summary' as any, {
-        venue_filter: null, // No venue filter - sum all items as mentioned by user
-        week_date: null
-      });
-
-      if (attendanceError) {
-        console.error('Error fetching weekly attendance data:', attendanceError);
-        return createEmptyMetrics();
-      }
-
-      // Create attendance map by week - use total_attendance from items
-      const attendanceMap = new Map();
-      (attendanceData as Array<{week_start: string, total_attendance: number}> || []).forEach((row) => {
-        attendanceMap.set(row.week_start, row.total_attendance || 0);
-      });
-
       const now = new Date();
       const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
       const previousCutoffDate = new Date(now.getTime() - (daysBack * 2 * 24 * 60 * 60 * 1000));
-      
-      // For year-over-year, go back 1 year from the cutoff date
       const yearAgoCutoffDate = new Date(cutoffDate);
       yearAgoCutoffDate.setFullYear(yearAgoCutoffDate.getFullYear() - 1);
       const yearAgoEndDate = new Date(now);
       yearAgoEndDate.setFullYear(yearAgoEndDate.getFullYear() - 1);
 
-      let currentTotal = 0;
-      let previousTotal = 0;
-      let yearAgoTotal = 0;
-      let currentAttendance = 0;
-      let previousAttendance = 0;
-      let yearAgoAttendance = 0;
+      // Simple revenue queries
+      const [currentRevenue, previousRevenue, yearAgoRevenue] = await Promise.all([
+        getDirectRevenueForPeriod(cutoffDate, now, venueFilter),
+        getDirectRevenueForPeriod(previousCutoffDate, cutoffDate, venueFilter),
+        getDirectRevenueForPeriod(yearAgoCutoffDate, yearAgoEndDate, venueFilter)
+      ]);
 
-      console.log(`Date ranges for ${daysBack} days:`, {
-        current: `${cutoffDate.toISOString()} to ${now.toISOString()}`,
-        previous: `${previousCutoffDate.toISOString()} to ${cutoffDate.toISOString()}`,
-        yearAgo: `${yearAgoCutoffDate.toISOString()} to ${yearAgoEndDate.toISOString()}`
-      });
+      // Simple attendance queries - just sum door_ticket_qty for each period
+      const [currentAttendance, previousAttendance, yearAgoAttendance] = await Promise.all([
+        getAttendanceForPeriod(cutoffDate, now, venueFilter),
+        getAttendanceForPeriod(previousCutoffDate, cutoffDate, venueFilter),
+        getAttendanceForPeriod(yearAgoCutoffDate, yearAgoEndDate, venueFilter)
+      ]);
 
-      (revenueData || []).forEach((week) => {
-        const weekStart = new Date(week.week_start);
-        const revenue = week.total_revenue_cents || 0;
-        const attendance = attendanceMap.get(week.week_start) || 0;
-        
-        // Current period: weeks that overlap with last N days
-        if (weekStart >= cutoffDate || (weekStart < cutoffDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > cutoffDate.getTime())) {
-          currentTotal += revenue;
-          currentAttendance += attendance;
-          console.log(`Current: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (item quantities)`);
-        }
-        // Previous period: weeks that overlap with previous N days
-        else if (weekStart >= previousCutoffDate || (weekStart < previousCutoffDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > previousCutoffDate.getTime())) {
-          previousTotal += revenue;
-          previousAttendance += attendance;
-          console.log(`Previous: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (item quantities)`);
-        }
-        // Year ago period: weeks that overlap with same period last year
-        else if ((weekStart >= yearAgoCutoffDate && weekStart <= yearAgoEndDate) || 
-                 (weekStart < yearAgoCutoffDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > yearAgoCutoffDate.getTime()) ||
-                 (weekStart < yearAgoEndDate && weekStart.getTime() + (7 * 24 * 60 * 60 * 1000) > yearAgoEndDate.getTime())) {
-          yearAgoTotal += revenue;
-          yearAgoAttendance += attendance;
-          console.log(`Year ago: Week ${weekStart.toDateString()} -> Revenue: $${revenue/100} (${venueFilter || 'All venues'}), Attendance: ${attendance} (item quantities)`);
-        }
-      });
-
-      // Calculate spend per head (revenue / attendance)
-      const currentSpendPerHead = currentAttendance > 0 ? (currentTotal / 100) / currentAttendance : 0;
-      const previousSpendPerHead = previousAttendance > 0 ? (previousTotal / 100) / previousAttendance : 0;
-      const yearAgoSpendPerHead = yearAgoAttendance > 0 ? (yearAgoTotal / 100) / yearAgoAttendance : 0;
+      // Calculate spend per head
+      const currentSpendPerHead = currentAttendance > 0 ? (currentRevenue / 100) / currentAttendance : 0;
+      const previousSpendPerHead = previousAttendance > 0 ? (previousRevenue / 100) / previousAttendance : 0;
+      const yearAgoSpendPerHead = yearAgoAttendance > 0 ? (yearAgoRevenue / 100) / yearAgoAttendance : 0;
 
       // Calculate change percentages
-      const changePercent = previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0;
-      const changePercentYear = yearAgoTotal > 0 ? ((currentTotal - yearAgoTotal) / yearAgoTotal) * 100 : 0;
+      const changePercent = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+      const changePercentYear = yearAgoRevenue > 0 ? ((currentRevenue - yearAgoRevenue) / yearAgoRevenue) * 100 : 0;
       const attendanceChangePercent = previousAttendance > 0 ? ((currentAttendance - previousAttendance) / previousAttendance) * 100 : 0;
       const attendanceChangePercentYear = yearAgoAttendance > 0 ? ((currentAttendance - yearAgoAttendance) / yearAgoAttendance) * 100 : 0;
       const spendPerHeadChangePercent = previousSpendPerHead > 0 ? ((currentSpendPerHead - previousSpendPerHead) / previousSpendPerHead) * 100 : 0;
       const spendPerHeadChangePercentYear = yearAgoSpendPerHead > 0 ? ((currentSpendPerHead - yearAgoSpendPerHead) / yearAgoSpendPerHead) * 100 : 0;
 
       console.log(`${daysBack} days totals:`, {
-        revenue: { venue: venueFilter || 'All', current: currentTotal/100, previous: previousTotal/100, yearAgo: yearAgoTotal/100 },
-        attendance: { source: 'Door transactions only', current: currentAttendance, previous: previousAttendance, yearAgo: yearAgoAttendance },
-        spendPerHead: { calculation: `${venueFilter || 'All'} revenue ÷ door attendance`, current: currentSpendPerHead, previous: previousSpendPerHead, yearAgo: yearAgoSpendPerHead }
+        revenue: { current: currentRevenue/100, previous: previousRevenue/100, yearAgo: yearAgoRevenue/100 },
+        attendance: { current: currentAttendance, previous: previousAttendance, yearAgo: yearAgoAttendance },
+        spendPerHead: { current: currentSpendPerHead, previous: previousSpendPerHead, yearAgo: yearAgoSpendPerHead }
       });
 
       return {
-        current: currentTotal,
-        previous: previousTotal,
-        previousYear: yearAgoTotal,
-        currentFormatted: formatCurrency(currentTotal),
-        previousFormatted: formatCurrency(previousTotal),
-        previousYearFormatted: formatCurrency(yearAgoTotal),
+        current: currentRevenue,
+        previous: previousRevenue,
+        previousYear: yearAgoRevenue,
+        currentFormatted: formatCurrency(currentRevenue),
+        previousFormatted: formatCurrency(previousRevenue),
+        previousYearFormatted: formatCurrency(yearAgoRevenue),
         changePercent,
         changePercentYear,
         currentAttendance,
@@ -688,36 +631,19 @@ export default function Dashboard() {
 
   const getDirectRevenueForPeriod = async (startDate: Date, endDate: Date, venueFilter: string | null = null): Promise<number> => {
     try {
-      // Ensure we use the full day range
-      const startOfDay = new Date(startDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(endDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      console.log(`Fetching revenue from ${startOfDay.toISOString()} to ${endOfDay.toISOString()}, venue: ${venueFilter || 'all'}`);
-      
-      let query = supabase
-        .from('revenue_events')
-        .select('amount_cents')
-        .eq('status', 'completed')
-        .gte('payment_date', startOfDay.toISOString())
-        .lte('payment_date', endOfDay.toISOString());
-
-      if (venueFilter) {
-        query = query.eq('venue', venueFilter);
-      }
-
-      const { data, error } = await query;
+      // Use direct SQL query to avoid pagination issues
+      const { data, error } = await supabase.rpc('get_revenue_sum', {
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        venue_filter: venueFilter
+      });
 
       if (error) {
-        console.error('Error fetching direct revenue:', error);
+        console.error('Error fetching revenue:', error);
         return 0;
       }
 
-      // Sum up all revenue for the period in cents
-      const totalRevenue = (data || []).reduce((sum, event) => sum + event.amount_cents, 0);
-      console.log(`Found ${data?.length || 0} events, total revenue: $${totalRevenue / 100} (${totalRevenue} cents)`);
-      return totalRevenue; // Return in cents to match formatCurrency expectation
+      return data || 0;
     } catch (error) {
       console.error('Error in getDirectRevenueForPeriod:', error);
       return 0;
@@ -749,6 +675,27 @@ export default function Dashboard() {
       return totalRevenue;
     } catch (error) {
       console.error('Error in getRollingRevenueForPeriod:', error);
+      return 0;
+    }
+  };
+
+  const getAttendanceForPeriod = async (startDate: Date, endDate: Date, venueFilter: string | null = null): Promise<number> => {
+    try {
+      // Use direct SQL query to avoid pagination issues
+      const { data, error } = await supabase.rpc('get_attendance_sum', {
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        venue_filter: venueFilter
+      });
+
+      if (error) {
+        console.error('Error fetching attendance:', error);
+        return 0;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Error in getAttendanceForPeriod:', error);
       return 0;
     }
   };

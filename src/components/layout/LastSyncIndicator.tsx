@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Zap } from 'lucide-react';
+import { Clock, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,37 +8,29 @@ interface LastSyncIndicatorProps {
 }
 
 export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTime }) => {
-  const [isTransforming, setIsTransforming] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const triggerTransform = async () => {
-    setIsTransforming(true);
+  const triggerSync = async () => {
+    setIsSyncing(true);
     try {
-      console.log('Triggering transform of recent transactions...');
-      const { data, error } = await supabase.rpc('transform_recent_synced_transactions', {
-        minutes_back: 1440
+      console.log('Triggering sync-and-transform (since: last)...');
+      const { data, error } = await supabase.functions.invoke('sync-and-transform', {
+        body: { since: 'last', overlap_minutes: 5, dry_run: false }
       });
 
       if (error) {
-        console.error('Transform error:', error);
-        alert('Transform failed: ' + error.message);
+        console.error('Sync & Transform error:', error);
+        alert('Sync & Transform failed: ' + error.message);
       } else {
-        console.log('Transform completed successfully:', data);
-        const message = `Transform completed successfully!
-
-Time Window: Last ${data.minutes_back} minutes (${Math.round(data.minutes_back / 60)} hours)
-Raw Payments Found: ${data.total_recent_synced}
-Events Processed: ${data.processed_count}
-
-${data.sample_results && data.sample_results.length > 0 ? 
-  `Sample Event: ${data.sample_results[0].venue} - $${(data.sample_results[0].amount_cents / 100).toFixed(2)}` : ''}`;
-        alert(message);
-        setTimeout(() => window.location.reload(), 2000);
+        console.log('Sync & Transform completed:', data);
+        alert('Sync & Transform completed. Refreshing...');
+        setTimeout(() => window.location.reload(), 1000);
       }
     } catch (error) {
-      console.error('Error triggering transform:', error);
-      alert('Error triggering transform: ' + (error as Error).message);
+      console.error('Error triggering sync-and-transform:', error);
+      alert('Error triggering sync-and-transform: ' + (error as Error).message);
     } finally {
-      setIsTransforming(false);
+      setIsSyncing(false);
     }
   };
 
@@ -61,12 +53,12 @@ ${data.sample_results && data.sample_results.length > 0 ?
       <Button
         variant="ghost"
         size="sm"
-        onClick={triggerTransform}
-        disabled={isTransforming}
+        onClick={triggerSync}
+        disabled={isSyncing}
         className="h-6 w-6 p-0"
-        title="Transform Recent (24h)"
+        title="Sync & Transform"
       >
-        <Zap className={`h-3 w-3 ${isTransforming ? 'animate-spin' : ''}`} />
+        <RotateCcw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
       </Button>
     </div>
   );
