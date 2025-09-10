@@ -127,8 +127,8 @@ const Customers = () => {
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gm-neutral-900">Customers</h1>
-            <p className="text-gm-neutral-600">
+            <h1 className="text-2xl font-bold text-gm-neutral-900 dark:text-white">Customers</h1>
+            <p className="text-gm-neutral-600 dark:text-gm-neutral-400">
               {mockCustomerStats.totalCustomers} customers
             </p>
           </div>
@@ -180,7 +180,7 @@ const Customers = () => {
 
         {/* Results Count */}
         <div>
-          <p className="text-sm text-gm-neutral-600">
+          <p className="text-sm text-gm-neutral-600 dark:text-gm-neutral-400">
             {sortedCustomers.length} customer{sortedCustomers.length !== 1 ? 's' : ''} found
           </p>
         </div>

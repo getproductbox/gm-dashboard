@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useRevenueDashboard } from '@/hooks/useRevenueDashboard';
 import { useDateRanges } from '@/hooks/useDateRanges';
+import { useEffect } from 'react';
 
 export const RevenueDashboard = () => {
   const {
@@ -15,7 +16,9 @@ export const RevenueDashboard = () => {
     lastWeekComparison,
     lastMonthComparison,
     lastYearComparison,
-    fetchAllMetrics
+    coreStatistics,
+    fetchAllMetrics,
+    fetchCoreStatistics
   } = useRevenueDashboard();
 
   const {
@@ -33,6 +36,11 @@ export const RevenueDashboard = () => {
       fetchAllMetrics(selectedStartDate, selectedEndDate);
     }
   };
+
+  // Fetch core statistics on component mount
+  useEffect(() => {
+    fetchCoreStatistics();
+  }, [fetchCoreStatistics]);
 
   const formatCurrency = (cents: number) => {
     // Convert from GST inclusive to GST exclusive by dividing by 1.1
@@ -83,6 +91,82 @@ export const RevenueDashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Revenue Dashboard</h1>
+      </div>
+
+      {/* Core Statistics Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Core Statistics</h2>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => fetchCoreStatistics()}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Loading...' : 'Refresh'}
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {coreStatistics.length === 0 ? (
+            // Loading state for core statistics
+            <>
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-6">
+                    <div className="h-6 bg-gray-200 rounded w-1/4 mb-2"></div>
+                    <div className="h-8 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          ) : (
+            coreStatistics.map((stat, index) => (
+            <Card key={index}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{stat.periodLabel}</CardTitle>
+                <div className="flex gap-1">
+                  {getVarianceIcon(stat.totalVariance)}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {/* Current Period */}
+                  <div>
+                    <div className="text-2xl font-bold">{formatCurrency(stat.currentPeriod.totalRevenue)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {stat.currentPeriod.eventCount} transactions
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(stat.currentDateRange.start, "MMM d")} - {format(stat.currentDateRange.end, "MMM d, yyyy")}
+                    </p>
+                  </div>
+                  
+                  {/* Comparison Metrics */}
+                  <div className="space-y-2">
+                    {/* Year-over-Year */}
+                    <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                      <span className="text-xs text-muted-foreground">vs same period last year</span>
+                      <div className={`text-sm font-medium ${getVarianceColor(stat.totalVariance)}`}>
+                        {stat.totalVariance > 0 ? '+' : ''}{stat.totalVariance.toFixed(1)}%
+                      </div>
+                    </div>
+                    
+                    {/* Period-over-Period */}
+                    <div className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                      <span className="text-xs text-muted-foreground">vs previous period</span>
+                      <div className={`text-sm font-medium ${getVarianceColor(stat.previousPeriodVariance)}`}>
+                        {stat.previousPeriodVariance > 0 ? '+' : ''}{stat.previousPeriodVariance.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Quick Range Buttons */}

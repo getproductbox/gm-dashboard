@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [comparisonType, setComparisonType] = useState<'previous' | 'year'>('previous');
 
 
 
@@ -874,11 +875,36 @@ export default function Dashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gm-neutral-900">Revenue Dashboard</h1>
-          <p className="text-gm-neutral-600">Track your revenue performance across different time periods.</p>
+          <h1 className="text-3xl font-bold text-gm-neutral-900 dark:text-white">Revenue Dashboard</h1>
+          <p className="text-gm-neutral-600 dark:text-gm-neutral-400">Track your revenue performance across different time periods.</p>
         </div>
 
-
+        {/* Comparison Type Toggle */}
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium text-gm-neutral-600 dark:text-gm-neutral-300">Compare to:</span>
+          <div className="flex bg-gm-neutral-100 dark:bg-gm-neutral-800 rounded-lg p-1">
+            <button
+              onClick={() => setComparisonType('previous')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                comparisonType === 'previous'
+                  ? 'bg-white dark:bg-gm-neutral-700 text-gm-neutral-900 dark:text-white shadow-sm'
+                  : 'text-gm-neutral-600 dark:text-gm-neutral-400 hover:text-gm-neutral-900 dark:hover:text-white'
+              }`}
+            >
+              Previous Period
+            </button>
+            <button
+              onClick={() => setComparisonType('year')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                comparisonType === 'year'
+                  ? 'bg-white dark:bg-gm-neutral-700 text-gm-neutral-900 dark:text-white shadow-sm'
+                  : 'text-gm-neutral-600 dark:text-gm-neutral-400 hover:text-gm-neutral-900 dark:hover:text-white'
+              }`}
+            >
+              Same Period Last Year
+            </button>
+          </div>
+        </div>
 
         {/* Metrics Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6" key={refreshKey}>
@@ -897,9 +923,21 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.weekly.currentFormatted}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                {getTrendIcon(dashboardData?.weekly.changePercent || 0)}
-                <span className={getTrendColor(dashboardData?.weekly.changePercent || 0)}>
-                    {formatPercent(dashboardData?.weekly.changePercent || 0)} vs previous
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.weekly.changePercent || 0)
+                      : (dashboardData?.weekly.changePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.weekly.changePercent || 0)
+                      : (dashboardData?.weekly.changePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.weekly.changePercent || 0)
+                        : (dashboardData?.weekly.changePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
                   </span>
                 </div>
               </div>
@@ -912,10 +950,22 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.weekly.currentAttendance.toLocaleString()}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                  {getTrendIcon(dashboardData?.weekly.attendanceChangePercent || 0)}
-                  <span className={getTrendColor(dashboardData?.weekly.attendanceChangePercent || 0)}>
-                    {formatPercent(dashboardData?.weekly.attendanceChangePercent || 0)} vs previous
-                </span>
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.weekly.attendanceChangePercent || 0)
+                      : (dashboardData?.weekly.attendanceChangePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.weekly.attendanceChangePercent || 0)
+                      : (dashboardData?.weekly.attendanceChangePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.weekly.attendanceChangePercent || 0)
+                        : (dashboardData?.weekly.attendanceChangePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
+                  </span>
                 </div>
               </div>
 
@@ -927,9 +977,21 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.weekly.currentSpendPerHeadFormatted}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                  {getTrendIcon(dashboardData?.weekly.spendPerHeadChangePercent || 0)}
-                  <span className={getTrendColor(dashboardData?.weekly.spendPerHeadChangePercent || 0)}>
-                    {formatPercent(dashboardData?.weekly.spendPerHeadChangePercent || 0)} vs previous
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.weekly.spendPerHeadChangePercent || 0)
+                      : (dashboardData?.weekly.spendPerHeadChangePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.weekly.spendPerHeadChangePercent || 0)
+                      : (dashboardData?.weekly.spendPerHeadChangePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.weekly.spendPerHeadChangePercent || 0)
+                        : (dashboardData?.weekly.spendPerHeadChangePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
                   </span>
                 </div>
               </div>
@@ -951,9 +1013,21 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.monthly.currentFormatted}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                {getTrendIcon(dashboardData?.monthly.changePercent || 0)}
-                <span className={getTrendColor(dashboardData?.monthly.changePercent || 0)}>
-                    {formatPercent(dashboardData?.monthly.changePercent || 0)} vs previous
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.monthly.changePercent || 0)
+                      : (dashboardData?.monthly.changePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.monthly.changePercent || 0)
+                      : (dashboardData?.monthly.changePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.monthly.changePercent || 0)
+                        : (dashboardData?.monthly.changePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
                   </span>
                 </div>
               </div>
@@ -966,10 +1040,22 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.monthly.currentAttendance.toLocaleString()}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                  {getTrendIcon(dashboardData?.monthly.attendanceChangePercent || 0)}
-                  <span className={getTrendColor(dashboardData?.monthly.attendanceChangePercent || 0)}>
-                    {formatPercent(dashboardData?.monthly.attendanceChangePercent || 0)} vs previous
-                </span>
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.monthly.attendanceChangePercent || 0)
+                      : (dashboardData?.monthly.attendanceChangePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.monthly.attendanceChangePercent || 0)
+                      : (dashboardData?.monthly.attendanceChangePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.monthly.attendanceChangePercent || 0)
+                        : (dashboardData?.monthly.attendanceChangePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
+                  </span>
                 </div>
               </div>
 
@@ -981,9 +1067,21 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.monthly.currentSpendPerHeadFormatted}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                  {getTrendIcon(dashboardData?.monthly.spendPerHeadChangePercent || 0)}
-                  <span className={getTrendColor(dashboardData?.monthly.spendPerHeadChangePercent || 0)}>
-                    {formatPercent(dashboardData?.monthly.spendPerHeadChangePercent || 0)} vs previous
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.monthly.spendPerHeadChangePercent || 0)
+                      : (dashboardData?.monthly.spendPerHeadChangePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.monthly.spendPerHeadChangePercent || 0)
+                      : (dashboardData?.monthly.spendPerHeadChangePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.monthly.spendPerHeadChangePercent || 0)
+                        : (dashboardData?.monthly.spendPerHeadChangePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
                   </span>
                 </div>
               </div>
@@ -1005,9 +1103,21 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.yearly.currentFormatted}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                {getTrendIcon(dashboardData?.yearly.changePercent || 0)}
-                <span className={getTrendColor(dashboardData?.yearly.changePercent || 0)}>
-                    {formatPercent(dashboardData?.yearly.changePercent || 0)} vs previous
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.yearly.changePercent || 0)
+                      : (dashboardData?.yearly.changePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.yearly.changePercent || 0)
+                      : (dashboardData?.yearly.changePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.yearly.changePercent || 0)
+                        : (dashboardData?.yearly.changePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
                   </span>
                 </div>
               </div>
@@ -1020,10 +1130,22 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.yearly.currentAttendance.toLocaleString()}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                  {getTrendIcon(dashboardData?.yearly.attendanceChangePercent || 0)}
-                  <span className={getTrendColor(dashboardData?.yearly.attendanceChangePercent || 0)}>
-                    {formatPercent(dashboardData?.yearly.attendanceChangePercent || 0)} vs previous
-                </span>
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.yearly.attendanceChangePercent || 0)
+                      : (dashboardData?.yearly.attendanceChangePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.yearly.attendanceChangePercent || 0)
+                      : (dashboardData?.yearly.attendanceChangePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.yearly.attendanceChangePercent || 0)
+                        : (dashboardData?.yearly.attendanceChangePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
+                  </span>
                 </div>
               </div>
 
@@ -1035,9 +1157,21 @@ export default function Dashboard() {
                 </div>
                 <div className="text-xl font-bold">{dashboardData?.yearly.currentSpendPerHeadFormatted}</div>
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                  {getTrendIcon(dashboardData?.yearly.spendPerHeadChangePercent || 0)}
-                  <span className={getTrendColor(dashboardData?.yearly.spendPerHeadChangePercent || 0)}>
-                    {formatPercent(dashboardData?.yearly.spendPerHeadChangePercent || 0)} vs previous
+                  {getTrendIcon(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.yearly.spendPerHeadChangePercent || 0)
+                      : (dashboardData?.yearly.spendPerHeadChangePercentYear || 0)
+                  )}
+                  <span className={getTrendColor(
+                    comparisonType === 'previous' 
+                      ? (dashboardData?.yearly.spendPerHeadChangePercent || 0)
+                      : (dashboardData?.yearly.spendPerHeadChangePercentYear || 0)
+                  )}>
+                    {formatPercent(
+                      comparisonType === 'previous' 
+                        ? (dashboardData?.yearly.spendPerHeadChangePercent || 0)
+                        : (dashboardData?.yearly.spendPerHeadChangePercentYear || 0)
+                    )} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
                   </span>
                 </div>
               </div>

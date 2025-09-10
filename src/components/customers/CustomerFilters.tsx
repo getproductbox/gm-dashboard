@@ -20,11 +20,11 @@ interface CustomerFiltersProps {
 
 export const CustomerFilters = ({ filters, onFiltersChange, onClearFilters }: CustomerFiltersProps) => {
   return (
-    <div className="bg-white p-4 rounded-lg border border-gm-neutral-200 space-y-4">
+    <div className="bg-white dark:bg-gm-neutral-800 p-4 rounded-lg border border-gm-neutral-200 dark:border-gm-neutral-700 space-y-4">
       <div className="flex flex-col lg:flex-row gap-4">
         {/* Search Input */}
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gm-neutral-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gm-neutral-400 dark:text-gm-neutral-500 h-4 w-4" />
           <Input
             placeholder="Search by name, email, or phone..."
             value={filters.search}

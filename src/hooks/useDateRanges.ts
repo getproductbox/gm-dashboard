@@ -21,11 +21,29 @@ export const useDateRanges = () => {
       }
     },
     {
+      label: 'Last 28 Days',
+      getDates: () => {
+        const end = new Date(2025, 6, 3); // July 3, 2025 (latest data)
+        const start = new Date(end);
+        start.setDate(start.getDate() - 27);
+        return { start, end };
+      }
+    },
+    {
       label: 'Last 30 Days',
       getDates: () => {
         const end = new Date(2025, 6, 3); // July 3, 2025 (latest data)
         const start = new Date(end);
         start.setDate(start.getDate() - 29);
+        return { start, end };
+      }
+    },
+    {
+      label: 'Last 365 Days',
+      getDates: () => {
+        const end = new Date(2025, 6, 3); // July 3, 2025 (latest data)
+        const start = new Date(end);
+        start.setDate(start.getDate() - 364);
         return { start, end };
       }
     },

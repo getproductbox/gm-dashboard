@@ -5,6 +5,7 @@ interface BackfillRequest {
   start_date?: string; // ISO date string (e.g., "2024-01-01")
   end_date?: string;   // ISO date string (e.g., "2024-12-31")
   dry_run?: boolean;   // If true, don't actually insert data
+  location_id?: string; // Optional Square location ID override
 }
 
 interface BackfillProgress {
@@ -101,8 +102,8 @@ serve(async (req) => {
 
     console.log(`Processing ${monthsToProcess.length} months: ${monthsToProcess.join(', ')}`);
 
-    // 🏪 Fetch all active Square locations once
-    const locationId = 'LGRBM02D8PCNM'; // ← specific to this function
+    // 🏪 Determine target Square location
+    const locationId = backfillParams.location_id || 'LGRBM02D8PCNM';
     console.log(`Found ${locationId} active location: ${locationId}`);
 
     // Process each location and month
@@ -346,6 +347,25 @@ async function fetchPaymentsForDateRange(
 
   console.log(`Total payments fetched: ${allPayments.length}`);
   return allPayments;
+}
+
+/**
+ * Build the Square API URL for fetching payments
+ */
+function buildPaymentsUrl(startDate: Date, endDate: Date, cursor: string | null, locationId: string): string {
+  const url = new URL('https://connect.squareup.com/v2/payments');
+
+  // Add required parameters
+  url.searchParams.append('begin_time', startDate.toISOString());
+  url.searchParams.append('end_time', endDate.toISOString());
+  url.searchParams.append('location_id', locationId);
+
+  // Add optional parameters
+  if (cursor) {
+    url.searchParams.append('cursor', cursor);
+  }
+
+  return url.toString();
 }
 
 async function listLocations(accessToken: string): Promise<string[]> {
