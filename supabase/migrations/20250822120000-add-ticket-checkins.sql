@@ -12,3 +12,4 @@ ADD COLUMN IF NOT EXISTS ticket_checkins JSONB;
 
 
 
+
