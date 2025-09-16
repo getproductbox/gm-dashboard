@@ -5,9 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface LastSyncIndicatorProps {
   lastSyncTime?: string;
+  onSyncComplete?: () => void;
 }
 
-export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTime }) => {
+export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTime, onSyncComplete }) => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const triggerSync = async () => {
@@ -23,8 +24,11 @@ export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTi
         alert('Sync & Transform failed: ' + error.message);
       } else {
         console.log('Sync & Transform completed:', data);
-        alert('Sync & Transform completed. Refreshing...');
-        setTimeout(() => window.location.reload(), 1000);
+        alert('Sync & Transform completed successfully!');
+        // Call the callback to refresh the sync time
+        if (onSyncComplete) {
+          onSyncComplete();
+        }
       }
     } catch (error) {
       console.error('Error triggering sync-and-transform:', error);

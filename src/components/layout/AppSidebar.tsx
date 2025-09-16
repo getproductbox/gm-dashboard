@@ -65,23 +65,25 @@ const menuItems = [
 export function AppSidebar() {
   const [lastSyncTime, setLastSyncTime] = useState<string | undefined>();
 
-  useEffect(() => {
-    const fetchLastSyncTime = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('square_sync_status')
-          .select('last_successful_sync')
-          .eq('environment', 'production')
-          .single();
+  const fetchLastSyncTime = async () => {
+    try {
+      // Get the most recent sync time from any location
+      const { data, error } = await supabase
+        .from('square_location_sync_status')
+        .select('last_successful_sync_at')
+        .order('last_successful_sync_at', { ascending: false })
+        .limit(1)
+        .single();
 
-        if (!error && data?.last_successful_sync) {
-          setLastSyncTime(data.last_successful_sync);
-        }
-      } catch (error) {
-        console.error('Error fetching last sync time:', error);
+      if (!error && data?.last_successful_sync_at) {
+        setLastSyncTime(data.last_successful_sync_at);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching last sync time:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchLastSyncTime();
   }, []);
 
@@ -111,7 +113,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <div className="space-y-2">
           <ThemeToggle />
-          <LastSyncIndicator lastSyncTime={lastSyncTime} />
+          <LastSyncIndicator lastSyncTime={lastSyncTime} onSyncComplete={fetchLastSyncTime} />
         </div>
       </SidebarFooter>
     </Sidebar>
