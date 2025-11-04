@@ -328,7 +328,10 @@ async function fetchPaymentsForDateRange(
         // Handle rate limiting and server errors
         if (response.status === 429 || response.status >= 500) {
           const waitTime = Math.pow(2, retries) * 1000; // Exponential backoff: 1s, 2s, 4s
-          console.log(`Rate limit/server error (${response.status}), retrying in ${waitTime}ms...`);
+          console.error(JSON.stringify({
+            metric: 'square_backoff', location_id: locationId, status: response.status,
+            cursor: !!cursor, retry: retries, wait_ms: waitTime
+          }));
           await new Promise(resolve => setTimeout(resolve, waitTime));
           retries++;
           continue;
@@ -342,7 +345,10 @@ async function fetchPaymentsForDateRange(
           throw new Error(`Failed after ${maxRetries} retries: ${error.message}`);
         }
         const waitTime = Math.pow(2, retries) * 1000;
-        console.log(`Request failed, retrying in ${waitTime}ms...`);
+        console.error(JSON.stringify({
+          metric: 'square_request_error', location_id: locationId,
+          retry: retries, wait_ms: waitTime, error: error instanceof Error ? error.message : String(error)
+        }));
         await new Promise(resolve => setTimeout(resolve, waitTime));
         retries++;
       }

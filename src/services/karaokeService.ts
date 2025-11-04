@@ -338,46 +338,74 @@ export const karaokeService = {
   },
 
   async createHold(params: { boothId: string; venue: 'manor' | 'hippie'; bookingDate: string; startTime: string; endTime: string; sessionId: string; customerEmail?: string; ttlMinutes?: number }) {
-    const { data, error } = await supabase.functions.invoke('karaoke-holds', {
-      body: params,
-      headers: { 'x-action': 'create' },
+    const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:4000';
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('User not authenticated');
+    const res = await fetch(`${API_BASE}/karaoke/holds`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'x-action': 'create'
+      },
+      body: JSON.stringify(params)
     });
-    if (error) {
-      throw new Error(error.message || 'Failed to create hold');
-    }
-    return data;
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || 'Failed to create hold');
+    return json;
   },
 
   async extendHold(params: { holdId: string; sessionId: string; ttlMinutes?: number }) {
-    const { data, error } = await supabase.functions.invoke('karaoke-holds', {
-      body: params,
-      headers: { 'x-action': 'extend' },
+    const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:4000';
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('User not authenticated');
+    const res = await fetch(`${API_BASE}/karaoke/holds`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'x-action': 'extend'
+      },
+      body: JSON.stringify(params)
     });
-    if (error) {
-      throw new Error(error.message || 'Failed to extend hold');
-    }
-    return data;
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || 'Failed to extend hold');
+    return json;
   },
 
   async releaseHold(params: { holdId: string; sessionId: string }) {
-    const { data, error } = await supabase.functions.invoke('karaoke-holds', {
-      body: params,
-      headers: { 'x-action': 'release' },
+    const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:4000';
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('User not authenticated');
+    const res = await fetch(`${API_BASE}/karaoke/holds`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'x-action': 'release'
+      },
+      body: JSON.stringify(params)
     });
-    if (error) {
-      throw new Error(error.message || 'Failed to release hold');
-    }
-    return data;
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || 'Failed to release hold');
+    return json;
   },
 
   async finalizeHold(params: { holdId: string; sessionId: string; customerName: string; customerEmail?: string; customerPhone?: string; guestCount?: number }) {
-    const { data, error } = await supabase.functions.invoke('karaoke-book', {
-      body: params,
+    const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:4000';
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('User not authenticated');
+    const res = await fetch(`${API_BASE}/karaoke/finalize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(params)
     });
-    if (error) {
-      throw new Error(error.message || 'Failed to finalize hold');
-    }
-    return data;
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || 'Failed to finalize hold');
+    return json;
   },
 
   // ===== STAFF/ADMIN HOLDS QUERIES =====

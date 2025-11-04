@@ -102,6 +102,7 @@ serve(async (req) => {
         console.log(`Processing location ${location_id} from ${window.start} to ${window.end}`);
 
         // 1) Payments - with timeout
+        const pStart = Date.now();
         const pCall = await callFnWithTimeout(
           `${SUPABASE_URL}/functions/v1/square-sync-payments`, 
           SERVICE_KEY, 
@@ -114,8 +115,18 @@ serve(async (req) => {
           },
           60000 // 60 second timeout
         );
+        const pMs = Date.now() - pStart;
+        if (!pCall.ok) {
+          console.error(JSON.stringify({
+            metric: 'edge_call_failed', stage: 'payments', location_id, duration_ms: pMs,
+            error: pCall.body?.error || 'unknown'
+          }));
+        } else {
+          console.log(JSON.stringify({ metric: 'edge_call_ok', stage: 'payments', location_id, duration_ms: pMs }));
+        }
 
         // 2) Orders - with timeout
+        const oStart = Date.now();
         const oCall = await callFnWithTimeout(
           `${SUPABASE_URL}/functions/v1/square-sync-orders`, 
           SERVICE_KEY, 
@@ -128,6 +139,15 @@ serve(async (req) => {
           },
           60000 // 60 second timeout
         );
+        const oMs = Date.now() - oStart;
+        if (!oCall.ok) {
+          console.error(JSON.stringify({
+            metric: 'edge_call_failed', stage: 'orders', location_id, duration_ms: oMs,
+            error: oCall.body?.error || 'unknown'
+          }));
+        } else {
+          console.log(JSON.stringify({ metric: 'edge_call_ok', stage: 'orders', location_id, duration_ms: oMs }));
+        }
 
         // 3) Transforms (only when not dry run)
         let tPayments = null, tOrders = null;

@@ -22,11 +22,17 @@ type AvailabilitySlot = {
   blockedBy?: 'booking' | 'hold';
 };
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-action',
-};
+// CORS allowlist via env: ALLOWED_ORIGINS=domain1,domain2
+const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(s => s.trim()).filter(Boolean);
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowOrigin = allowedOrigins.length === 0 ? '*' : (allowedOrigins.includes(origin) ? origin : 'null');
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-action',
+  } as Record<string, string>;
+}
 
 // Low-effort perf: tiny in-memory cache with short TTL to smooth repeated requests
 type CacheEntry = { expiresAt: number; payload: unknown };
@@ -64,20 +70,29 @@ function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): b
 serve(async (req) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 200, headers: getCorsHeaders(req) });
   }
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const body = (await req.json()) as AvailabilityRequest;
     const granularity = Math.max(15, body.granularityMinutes ?? 60);
@@ -85,7 +100,7 @@ serve(async (req) => {
     if (!body.bookingDate) {
       return new Response(JSON.stringify({ error: 'bookingDate is required' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     // Action: list available booths for a specific slot (post-slot selection)
@@ -93,12 +108,12 @@ serve(async (req) => {
       const cacheKey = makeKey(['boothsForSlot', body.venue, body.bookingDate, body.startTime, body.endTime, body.minCapacity]);
       const cached = getCached(cacheKey);
       if (cached) {
-        return new Response(JSON.stringify(cached), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify(cached), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
       if (!body.venue || !body.startTime || !body.endTime) {
         return new Response(JSON.stringify({ error: 'venue, startTime, and endTime are required for boothsForSlot' }), {
           status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
       const minCap = body.minCapacity ?? 1;
@@ -109,7 +124,7 @@ serve(async (req) => {
         .eq('is_available', true)
         .gte('capacity', minCap);
       if (boothListErr) {
-        return new Response(JSON.stringify({ error: 'Failed to fetch booths' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ error: 'Failed to fetch booths' }), { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       const boothIds = (booths || []).map((b) => b.id);
@@ -147,7 +162,7 @@ serve(async (req) => {
       setCached(cacheKey, payload);
       return new Response(JSON.stringify(payload), {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -161,7 +176,7 @@ serve(async (req) => {
       if (boothErr || !booth) {
         return new Response(JSON.stringify({ error: 'Booth not found' }), {
           status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
       const startHH = (booth.operating_hours_start as string)?.slice(0, 5) || '10:00';
@@ -175,7 +190,7 @@ serve(async (req) => {
       if (bookingsErr) {
         return new Response(JSON.stringify({ error: 'Failed to fetch bookings' }), {
           status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
       const nowIso = new Date().toISOString();
@@ -189,7 +204,7 @@ serve(async (req) => {
       if (holdsErr) {
         return new Response(JSON.stringify({ error: 'Failed to fetch holds' }), {
           status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
       const slots: AvailabilitySlot[] = [];
@@ -202,14 +217,14 @@ serve(async (req) => {
         slots.push({ startTime: cursor, endTime: next, available: !(hasBooking || hasHold), blockedBy: hasBooking ? 'booking' : hasHold ? 'hold' : undefined });
         cursor = next;
       }
-      return new Response(JSON.stringify({ boothId: body.boothId, bookingDate: body.bookingDate, granularityMinutes: granularity, slots }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ boothId: body.boothId, bookingDate: body.bookingDate, granularityMinutes: granularity, slots }), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
     // Mode 2: aggregate by venue/capacity
     if (!body.venue) {
       return new Response(JSON.stringify({ error: 'Either boothId or venue is required' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -217,7 +232,7 @@ serve(async (req) => {
     const cacheKey = makeKey(['venueSlots', body.venue, body.bookingDate, minCap, granularity]);
     const cached = getCached(cacheKey);
     if (cached) {
-      return new Response(JSON.stringify(cached), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(cached), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
     const { data: booths, error: boothErr2 } = await supabase
@@ -227,7 +242,7 @@ serve(async (req) => {
       .eq('is_available', true)
       .gte('capacity', minCap);
     if (boothErr2) {
-      return new Response(JSON.stringify({ error: 'Failed to fetch booths' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Failed to fetch booths' }), { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
     // Determine venue-wide operating hours based on min/max across booths
     const startHH = (booths || []).length ? (booths![0].operating_hours_start as string).slice(0,5) : '10:00';
@@ -280,12 +295,12 @@ serve(async (req) => {
 
     const payload = { venue: body.venue, bookingDate: body.bookingDate, granularityMinutes: granularity, minCapacity: minCap, slots };
     setCached(cacheKey, payload);
-    return new Response(JSON.stringify(payload), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(payload), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
   } catch (error) {
     console.error('karaoke-availability error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

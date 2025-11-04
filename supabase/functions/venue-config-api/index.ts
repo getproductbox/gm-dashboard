@@ -109,25 +109,29 @@ const validateApiKey = (request: Request): boolean => {
   return apiKey === validApiKey;
 };
 
+// CORS allowlist via env: ALLOWED_ORIGINS=domain1,domain2
+const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(s => s.trim()).filter(Boolean);
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowOrigin = allowedOrigins.length === 0 ? '*' : (allowedOrigins.includes(origin) ? origin : 'null');
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
+  } as Record<string, string>;
+}
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
-      },
+      headers: getCorsHeaders(req),
     });
   }
 
   // Add CORS headers to all responses
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
-  };
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     // Only allow GET requests
