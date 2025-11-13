@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { withSupabase, requireAuth, Clients } from "./middleware/auth";
 import { env } from "./env";
 import { z } from "zod";
+import { xero } from "./xero/routes";
 
 export const app = new Hono();
 
@@ -20,6 +21,9 @@ app.use('/*', cors({
 app.use('/*', withSupabase);
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+// Xero integration routes
+app.route('/xero', xero);
 
 app.post("/square/sync", async (c) => {
   const maybe = requireAuth(c);

@@ -1,0 +1,43 @@
+{
+  "info": {
+    "name": "GM Dashboard Xero (Local)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authorize (opens browser)",
+      "request": {
+        "method": "GET",
+        "url": "{{api_base_url}}/xero/connect",
+        "description": "Starts the Xero OAuth flow. A browser window will open. After consenting, you should see 'Xero connected successfully'."
+      }
+    },
+    {
+      "name": "Accounts",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": "{{api_base_url}}/xero/accounts"
+      }
+    },
+    {
+      "name": "Profit & Loss",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"{{start_date}}\",\n  \"endDate\": \"{{end_date}}\"\n}"
+        },
+        "url": "{{api_base_url}}/xero/pnl"
+      }
+    }
+  ]
+}
+
+
+

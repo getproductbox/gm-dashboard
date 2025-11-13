@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import dotenv from 'dotenv';
+
+// Load environment variables from apps/api/.env in development
+dotenv.config();
 
 const EnvSchema = z.object({
   SUPABASE_URL: z.string().url(),
@@ -6,6 +10,13 @@ const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   PORT: z.string().optional(),
   API_ALLOWED_ORIGINS: z.string().optional(), // comma-separated
+
+  // Xero OAuth
+  XERO_CLIENT_ID: z.string().min(1),
+  XERO_CLIENT_SECRET: z.string().min(1),
+  XERO_REDIRECT_URI: z.string().url(),
+  XERO_SCOPES: z.string().min(1),
+  XERO_TOKEN_ENCRYPTION_KEY: z.string().min(16),
 });
 
 export const env = EnvSchema.parse(process.env);

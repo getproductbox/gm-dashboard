@@ -38,6 +38,7 @@ export function DashboardLayout({ children, headerActions }: DashboardLayoutProp
     if (path === '/bookings/create') return ['Bookings', 'Create'];
     if (path === '/customers') return ['Customers'];
     if (path === '/revenue') return ['Revenue'];
+    if (path === '/pnl') return ['Profit & Loss'];
     if (path === '/reports') return ['Reports'];
     if (path === '/settings') return ['Settings'];
     if (path === '/run-sheet') return ['Run Sheet'];

@@ -1,0 +1,30 @@
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+
+export type PnlResponse = {
+  period: { start: string; end: string };
+  totals: { income: number; expenses: number; netProfit: number };
+  categories: Record<string, number>;
+  uncategorized: Array<{ name?: string; section?: string; amount: number }>;
+  meta?: { cached: boolean; lastUpdated?: string };
+};
+
+export async function fetchAccounts() {
+  const resp = await fetch(`${API_BASE_URL}/xero/accounts`);
+  if (!resp.ok) throw new Error(`Accounts failed: ${resp.status}`);
+  return await resp.json();
+}
+
+export async function fetchPnl(startDate: string, endDate: string, refresh?: boolean): Promise<PnlResponse> {
+  const resp = await fetch(`${API_BASE_URL}/xero/pnl`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ startDate, endDate, refresh: !!refresh }),
+  });
+  const text = await resp.text();
+  let json: any = null; try { json = text ? JSON.parse(text) : null; } catch {}
+  if (!resp.ok) throw new Error(json?.detail || json?.error || `P&L failed: ${resp.status}`);
+  return json as PnlResponse;
+}
+
+
+

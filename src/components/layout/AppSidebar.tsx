@@ -56,6 +56,11 @@ const menuItems = [
     icon: DollarSign,
   },
   {
+    title: "Profit & Loss",
+    url: "/pnl",
+    icon: BarChart3,
+  },
+  {
     title: "Settings", 
     url: "/settings",
     icon: Settings,
