@@ -1,3 +1,7 @@
-# Exclude API backend from Netlify build (deployed separately)
-apps/api/
+# Exclude API backend build artifacts and dependencies (source needed for Netlify Functions)
+apps/api/node_modules/
+apps/api/dist/
+apps/api/package-lock.json
+apps/api/tsconfig.json
+apps/api/*.code-workspace
 
