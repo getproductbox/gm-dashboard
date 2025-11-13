@@ -29,10 +29,15 @@ export async function withSupabase(c: Context, next: Next) {
 
 export function requireAuth(c: Context) {
   const authHeader = c.req.header('authorization');
-  if (!authHeader) {
-    return c.json({ error: 'Missing authorization header' }, 401);
+  if (authHeader) return null;
+
+  // Allow scheduled cron calls authenticated via X-Cron-Key
+  const cronKey = c.req.header('x-cron-key');
+  if (cronKey && env.API_CRON_SECRET && cronKey === env.API_CRON_SECRET) {
+    return null;
   }
-  return null;
+
+  return c.json({ error: 'Unauthorized' }, 401);
 }
 
 

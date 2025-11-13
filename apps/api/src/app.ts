@@ -29,16 +29,251 @@ app.post("/square/sync", async (c) => {
   const maybe = requireAuth(c);
   if (maybe) return maybe;
   const payload = await c.req.json().catch(() => ({}));
-  const url = `${env.SUPABASE_URL}/functions/v1/sync-and-transform`;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${key}`, 'apikey': key, 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const text = await resp.text();
-  let json: any = null; try { json = text ? JSON.parse(text) : null; } catch {}
-  return c.json(json ?? { ok: resp.ok }, resp.status as 200);
+  // @ts-ignore
+  const { supabaseService } = c.get("clients") as Clients;
+  try {
+    const overlap = Number(payload.overlap_minutes) >= 0 ? Number(payload.overlap_minutes) : 5;
+    const maxLookbackDays = Number(payload.max_lookback_days) > 0 ? Number(payload.max_lookback_days) : 30;
+    const dryRun = !!payload.dry_run;
+    const now = new Date();
+    const endTs = now.toISOString();
+
+    // Get active locations
+    const locsRes = await supabaseService
+      .from('square_locations')
+      .select('square_location_id')
+      .eq('is_active', true);
+    
+    if (locsRes.error || !locsRes.data || locsRes.data.length === 0) {
+      return c.json({ 
+        success: false, 
+        stage: 'setup', 
+        error: 'No active locations found' 
+      }, 200);
+    }
+
+    const locations = locsRes.data.map((r: any) => r.square_location_id);
+    const results = [];
+
+    // Process each location with intelligent date range detection
+    for (const locationId of locations) {
+      try {
+        // Determine start time from last sync status
+        const statusRes = await supabaseService
+          .from('square_location_sync_status')
+          .select('last_payment_created_at_seen, last_order_updated_at_seen, orders_upserted')
+          .eq('location_id', locationId)
+          .maybeSingle();
+
+        // Payment window: use intelligent date range from last payment sync
+        const defaultStart = new Date(now.getTime() - maxLookbackDays * 24 * 60 * 60 * 1000);
+        const lastPayment = statusRes.data?.last_payment_created_at_seen 
+          ? new Date(statusRes.data.last_payment_created_at_seen) 
+          : defaultStart;
+        const paymentStartTs = new Date(lastPayment.getTime() - overlap * 60 * 1000);
+        
+        // Order window: if never synced before (null timestamp OR 0 orders), use longer backfill (90 days)
+        // Otherwise use intelligent date range from last order sync
+        const ordersNeverSynced = !statusRes.data?.last_order_updated_at_seen || 
+                                  (statusRes.data?.orders_upserted === 0 || statusRes.data?.orders_upserted === null);
+        const ordersBackfillDays = ordersNeverSynced ? 90 : maxLookbackDays;
+        const lastOrder = statusRes.data?.last_order_updated_at_seen 
+          ? new Date(statusRes.data.last_order_updated_at_seen) 
+          : new Date(now.getTime() - ordersBackfillDays * 24 * 60 * 60 * 1000);
+        const orderStartTs = new Date(lastOrder.getTime() - overlap * 60 * 1000);
+        
+        // Use the earlier of the two windows to ensure we sync everything
+        const startTs = new Date(Math.min(paymentStartTs.getTime(), orderStartTs.getTime()));
+
+        const window = {
+          start: startTs.toISOString(),
+          end: endTs
+        };
+        
+        // Separate order window for order-specific sync (uses longer backfill if needed)
+        const orderWindow = {
+          start: orderStartTs.toISOString(),
+          end: endTs
+        };
+
+        // 1) Sync payments using square-sync-backfill (which works)
+        const backfillUrl = `${env.SUPABASE_URL}/functions/v1/square-sync-backfill`;
+        const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
+        const backfillResp = await fetch(backfillUrl, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${key}`, 
+            'apikey': key, 
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({
+            start_time: window.start,
+            end_time: window.end,
+            overlap_minutes: 0, // Already applied above
+            dry_run: dryRun,
+            locations: [locationId]
+          })
+        });
+
+        const backfillText = await backfillResp.text();
+        let backfillResult: any = null;
+        try {
+          backfillResult = backfillText ? JSON.parse(backfillText) : null;
+        } catch {}
+
+        if (!backfillResp.ok || !backfillResult?.success) {
+          results.push({
+            location_id: locationId,
+            window,
+            payments: {
+              error: backfillResult?.error || backfillResp.statusText || 'Unknown error'
+            },
+            orders: {
+              error: 'Skipped due to payment sync failure'
+            }
+          });
+          continue;
+        }
+
+        const paymentsFetched = backfillResult?.summary?.total_payments_fetched || 0;
+        const paymentsSynced = backfillResult?.summary?.total_payments_synced || 0;
+
+        // 2) Transform payments (if not dry run)
+        let transformResult = null;
+        if (!dryRun && paymentsSynced > 0) {
+          // Use transform_recent_synced_transactions for the window
+          const transformWindowMinutes = Math.ceil((now.getTime() - startTs.getTime()) / (1000 * 60));
+          const transformRes = await supabaseService.rpc('transform_recent_synced_transactions', {
+            minutes_back: transformWindowMinutes + overlap
+          });
+          if (transformRes.error) {
+            console.error(`Transform error for ${locationId}:`, transformRes.error);
+          } else {
+            transformResult = transformRes.data;
+          }
+        }
+
+        // 3) Sync orders using backfill-square-orders (date-based API)
+        // Use orderWindow which has longer backfill if orders never synced
+        let ordersFetched = 0;
+        let ordersUpserted = 0;
+        try {
+          // Convert orderWindow to date strings (YYYY-MM-DD)
+          const startDate = new Date(orderWindow.start);
+          const endDate = new Date(orderWindow.end);
+          const toDateStr = (d: Date) => d.toISOString().slice(0, 10);
+          const ordersUrl = `${env.SUPABASE_URL}/functions/v1/backfill-square-orders`;
+          const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
+          const ordersResp = await fetch(ordersUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${key}`,
+              'apikey': key,
+              'Content-Type': 'application/json',
+              // Edge function expects these headers to decide env and location
+              'x-square-env': 'production',
+              'x-square-location-id': locationId,
+            },
+            body: JSON.stringify({
+              start_date: toDateStr(startDate),
+              end_date: toDateStr(endDate),
+              limit: 200,
+              dryRun: dryRun,
+            })
+          });
+          const ordersText = await ordersResp.text();
+          let ordersJson: any = null; try { ordersJson = ordersText ? JSON.parse(ordersText) : null; } catch {}
+          if (!ordersResp.ok || !ordersJson?.success) {
+            console.error(`Orders backfill failed for ${locationId}:`, ordersJson?.error || ordersResp.statusText);
+          } else {
+            ordersFetched = ordersJson?.fetchedOrders || 0;
+            if (ordersNeverSynced) {
+              console.log(`Initial order backfill for ${locationId}: fetched ${ordersFetched} orders from ${toDateStr(startDate)} to ${toDateStr(endDate)}`);
+            }
+          }
+        } catch (orderBackfillErr) {
+          console.error(`Orders backfill error for ${locationId}:`, orderBackfillErr);
+        }
+
+        // 4) Transform orders window into normalized orders (attendance)
+        // Use orderWindow for transform as well
+        try {
+          if (!dryRun) {
+            const tOrders = await supabaseService.rpc('transform_orders_window', {
+              p_start_ts: orderWindow.start,
+              p_end_ts: orderWindow.end
+            });
+            if (tOrders.error) {
+              console.error(`transform_orders_window error for ${locationId}:`, tOrders.error);
+            } else {
+              // transform_orders_window returns affected rows
+              ordersUpserted = (tOrders.data as number) || 0;
+            }
+          }
+        } catch (ordersTransformErr) {
+          console.error(`Orders transform error for ${locationId}:`, ordersTransformErr);
+        }
+
+        // 5) Update sync status
+        if (!dryRun) {
+          await supabaseService
+            .from('square_location_sync_status')
+            .upsert({
+              location_id: locationId,
+              last_payment_created_at_seen: window.end,
+              last_order_updated_at_seen: window.end, // orders window end
+              last_successful_sync_at: now.toISOString(),
+              last_heartbeat: now.toISOString(),
+              in_progress: false,
+              payments_fetched: paymentsFetched,
+              payments_upserted: paymentsSynced,
+              orders_fetched: ordersFetched,
+              orders_upserted: ordersUpserted
+            }, {
+              onConflict: 'location_id'
+            });
+        }
+
+        results.push({
+          location_id: locationId,
+          window,
+          payments: {
+            fetched: paymentsFetched,
+            upserted: paymentsSynced
+          },
+          orders: {
+            fetched: ordersFetched,
+            upserted: ordersUpserted
+          },
+          transform: transformResult
+        });
+
+      } catch (locErr) {
+        console.error(`Error processing location ${locationId}:`, locErr);
+        results.push({
+          location_id: locationId,
+          window: { start: 'error', end: endTs },
+          payments: {
+            error: locErr instanceof Error ? locErr.message : String(locErr)
+          },
+          orders: {
+            error: 'Skipped due to location error'
+          }
+        });
+      }
+    }
+
+    return c.json({
+      success: true,
+      results,
+      message: 'Sync completed successfully'
+    }, 200);
+  } catch (e) {
+    return c.json({ 
+      success: false, 
+      error: e instanceof Error ? e.message : String(e) 
+    }, 200);
+  }
 });
 
 app.post("/square/backfill", async (c) => {

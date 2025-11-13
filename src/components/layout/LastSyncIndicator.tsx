@@ -14,25 +14,54 @@ export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTi
   const triggerSync = async () => {
     setIsSyncing(true);
     try {
-      console.log('Triggering sync-and-transform (since: last)...');
-      const { data, error } = await supabase.functions.invoke('sync-and-transform', {
-        body: { since: 'last', overlap_minutes: 5, dry_run: false }
+      console.log('Triggering sync via API (will resume from last successful sync)...');
+      const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:4000';
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('You must be signed in to trigger a sync.');
+        return;
+      }
+      // Sync will intelligently resume from last successful sync using square_location_sync_status
+      const res = await fetch(`${API_BASE}/square/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ 
+          overlap_minutes: 5, // Overlap for safety (default)
+          max_lookback_days: 30, // Fallback if no previous sync exists
+          dry_run: false 
+        }),
       });
-
-      if (error) {
-        console.error('Sync & Transform error:', error);
-        alert('Sync & Transform failed: ' + error.message);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        console.error('Sync error:', json);
+        const stage = json?.stage ? ` (${json.stage})` : '';
+        const errorMsg = json?.error || res.statusText || 'Unknown error';
+        alert(`Sync failed${stage}: ${errorMsg}`);
+        return;
+      }
+      console.log('Sync completed:', json);
+      
+      // Show summary if available
+      const results = json?.results || [];
+      if (results.length > 0) {
+        const totalPayments = results.reduce((sum: number, r: any) => 
+          sum + (r.payments?.upserted || 0), 0);
+        const totalOrders = results.reduce((sum: number, r: any) => 
+          sum + (r.orders?.upserted || 0), 0);
+        alert(`Sync completed successfully!\n\nLocations: ${results.length}\nPayments: ${totalPayments}\nOrders: ${totalOrders}`);
       } else {
-        console.log('Sync & Transform completed:', data);
-        alert('Sync & Transform completed successfully!');
-        // Call the callback to refresh the sync time
-        if (onSyncComplete) {
-          onSyncComplete();
-        }
+        alert('Sync completed successfully!');
+      }
+      
+      if (onSyncComplete) {
+        onSyncComplete();
       }
     } catch (error) {
-      console.error('Error triggering sync-and-transform:', error);
-      alert('Error triggering sync-and-transform: ' + (error as Error).message);
+      console.error('Error triggering sync:', error);
+      alert('Error triggering sync: ' + (error as Error).message);
     } finally {
       setIsSyncing(false);
     }

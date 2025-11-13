@@ -18,6 +18,8 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const API_BASE_URL = Deno.env.get('API_BASE_URL') || '';
+    const API_CRON_SECRET = Deno.env.get('API_CRON_SECRET') || '';
     
     if (!SUPABASE_URL || !SERVICE_KEY) {
       return new Response(JSON.stringify({
@@ -83,17 +85,39 @@ serve(async (req) => {
 
     console.log(`Starting scheduled sync: ${syncReason}`);
 
-    // Call the sync-and-transform function
-    const syncResponse = await fetch(`${SUPABASE_URL}/functions/v1/sync-and-transform`, {
+    // Skip if a sync appears in progress (heartbeat within last 10 minutes)
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: busyRows } = await supabase
+      .from('square_location_sync_status')
+      .select('location_id,in_progress,last_heartbeat')
+      .eq('in_progress', true)
+      .gt('last_heartbeat', tenMinAgo);
+    if (Array.isArray(busyRows) && busyRows.length > 0) {
+      console.log('Skipping scheduled run because a sync is in progress', busyRows.map(r => r.location_id));
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Skipped - sync in progress',
+        busyLocations: busyRows.map(r => r.location_id),
+      }), {
+        headers: { ...cors, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
+
+    if (!API_BASE_URL || !API_CRON_SECRET) {
+      throw new Error('Missing API_BASE_URL or API_CRON_SECRET');
+    }
+
+    // Call the monorepo API
+    const syncResponse = await fetch(`${API_BASE_URL}/square/sync`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-        'apikey': SERVICE_KEY,
+        'X-Cron-Key': API_CRON_SECRET,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        since: 'last',
         overlap_minutes: 5,
+        max_lookback_days: 30,
         dry_run: false
       })
     });

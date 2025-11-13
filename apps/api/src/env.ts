@@ -10,6 +10,7 @@ const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   PORT: z.string().optional(),
   API_ALLOWED_ORIGINS: z.string().optional(), // comma-separated
+  API_CRON_SECRET: z.string().optional(),
 
   // Xero OAuth
   XERO_CLIENT_ID: z.string().min(1),
