@@ -21,6 +21,7 @@ import Auth from "./pages/Auth";
 
 import Revenue from "./pages/Revenue";
 import BoothManagement from "./pages/BoothManagement";
+import ProfitAndLoss from "./pages/ProfitAndLoss";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,11 @@ const App = () => (
               <Route path="/revenue" element={
                 <ProtectedRoute>
                   <Revenue />
+                </ProtectedRoute>
+              } />
+              <Route path="/pnl" element={
+                <ProtectedRoute>
+                  <ProfitAndLoss />
                 </ProtectedRoute>
               } />
               <Route path="/settings" element={

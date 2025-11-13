@@ -1,0 +1,3 @@
+# Exclude API backend from Netlify build (deployed separately)
+apps/api/
+
