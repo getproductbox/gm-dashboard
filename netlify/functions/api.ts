@@ -11,10 +11,15 @@ export const handler = async (event: any, context: any) => {
       headers: Object.keys(event.headers || {}),
     }, null, 2));
 
-    // Netlify Functions: event.path contains the path AFTER the function name
-    // So /.netlify/functions/api/xero/pnl becomes /xero/pnl in event.path
-    // But we need to check both path and rawPath as Netlify versions differ
+    // Netlify Functions: event.path contains the FULL path including /.netlify/functions/api
+    // So we need to strip the function prefix to get the actual route path
     let path = event.path || event.rawPath || '/';
+    
+    // Strip /.netlify/functions/api prefix if present
+    const functionPrefix = '/.netlify/functions/api';
+    if (path.startsWith(functionPrefix)) {
+      path = path.slice(functionPrefix.length) || '/';
+    }
     
     // Ensure path starts with /
     if (!path.startsWith('/')) {
@@ -29,11 +34,12 @@ export const handler = async (event: any, context: any) => {
       ? '?' + new URLSearchParams(event.queryStringParameters).toString()
       : '');
     
-    // Construct full URL - path already has /xero/pnl, no need to add /api
+    // Construct full URL with the stripped path
     const url = `${protocol}://${host}${path}${queryString}`;
     
+    console.log('Original path:', event.path);
+    console.log('Stripped path:', path);
     console.log('Constructed URL:', url);
-    console.log('Request path:', path);
 
     // Construct a proper Request object for Hono
     const request = new Request(url, {
