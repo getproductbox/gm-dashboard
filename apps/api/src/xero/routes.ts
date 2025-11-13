@@ -184,6 +184,10 @@ xero.post('/pnl', async (c) => {
         walk(r.Rows || [], title);
         continue;
       }
+      if (r.RowType === 'SummaryRow') {
+        // Skip summary rows like "Total Income", "Total Operating Expenses", etc.
+        continue;
+      }
       if (r.RowType === 'Row' && Array.isArray(r.Cells)) {
         const label = (r.Cells[0]?.Value || '').toString();
         // pick the last numeric-looking cell as amount
@@ -191,19 +195,36 @@ xero.post('/pnl', async (c) => {
         const amount = parseAmount(lastCell?.Value);
         if (!label) continue;
 
+        // Skip calculated values that aren't actual line items
+        const labelL = label.toLowerCase();
+        if (labelL === 'gross profit' || labelL === 'net profit' || labelL.startsWith('total ')) {
+          continue;
+        }
+
         // Determine category heuristically
         let cat = 'other';
-        const labelL = label.toLowerCase();
         const sectionL = (section || '').toLowerCase();
         if (sectionL.includes('cost of sales') || sectionL.includes('cost of goods')) cat = 'cogs';
         if (labelL.includes('wage') || labelL.includes('payroll')) cat = 'wages';
         if (labelL.includes('security')) cat = 'security';
 
-        categories[cat] = (categories[cat] || 0) + Math.abs(amount);
-        if (sectionL.includes('revenue') || sectionL.includes('income')) incomeTotal += amount;
-        else expenseTotal += Math.abs(amount);
+        // Determine if this is income or expense based on section
+        const isIncome = sectionL.includes('revenue') || sectionL.includes('income');
+        const isExpense = sectionL.includes('cost of sales') || sectionL.includes('operating expenses') || sectionL.includes('less');
 
-        if (cat === 'other') uncategorized.push({ name: label, section, amount });
+        if (isIncome) {
+          // Income items - add to income total, don't add to categories
+          incomeTotal += amount;
+        } else if (isExpense) {
+          // Expenses - add to expense total and categories
+          expenseTotal += Math.abs(amount);
+          categories[cat] = (categories[cat] || 0) + Math.abs(amount);
+          // Only add to uncategorized if it's in the "other" category
+          if (cat === 'other') {
+            uncategorized.push({ name: label, section, amount });
+          }
+        }
+        // Skip rows with unclear sections (like empty sections for Gross Profit/Net Profit)
         continue;
       }
       if (Array.isArray(r.Rows)) walk(r.Rows, section);
