@@ -2,6 +2,12 @@ import React, { useState } from 'react';
 import { Clock, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { useSidebar } from '@/components/ui/sidebar';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipTrigger 
+} from '@/components/ui/tooltip';
 
 interface LastSyncIndicatorProps {
   lastSyncTime?: string;
@@ -10,6 +16,7 @@ interface LastSyncIndicatorProps {
 
 export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTime, onSyncComplete }) => {
   const [isSyncing, setIsSyncing] = useState(false);
+  const { state } = useSidebar();
 
   const triggerSync = async () => {
     setIsSyncing(true);
@@ -79,20 +86,40 @@ export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTi
     return `${diffInDays}d ago`;
   };
 
+  const syncButton = (
+    <Button
+      variant="ghost"
+      size={state === "collapsed" ? "icon" : "sm"}
+      onClick={triggerSync}
+      disabled={isSyncing}
+      className={state === "collapsed" ? "h-8 w-8 p-0" : "h-6 w-6 p-0"}
+      title="Sync & Transform"
+    >
+      <RotateCcw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+    </Button>
+  );
+
+  if (state === "collapsed") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {syncButton}
+        </TooltipTrigger>
+        <TooltipContent side="right" align="center">
+          <div className="flex flex-col gap-1">
+            <span>Last synced: {lastSyncTime ? formatTimeAgo(lastSyncTime) : 'never'}</span>
+            <span className="text-xs text-muted-foreground">Click to sync</span>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 text-sm text-muted-foreground">
       <Clock className="h-4 w-4" />
       <span>Last synced: {lastSyncTime ? formatTimeAgo(lastSyncTime) : 'never'}</span>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={triggerSync}
-        disabled={isSyncing}
-        className="h-6 w-6 p-0"
-        title="Sync & Transform"
-      >
-        <RotateCcw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-      </Button>
+      {syncButton}
     </div>
   );
 };

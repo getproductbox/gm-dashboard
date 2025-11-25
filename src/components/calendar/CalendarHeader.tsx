@@ -1,11 +1,11 @@
-
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { Input } from "@/components/ui/input";
 
 type CalendarViewType = 'day' | 'week' | 'month';
 
@@ -17,6 +17,7 @@ interface CalendarHeaderProps {
   onToday: () => void;
   onDateSelect: (date: Date) => void;
   onViewChange: (view: CalendarViewType) => void;
+  onSearch: (query: string) => void;
 }
 
 export const CalendarHeader = ({
@@ -26,99 +27,59 @@ export const CalendarHeader = ({
   onNextDay,
   onToday,
   onDateSelect,
-  onViewChange
+  onViewChange,
+  onSearch
 }: CalendarHeaderProps) => {
-  // Debug: Log the current date to understand timezone issues
-  console.log('📅 CalendarHeader Debug:', {
-    currentDate: currentDate.toISOString(),
-    currentDateLocal: currentDate.toLocaleDateString(),
-    currentDateGB: currentDate.toLocaleDateString('en-GB'),
-    currentDateISO: currentDate.toISOString().split('T')[0],
-    viewType
-  });
-
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-GB', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const getNavigationLabel = () => {
-    switch (viewType) {
-      case 'day':
-        return formatDate(currentDate);
-      case 'week':
-        return `Week of ${format(currentDate, 'MMM dd, yyyy')}`;
-      case 'month':
-        return format(currentDate, 'MMMM yyyy');
-      default:
-        return formatDate(currentDate);
+    if (viewType === 'day') {
+      return format(date, 'MMMM d, yyyy');
     }
+    return format(date, 'MMMM yyyy');
   };
 
-  const getNavigationButtons = () => {
-    const baseClasses = "h-9 w-9 p-0";
-    
-    return (
-      <div className="flex items-center space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onPreviousDay}
-          className={baseClasses}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        
+  return (
+    <div className="flex items-center justify-between px-4 py-2 border-b bg-white dark:bg-gm-neutral-900 border-gm-neutral-200 dark:border-gm-neutral-700 h-16">
+      {/* Left Section: Calendar Text, Today, Nav, Date */}
+      <div className="flex items-center gap-2 lg:gap-4">
+        <div className="flex items-center gap-2 mr-2 lg:mr-4">
+          <span className="text-xl font-medium text-gm-neutral-700 dark:text-gm-neutral-200 hidden sm:inline-block">
+            Calendar
+          </span>
+        </div>
+
         <Button
           variant="outline"
           size="sm"
           onClick={onToday}
-          className="px-4"
+          className="text-sm font-medium px-4 h-9 border-gm-neutral-300 dark:border-gm-neutral-600 hidden sm:flex"
         >
           Today
         </Button>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onNextDay}
-          className={baseClasses}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  };
 
-  return (
-    <div className="flex items-center justify-between p-6 border-b bg-white dark:bg-gm-neutral-900 border-gm-neutral-200 dark:border-gm-neutral-700">
-      <div className="flex items-center space-x-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-gm-neutral-900 dark:text-gm-neutral-100">
-            Calendar
-          </h1>
-          <p className="text-lg text-gm-neutral-600 dark:text-gm-neutral-300 mt-1">
-            {getNavigationLabel()}
-          </p>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onPreviousDay}
+            className="h-8 w-8 rounded-full hover:bg-gm-neutral-100 dark:hover:bg-gm-neutral-800"
+          >
+            <ChevronLeft className="h-5 w-5 text-gm-neutral-600 dark:text-gm-neutral-400" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onNextDay}
+            className="h-8 w-8 rounded-full hover:bg-gm-neutral-100 dark:hover:bg-gm-neutral-800"
+          >
+            <ChevronRight className="h-5 w-5 text-gm-neutral-600 dark:text-gm-neutral-400" />
+          </Button>
         </div>
-        
-        {/* Date Picker */}
+
         <Popover>
           <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                "w-[240px] justify-start text-left font-normal",
-                !currentDate && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {currentDate ? format(currentDate, "PPP") : "Pick a date"}
-            </Button>
+            <button className="text-xl font-normal text-gm-neutral-800 dark:text-gm-neutral-100 hover:bg-gm-neutral-100 dark:hover:bg-gm-neutral-800 px-2 py-1 rounded transition-colors ml-1">
+              {formatDate(currentDate)}
+            </button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
@@ -129,21 +90,32 @@ export const CalendarHeader = ({
             />
           </PopoverContent>
         </Popover>
-        
-        {/* View Selector */}
-        <Select value={viewType} onValueChange={onViewChange}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="View" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="day">Day</SelectItem>
-            <SelectItem value="week">Week</SelectItem>
-            <SelectItem value="month">Month</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
       
-      {getNavigationButtons()}
+      {/* Right Section: Search, View Switcher */}
+      <div className="flex items-center gap-2 lg:gap-3">
+        <div className="hidden md:flex items-center relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gm-neutral-500 dark:text-gm-neutral-400" />
+          <Input 
+            placeholder="Search" 
+            className="pl-8 w-[200px] h-9 bg-gm-neutral-100 dark:bg-gm-neutral-800 border-transparent focus:bg-white dark:focus:bg-gm-neutral-900 transition-all"
+            onChange={(e) => onSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="flex items-center gap-2 ml-2">
+          <Select value={viewType} onValueChange={(v) => onViewChange(v as CalendarViewType)}>
+            <SelectTrigger className="w-[100px] h-9 border-gm-neutral-300 dark:border-gm-neutral-600 bg-transparent">
+              <SelectValue placeholder="View" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="day">Day</SelectItem>
+              <SelectItem value="week">Week</SelectItem>
+              <SelectItem value="month">Month</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
     </div>
   );
 };
