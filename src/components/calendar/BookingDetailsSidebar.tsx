@@ -15,12 +15,14 @@ interface BookingDetailsSidebarProps {
   booking: CalendarBooking | null;
   isOpen: boolean;
   onClose: () => void;
+  onEdit: (booking: CalendarBooking) => void;
 }
 
 export const BookingDetailsSidebar = ({
   booking,
   isOpen,
   onClose,
+  onEdit,
 }: BookingDetailsSidebarProps) => {
   if (!booking) return null;
 
@@ -118,7 +120,7 @@ export const BookingDetailsSidebar = ({
 
           {/* Actions */}
           <div className="flex gap-3 pt-6 border-t mt-6">
-            <Button className="flex-1" variant="outline">
+            <Button className="flex-1" variant="outline" onClick={() => onEdit(booking)}>
               Edit Booking
             </Button>
             {booking.status !== 'cancelled' && (

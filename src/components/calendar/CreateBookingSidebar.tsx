@@ -73,12 +73,12 @@ export const CreateBookingSidebar = ({
   useEffect(() => {
     if (isOpen && initialData) {
       form.reset({
-        customerName: "",
-        customerPhone: "",
+        customerName: initialData.customerName || "",
+        customerPhone: initialData.customerPhone || "",
         date: initialData.date || format(new Date(), "yyyy-MM-dd"),
         startTime: initialData.startTime || "10:00",
         endTime: initialData.endTime || "11:00",
-        guests: 1,
+        guests: initialData.guests || 1,
         service: initialData.service || "Karaoke",
         resourceId: initialData.resourceId || "",
       });

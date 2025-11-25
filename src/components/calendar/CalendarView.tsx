@@ -39,6 +39,9 @@ export const CalendarView = () => {
     endTime?: string;
     resourceId?: string;
     service?: "Karaoke" | "Venue Hire";
+    customerName?: string;
+    customerPhone?: string;
+    guests?: number;
   } | null>(null);
 
   // Fetch karaoke booths
@@ -109,6 +112,21 @@ export const CalendarView = () => {
   const handleBookingClick = (booking: CalendarBooking) => {
     console.log('Booking clicked:', booking);
     setSelectedBooking(booking);
+  };
+
+  const handleEditBooking = (booking: CalendarBooking) => {
+    setSelectedBooking(null);
+    setNewBookingInitialData({
+      date: booking.date,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      resourceId: booking.resourceId,
+      service: booking.service,
+      customerName: booking.customer.name,
+      customerPhone: booking.customer.phone,
+      guests: booking.guests
+    });
+    setIsCreateSidebarOpen(true);
   };
 
   const handleSlotClick = (date: Date | string, timeSlot?: string) => {
@@ -410,6 +428,7 @@ export const CalendarView = () => {
           booking={selectedBooking}
           isOpen={!!selectedBooking}
           onClose={() => setSelectedBooking(null)}
+          onEdit={handleEditBooking}
         />
 
         <CreateBookingSidebar
