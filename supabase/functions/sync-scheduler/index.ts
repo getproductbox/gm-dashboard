@@ -108,27 +108,43 @@ serve(async (req) => {
       throw new Error('Missing API_BASE_URL or API_CRON_SECRET');
     }
 
-    // Call the monorepo API
-    const syncResponse = await fetch(`${API_BASE_URL}/square/sync`, {
-      method: 'POST',
-      headers: {
-        'X-Cron-Key': API_CRON_SECRET,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        overlap_minutes: 5,
-        max_lookback_days: 30,
-        dry_run: false
-      })
-    });
+    // Call the monorepo API with timeout (50 seconds to stay under Edge Function limit)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 second timeout
+    
+    let syncResponse: Response;
+    let syncResult: any;
+    
+    try {
+      syncResponse = await fetch(`${API_BASE_URL}/square/sync`, {
+        method: 'POST',
+        headers: {
+          'X-Cron-Key': API_CRON_SECRET,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          overlap_minutes: 5,
+          max_lookback_days: 30,
+          dry_run: false
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      syncResult = await syncResponse.json();
 
-    const syncResult = await syncResponse.json();
+      if (!syncResponse.ok) {
+        throw new Error(`Sync failed: ${syncResult.error || 'Unknown error'}`);
+      }
 
-    if (!syncResponse.ok) {
-      throw new Error(`Sync failed: ${syncResult.error || 'Unknown error'}`);
+      console.log('Scheduled sync completed successfully:', syncResult);
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Sync request timed out after 50 seconds');
+      }
+      throw fetchError;
     }
-
-    console.log('Scheduled sync completed successfully:', syncResult);
 
     return new Response(JSON.stringify({
       success: true,

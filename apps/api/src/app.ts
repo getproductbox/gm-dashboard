@@ -38,21 +38,29 @@ app.post("/square/sync", async (c) => {
     const now = new Date();
     const endTs = now.toISOString();
 
-    // Get active locations
-    const locsRes = await supabaseService
-      .from('square_locations')
-      .select('square_location_id')
-      .eq('is_active', true);
-    
-    if (locsRes.error || !locsRes.data || locsRes.data.length === 0) {
-      return c.json({ 
-        success: false, 
-        stage: 'setup', 
-        error: 'No active locations found' 
-      }, 200);
+    // Determine locations to process:
+    // - If caller provides an explicit `locations` array, respect that
+    // - Otherwise, fall back to all active locations from the DB
+    let locations: string[] = [];
+    if (Array.isArray((payload as any).locations) && (payload as any).locations.length > 0) {
+      locations = (payload as any).locations.map((id: any) => String(id));
+    } else {
+      const locsRes = await supabaseService
+        .from('square_locations')
+        .select('square_location_id')
+        .eq('is_active', true);
+      
+      if (locsRes.error || !locsRes.data || locsRes.data.length === 0) {
+        return c.json({ 
+          success: false, 
+          stage: 'setup', 
+          error: 'No active locations found' 
+        }, 200);
+      }
+
+      locations = locsRes.data.map((r: any) => r.square_location_id);
     }
 
-    const locations = locsRes.data.map((r: any) => r.square_location_id);
     const results = [];
 
     // Process each location with intelligent date range detection
@@ -216,9 +224,8 @@ app.post("/square/sync", async (c) => {
 
         // 5) Update sync status
         if (!dryRun) {
-          await supabaseService
-            .from('square_location_sync_status')
-            .upsert({
+          try {
+            const statusUpdate = {
               location_id: locationId,
               last_payment_created_at_seen: window.end,
               last_order_updated_at_seen: window.end, // orders window end
@@ -229,9 +236,22 @@ app.post("/square/sync", async (c) => {
               payments_upserted: paymentsSynced,
               orders_fetched: ordersFetched,
               orders_upserted: ordersUpserted
-            }, {
-              onConflict: 'location_id'
-            });
+            };
+            console.log(`Updating sync status for ${locationId}:`, statusUpdate);
+            const statusRes = await supabaseService
+              .from('square_location_sync_status')
+              .upsert(statusUpdate, {
+                onConflict: 'location_id'
+              });
+            if (statusRes.error) {
+              console.error(`Failed to update sync status for ${locationId}:`, statusRes.error);
+            } else {
+              console.log(`Successfully updated sync status for ${locationId}`);
+            }
+          } catch (statusErr) {
+            console.error(`Error updating sync status for ${locationId}:`, statusErr);
+            // Don't throw - we still want to return the results even if status update fails
+          }
         }
 
         results.push({

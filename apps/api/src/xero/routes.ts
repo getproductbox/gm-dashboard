@@ -201,16 +201,53 @@ xero.post('/pnl', async (c) => {
           continue;
         }
 
-        // Determine category heuristically
-        let cat = 'other';
         const sectionL = (section || '').toLowerCase();
-        if (sectionL.includes('cost of sales') || sectionL.includes('cost of goods')) cat = 'cogs';
-        if (labelL.includes('wage') || labelL.includes('payroll')) cat = 'wages';
-        if (labelL.includes('security')) cat = 'security';
 
         // Determine if this is income or expense based on section
         const isIncome = sectionL.includes('revenue') || sectionL.includes('income');
-        const isExpense = sectionL.includes('cost of sales') || sectionL.includes('operating expenses') || sectionL.includes('less');
+        // Treat everything that is not income as an expense. This is more robust
+        // than trying to enumerate all possible expense section names (Operating Expenses,
+        // Direct Costs, Overheads, etc.) and matches how Xero structures P&L.
+        const isExpense = !isIncome;
+
+        // Determine category heuristically using both section and label.
+        // We keep this intentionally generous so common Xero account names like
+        // "Salaries & Wages", "Cost of Goods Sold", "Direct Costs" etc. are captured.
+        let cat = 'other';
+
+        // Cost of goods / direct costs
+        if (
+          sectionL.includes('cost of sales') ||
+          sectionL.includes('cost of goods') ||
+          sectionL.includes('direct costs') ||
+          labelL.includes('cost of goods') ||
+          labelL.includes('cogs') ||
+          labelL.includes('cost of sales')
+        ) {
+          cat = 'cogs';
+        }
+
+        // Wages / salaries / payroll
+        if (
+          labelL.includes('wage') ||
+          labelL.includes('salary') ||
+          labelL.includes('salaries') ||
+          labelL.includes('payroll') ||
+          labelL.includes('staff') ||
+          labelL.includes('superannuation') ||
+          labelL.includes('super ')
+        ) {
+          cat = 'wages';
+        }
+
+        // Security
+        if (
+          labelL.includes('security') ||
+          labelL.includes('guard') ||
+          labelL.includes('bouncer')
+        ) {
+          cat = 'security';
+        }
 
         if (isIncome) {
           // Income items - add to income total, don't add to categories
@@ -220,6 +257,7 @@ xero.post('/pnl', async (c) => {
           expenseTotal += Math.abs(amount);
           categories[cat] = (categories[cat] || 0) + Math.abs(amount);
           // Only add to uncategorized if it's in the "other" category
+          // so we can inspect where remaining costs are coming from.
           if (cat === 'other') {
             uncategorized.push({ name: label, section, amount });
           }
