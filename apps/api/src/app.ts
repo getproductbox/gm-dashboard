@@ -80,11 +80,18 @@ app.post("/square/sync", async (c) => {
           : defaultStart;
         const paymentStartTs = new Date(lastPayment.getTime() - overlap * 60 * 1000);
         
-        // Order window: if never synced before (null timestamp OR 0 orders), use longer backfill (90 days)
-        // Otherwise use intelligent date range from last order sync
-        const ordersNeverSynced = !statusRes.data?.last_order_updated_at_seen || 
+        // Order window:
+        // - If we've never synced before (null timestamp OR 0 orders), default to the same
+        //   `maxLookbackDays` window unless the caller explicitly wants a larger backfill.
+        //   This keeps first-time syncs fast enough to avoid Netlify/CF timeouts, and
+        //   longer history can be populated via dedicated backfill jobs.
+        // - Otherwise, use an intelligent window from the last order sync.
+        const ordersNeverSynced = !statusRes.data?.last_order_updated_at_seen ||
                                   (statusRes.data?.orders_upserted === 0 || statusRes.data?.orders_upserted === null);
-        const ordersBackfillDays = ordersNeverSynced ? 90 : maxLookbackDays;
+        const ordersBackfillOverride = Number((payload as any).orders_backfill_days);
+        const ordersBackfillDays = ordersBackfillOverride > 0
+          ? ordersBackfillOverride
+          : maxLookbackDays;
         const lastOrder = statusRes.data?.last_order_updated_at_seen 
           ? new Date(statusRes.data.last_order_updated_at_seen) 
           : new Date(now.getTime() - ordersBackfillDays * 24 * 60 * 60 * 1000);
