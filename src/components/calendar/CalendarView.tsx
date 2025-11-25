@@ -168,13 +168,17 @@ export const CalendarView = () => {
             
             // Calculate end time (default 1 hour)
             const [hours, minutes] = timeSlot.split(':').map(Number);
-            const endHours = hours + 1;
-            const endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            let endHours = hours + 1;
+            let endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            
+            if (endHours >= 24) {
+                endTime = "23:59";
+            }
 
             setNewBookingInitialData({
                 date: dateStr,
-                startTime: timeSlot,
-                endTime,
+                startTime: timeSlot.slice(0, 5),
+                endTime: endTime.slice(0, 5),
             });
             setIsCreateSidebarOpen(true);
         } else {
@@ -195,10 +199,17 @@ export const CalendarView = () => {
         const dateStr = formatDateToYMD(currentDate);
         // Calculate end time (default 1 hour)
         let endTime = "11:00";
+        let startTime = "10:00";
+
         if (timeSlot) {
+            startTime = timeSlot;
             const [hours, minutes] = timeSlot.split(':').map(Number);
-            const endHours = hours + 1;
+            let endHours = hours + 1;
             endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            
+            if (endHours >= 24) {
+                endTime = "23:59";
+            }
         }
 
         // Determine service type based on resource type
@@ -207,8 +218,8 @@ export const CalendarView = () => {
 
         setNewBookingInitialData({
             date: dateStr,
-            startTime: timeSlot || "10:00",
-            endTime,
+            startTime: startTime.slice(0, 5),
+            endTime: endTime.slice(0, 5),
             resourceId,
             service
         });
