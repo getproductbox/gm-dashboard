@@ -47,6 +47,8 @@ interface CreateBookingSidebarProps {
   onClose: () => void;
   resources: CalendarResource[];
   initialData?: Partial<BookingFormValues> | null;
+  onSubmit?: (data: BookingFormValues) => Promise<void>;
+  isEditing?: boolean;
 }
 
 export const CreateBookingSidebar = ({
@@ -54,6 +56,8 @@ export const CreateBookingSidebar = ({
   onClose,
   resources,
   initialData,
+  onSubmit: onSubmitProp,
+  isEditing = false,
 }: CreateBookingSidebarProps) => {
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
@@ -76,8 +80,8 @@ export const CreateBookingSidebar = ({
         customerName: initialData.customerName || "",
         customerPhone: initialData.customerPhone || "",
         date: initialData.date || format(new Date(), "yyyy-MM-dd"),
-        startTime: initialData.startTime || "10:00",
-        endTime: initialData.endTime || "11:00",
+        startTime: (initialData.startTime || "10:00").slice(0, 5),
+        endTime: (initialData.endTime || "11:00").slice(0, 5),
         guests: initialData.guests || 1,
         service: initialData.service || "Karaoke",
         resourceId: initialData.resourceId || "",
@@ -85,9 +89,11 @@ export const CreateBookingSidebar = ({
     }
   }, [isOpen, initialData, form]);
 
-  const onSubmit = (data: BookingFormValues) => {
-    console.log("📝 Creating new booking:", data);
-    // Here you would call your API to create the booking
+  const onSubmit = async (data: BookingFormValues) => {
+    console.log("📝 Submitting booking:", data);
+    if (onSubmitProp) {
+      await onSubmitProp(data);
+    }
     onClose();
     form.reset();
   };
@@ -104,9 +110,9 @@ export const CreateBookingSidebar = ({
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
         <SheetHeader className="mb-6">
-          <SheetTitle>Create New Booking</SheetTitle>
+          <SheetTitle>{isEditing ? "Edit Booking" : "Create New Booking"}</SheetTitle>
           <SheetDescription>
-            Enter the details for the new booking.
+            {isEditing ? "Update the details for this booking." : "Enter the details for the new booking."}
           </SheetDescription>
         </SheetHeader>
 
@@ -268,7 +274,7 @@ export const CreateBookingSidebar = ({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit">Create Booking</Button>
+              <Button type="submit">{isEditing ? "Save Changes" : "Create Booking"}</Button>
             </div>
           </form>
         </Form>

@@ -9,12 +9,13 @@ import { BookingDetailsSidebar } from "./BookingDetailsSidebar";
 import { CreateBookingSidebar } from "./CreateBookingSidebar";
 import { CalendarBooking, CalendarResource } from "@/data/mockData/calendar";
 import { useKaraokeBooths } from "@/hooks/useKaraoke";
-import { useBookings } from "@/hooks/useBookings";
+import { useBookings, useCreateBooking, useUpdateBooking } from "@/hooks/useBookings";
 import { addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Calendar as MiniCalendar } from "@/components/ui/calendar";
 import { Plus } from "lucide-react";
+import { CreateBookingData } from "@/services/bookingService";
 
 type CalendarViewType = 'day' | 'week' | 'month';
 
@@ -34,6 +35,7 @@ export const CalendarView = () => {
   const [isCreateSidebarOpen, setIsCreateSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [newBookingInitialData, setNewBookingInitialData] = useState<{
+    id?: string;
     date?: string;
     startTime?: string;
     endTime?: string;
@@ -47,6 +49,8 @@ export const CalendarView = () => {
   // Fetch karaoke booths
   const { data: rawKaraokeBooths } = useKaraokeBooths();
   const { data: bookings } = useBookings();
+  const createBooking = useCreateBooking();
+  const updateBooking = useUpdateBooking();
 
   // Filter active booths on the client side to be safe
   const karaokeBooths = useMemo(() => {
@@ -117,6 +121,7 @@ export const CalendarView = () => {
   const handleEditBooking = (booking: CalendarBooking) => {
     setSelectedBooking(null);
     setNewBookingInitialData({
+      id: booking.id,
       date: booking.date,
       startTime: booking.startTime,
       endTime: booking.endTime,
@@ -127,6 +132,30 @@ export const CalendarView = () => {
       guests: booking.guests
     });
     setIsCreateSidebarOpen(true);
+  };
+
+  const handleCreateOrUpdateBooking = async (data: any) => {
+    const bookingData: CreateBookingData = {
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      bookingType: data.service === 'Karaoke' ? 'karaoke_booking' : 'venue_hire',
+      venue: data.resourceId.includes('hippie') ? 'hippie' : 'manor',
+      bookingDate: data.date,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      guestCount: data.guests,
+      karaokeBoothId: data.service === 'Karaoke' ? data.resourceId : undefined,
+      venueArea: data.service === 'Venue Hire' ? 'full_venue' : undefined,
+    };
+
+    if (newBookingInitialData?.id) {
+      await updateBooking.mutateAsync({
+        id: newBookingInitialData.id,
+        data: bookingData
+      });
+    } else {
+      await createBooking.mutateAsync(bookingData);
+    }
   };
 
   const handleSlotClick = (date: Date | string, timeSlot?: string) => {
@@ -436,6 +465,8 @@ export const CalendarView = () => {
             onClose={() => setIsCreateSidebarOpen(false)}
             resources={allResources}
             initialData={newBookingInitialData}
+            onSubmit={handleCreateOrUpdateBooking}
+            isEditing={!!newBookingInitialData?.id}
         />
       </div>
     </TooltipProvider>
