@@ -18,8 +18,6 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const API_BASE_URL = Deno.env.get('API_BASE_URL') || '';
-    const API_CRON_SECRET = Deno.env.get('API_CRON_SECRET') || '';
     
     if (!SUPABASE_URL || !SERVICE_KEY) {
       return new Response(JSON.stringify({
@@ -103,29 +101,29 @@ serve(async (req) => {
         status: 200
       });
     }
-
-    if (!API_BASE_URL || !API_CRON_SECRET) {
-      throw new Error('Missing API_BASE_URL or API_CRON_SECRET');
-    }
-
-    // Call the monorepo API with timeout (50 seconds to stay under Edge Function limit)
+    
+    // Call the Supabase sync orchestrator (`sync-and-transform`) directly with timeout
+    // We stay under the 60 second Edge Function limit to avoid timeouts.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 55000); // 55 second timeout
     
     let syncResponse: Response;
     let syncResult: any;
     
     try {
-      syncResponse = await fetch(`${API_BASE_URL}/square/sync`, {
+      syncResponse = await fetch(`${SUPABASE_URL}/functions/v1/sync-and-transform`, {
         method: 'POST',
         headers: {
-          'X-Cron-Key': API_CRON_SECRET,
+          'Authorization': `Bearer ${SERVICE_KEY}`,
+          'apikey': SERVICE_KEY,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          // Incremental sync: resume from last successful watermarks with a small overlap
+          since: 'last',
           overlap_minutes: 5,
-          max_lookback_days: 30,
-          dry_run: false
+          max_lookback_days: 2,
+          dry_run: false,
         }),
         signal: controller.signal
       });
@@ -134,14 +132,14 @@ serve(async (req) => {
       syncResult = await syncResponse.json();
 
       if (!syncResponse.ok) {
-        throw new Error(`Sync failed: ${syncResult.error || 'Unknown error'}`);
+        throw new Error(`sync-and-transform failed: ${syncResult.error || 'Unknown error'}`);
       }
 
       console.log('Scheduled sync completed successfully:', syncResult);
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        throw new Error('Sync request timed out after 50 seconds');
+        throw new Error('sync-and-transform request timed out after 55 seconds');
       }
       throw fetchError;
     }
