@@ -3,6 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchPnl, PnlResponse } from "./xeroService";
 import { startOfWeek, endOfWeek, subWeeks, format, addDays } from "date-fns";
 
+export interface UncategorizedItem {
+  name?: string;
+  section?: string;
+  amount: number;
+}
+
 export interface WeeklyFinancials {
   weekStart: string;
   weekEnd: string;
@@ -15,6 +21,7 @@ export interface WeeklyFinancials {
   totalExpenses: number;
   netProfit: number;
   marginPercent: number;
+  uncategorizedItems: UncategorizedItem[];
 }
 
 export interface FinancialKPIs {
@@ -91,6 +98,7 @@ export const financialService = {
         let security = 0;
         let marketing = 0;
         let totalExpenses = 0;
+        let uncategorizedItems: UncategorizedItem[] = [];
 
         if (costs) {
           const cats = costs.categories || {};
@@ -100,6 +108,7 @@ export const financialService = {
           marketing = cats['marketing'] || 0; // If mapped
           
           totalExpenses = costs.totals.expenses;
+          uncategorizedItems = costs.uncategorized || [];
         }
 
         const otherExpenses = totalExpenses - (wages + cogs + security + marketing);
@@ -117,7 +126,8 @@ export const financialService = {
           otherExpenses,
           totalExpenses,
           netProfit,
-          marginPercent
+          marginPercent,
+          uncategorizedItems
         };
       });
 
