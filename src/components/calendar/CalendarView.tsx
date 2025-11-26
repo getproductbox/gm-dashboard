@@ -6,16 +6,15 @@ import { CalendarMonthView } from "./CalendarMonthView";
 import { SidebarResourceFilter } from "./SidebarResourceFilter";
 import { ResourceGroup } from "./ResourceFilter"; // Import type, but we use SidebarResourceFilter component
 import { BookingDetailsSidebar } from "./BookingDetailsSidebar";
-import { CreateBookingSidebar } from "./CreateBookingSidebar";
+import { UnifiedBookingSidePanel } from "@/components/bookings/UnifiedBookingSidePanel";
 import { CalendarBooking, CalendarResource } from "@/data/mockData/calendar";
 import { useKaraokeBooths } from "@/hooks/useKaraoke";
-import { useBookings, useCreateBooking, useUpdateBooking } from "@/hooks/useBookings";
+import { useBookings } from "@/hooks/useBookings";
 import { addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Calendar as MiniCalendar } from "@/components/ui/calendar";
 import { Plus } from "lucide-react";
-import { CreateBookingData } from "@/services/bookingService";
 
 type CalendarViewType = 'day' | 'week' | 'month';
 
@@ -36,21 +35,21 @@ export const CalendarView = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [newBookingInitialData, setNewBookingInitialData] = useState<{
     id?: string;
-    date?: string;
+    bookingDate?: string;
     startTime?: string;
     endTime?: string;
-    resourceId?: string;
-    service?: "Karaoke" | "Venue Hire";
+    venue?: "manor" | "hippie";
+    bookingType?: "venue_hire" | "vip_tickets" | "karaoke_booking";
+    karaokeBoothId?: string;
     customerName?: string;
+    customerEmail?: string;
     customerPhone?: string;
-    guests?: number;
+    guestCount?: string;
   } | null>(null);
 
   // Fetch karaoke booths
   const { data: rawKaraokeBooths } = useKaraokeBooths();
   const { data: bookings } = useBookings();
-  const createBooking = useCreateBooking();
-  const updateBooking = useUpdateBooking();
 
   // Filter active booths on the client side to be safe
   const karaokeBooths = useMemo(() => {
@@ -134,30 +133,6 @@ export const CalendarView = () => {
     setIsCreateSidebarOpen(true);
   };
 
-  const handleCreateOrUpdateBooking = async (data: any) => {
-    const bookingData: CreateBookingData = {
-      customerName: data.customerName,
-      customerPhone: data.customerPhone,
-      bookingType: data.service === 'Karaoke' ? 'karaoke_booking' : 'venue_hire',
-      venue: data.resourceId.includes('hippie') ? 'hippie' : 'manor',
-      bookingDate: data.date,
-      startTime: data.startTime,
-      endTime: data.endTime,
-      guestCount: data.guests,
-      karaokeBoothId: data.service === 'Karaoke' ? data.resourceId : undefined,
-      venueArea: data.service === 'Venue Hire' ? 'full_venue' : undefined,
-    };
-
-    if (newBookingInitialData?.id) {
-      await updateBooking.mutateAsync({
-        id: newBookingInitialData.id,
-        data: bookingData
-      });
-    } else {
-      await createBooking.mutateAsync(bookingData);
-    }
-  };
-
   const handleSlotClick = (date: Date | string, timeSlot?: string) => {
     // Handle both week/month view (Date) and day view (string resourceId)
     if (date instanceof Date) {
@@ -176,7 +151,7 @@ export const CalendarView = () => {
             }
 
             setNewBookingInitialData({
-                date: dateStr,
+                bookingDate: dateStr,
                 startTime: timeSlot.slice(0, 5),
                 endTime: endTime.slice(0, 5),
             });
@@ -185,7 +160,7 @@ export const CalendarView = () => {
              // Month view click - open for that day, default time
              console.log('Empty slot clicked (Month View):', { date: dateStr });
              setNewBookingInitialData({
-                date: dateStr,
+                bookingDate: dateStr,
                 startTime: "10:00",
                 endTime: "11:00",
             });
@@ -212,16 +187,18 @@ export const CalendarView = () => {
             }
         }
 
-        // Determine service type based on resource type
+        // Determine booking type and venue based on resource
         const resource = allResources.find(r => r.id === resourceId);
-        const service = resource?.type === 'venue' ? 'Venue Hire' : 'Karaoke';
+        const bookingType = resource?.type === 'venue' ? 'venue_hire' : 'karaoke_booking';
+        const venue = resourceId.includes('hippie') ? 'hippie' : 'manor';
 
         setNewBookingInitialData({
-            date: dateStr,
+            bookingDate: dateStr,
             startTime: startTime.slice(0, 5),
             endTime: endTime.slice(0, 5),
-            resourceId,
-            service
+            karaokeBoothId: resource?.type === 'karaoke' ? resourceId : undefined,
+            bookingType: bookingType as "venue_hire" | "karaoke_booking",
+            venue: venue as "manor" | "hippie",
         });
         setIsCreateSidebarOpen(true);
     }
@@ -399,7 +376,7 @@ export const CalendarView = () => {
             <Button 
               onClick={() => {
                 setNewBookingInitialData({
-                    date: formatDateToYMD(currentDate),
+                    bookingDate: formatDateToYMD(currentDate),
                     startTime: "10:00",
                     endTime: "11:00"
                 });
@@ -471,12 +448,10 @@ export const CalendarView = () => {
           onEdit={handleEditBooking}
         />
 
-        <CreateBookingSidebar
+        <UnifiedBookingSidePanel
             isOpen={isCreateSidebarOpen}
             onClose={() => setIsCreateSidebarOpen(false)}
-            resources={allResources}
-            initialData={newBookingInitialData}
-            onSubmit={handleCreateOrUpdateBooking}
+            initialData={newBookingInitialData || undefined}
             isEditing={!!newBookingInitialData?.id}
         />
       </div>

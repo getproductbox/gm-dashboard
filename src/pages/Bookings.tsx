@@ -8,10 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Calendar, Clock, CheckCircle, AlertCircle, Building } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useBookings } from "@/hooks/useBookings";
+import { UnifiedBookingSidePanel } from "@/components/bookings/UnifiedBookingSidePanel";
 
 const Bookings = () => {
   const navigate = useNavigate();
   const { data: bookings = [] } = useBookings();
+  const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false);
 
   const stats = {
     totalBookings: bookings.length,
@@ -20,14 +22,18 @@ const Bookings = () => {
     ).length,
     completedBookings: bookings.filter(booking => booking.status === 'completed').length,
     pendingBookings: bookings.filter(booking => booking.status === 'pending').length,
-    karaokeBookings: bookings.filter(booking => 
+     karaokeBookings: bookings.filter(booking => 
       booking.booking_type === 'karaoke_booking' || 
       (booking.booking_type === 'venue_hire' && booking.venue_area === 'karaoke')
     ).length,
   };
 
   const handleCreateBooking = () => {
-    navigate('/bookings/create');
+    setIsCreateBookingOpen(true);
+  };
+
+  const handleBookingCreated = () => {
+    setIsCreateBookingOpen(false);
   };
 
   return (
@@ -134,6 +140,12 @@ const Bookings = () => {
             />
           </TabsContent>
         </Tabs>
+
+        {/* Create Booking Side Panel */}
+        <UnifiedBookingSidePanel
+          isOpen={isCreateBookingOpen}
+          onClose={handleBookingCreated}
+        />
       </div>
     </DashboardLayout>
   );

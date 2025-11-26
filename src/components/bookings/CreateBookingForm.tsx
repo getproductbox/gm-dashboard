@@ -112,7 +112,12 @@ const timeSlots = [
   "21:00", "21:30", "22:00", "22:30", "23:00",
 ];
 
-export const CreateBookingForm = () => {
+interface CreateBookingFormProps {
+  onSuccess?: () => void;
+  isSidePanel?: boolean;
+}
+
+export const CreateBookingForm = ({ onSuccess, isSidePanel = false }: CreateBookingFormProps = {}) => {
   const navigate = useNavigate();
   const createBookingMutation = useCreateBooking();
   const { data: karaokeBooths } = useKaraokeBooths();
@@ -304,7 +309,12 @@ export const CreateBookingForm = () => {
         });
       }
       
-      navigate('/bookings');
+      // Call onSuccess callback if provided (for side panel), otherwise navigate
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/bookings');
+      }
     } catch (error) {
       console.error('Error creating booking:', error);
     }
@@ -313,7 +323,7 @@ export const CreateBookingForm = () => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className={`grid gap-6 ${isSidePanel ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
           {/* Customer Information */}
           <Card>
             <CardHeader>
