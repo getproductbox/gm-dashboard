@@ -1,134 +1,306 @@
 
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import { Plus, Edit, Archive } from 'lucide-react';
 import { CustomerInfo } from './CustomerInfo';
 import { BookingHistory } from './BookingHistory';
 import { CustomerActions } from './CustomerActions';
 import { CustomerEditForm } from './CustomerEditForm';
-import { Customer, getDetailedCustomerData } from '@/data/mockData/customers';
+import { CustomerRow } from '@/services/customerService';
+import { useBookings } from '@/hooks/useBookings';
+import { useArchiveCustomer, useUpdateCustomer, useCreateCustomer } from '@/hooks/useCustomers';
+import { QuickAddBookingForm } from '@/components/bookings/QuickAddBookingForm';
+
+type CustomerWithStats = CustomerRow & {
+  totalBookings: number;
+  lastVisit: string | null;
+  customerSince: string;
+};
 
 interface CustomerProfilePanelProps {
-  customer: Customer | null;
+  customer: CustomerWithStats | null;
   isOpen: boolean;
   onClose: () => void;
-  onEdit: (customer: Customer) => void;
+  onEdit: (customer: CustomerWithStats) => void;
+  initialView?: 'details' | 'booking' | 'edit';
 }
 
 export const CustomerProfilePanel = ({
   customer,
   isOpen,
   onClose,
-  onEdit
+  onEdit,
+  initialView = 'details'
 }: CustomerProfilePanelProps) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(initialView === 'edit' || customer === null);
+  const [isCreatingBooking, setIsCreatingBooking] = useState(initialView === 'booking');
+  const archiveCustomer = useArchiveCustomer();
+  const updateCustomer = useUpdateCustomer();
+  const createCustomer = useCreateCustomer();
 
-  if (!customer) return null;
+  // Reset view when panel opens/closes or customer changes
+  useEffect(() => {
+    if (isOpen) {
+      setIsEditing(initialView === 'edit' || customer === null);
+      setIsCreatingBooking(initialView === 'booking' && customer !== null);
+    } else {
+      // Reset when closing
+      setIsEditing(false);
+      setIsCreatingBooking(false);
+    }
+  }, [isOpen, initialView, customer]);
 
-  const customerName = `${customer.firstName} ${customer.lastName}`;
-  const detailedCustomer = getDetailedCustomerData(customer.id);
+  // Fetch bookings for this customer
+  const { data: allBookings = [] } = useBookings({});
+  
+  const customerBookings = useMemo(() => {
+    if (!customer) return [];
+    return allBookings.filter(booking => 
+      (customer.email && booking.customer_email && customer.email.toLowerCase() === booking.customer_email.toLowerCase()) ||
+      (customer.phone && booking.customer_phone && customer.phone === booking.customer_phone)
+    );
+  }, [customer, allBookings]);
 
-  const handleEdit = (updatedCustomer: Customer) => {
-    onEdit(updatedCustomer);
-    setIsEditing(false);
+  const customerName = customer?.name || 'New Customer';
+  const customerSince = customer?.customerSince || customer?.created_at || new Date().toISOString();
+
+  const handleEdit = async (updatedCustomer: CustomerRow) => {
+    if (!customer) {
+      // Creating a new customer
+      try {
+        const newCustomer = await createCustomer.mutateAsync({
+          name: updatedCustomer.name,
+          email: updatedCustomer.email || null,
+          phone: updatedCustomer.phone || null,
+          notes: updatedCustomer.notes || null,
+          is_member: updatedCustomer.is_member || false,
+        });
+        // Convert to CustomerWithStats
+        const newCustomerWithStats: CustomerWithStats = {
+          ...newCustomer,
+          totalBookings: 0,
+          lastVisit: null,
+          customerSince: newCustomer.created_at || new Date().toISOString(),
+        };
+        onEdit(newCustomerWithStats);
+        setIsEditing(false);
+        onClose();
+      } catch (error) {
+        console.error('Error creating customer:', error);
+      }
+    } else {
+      // Updating existing customer
+      const updated: CustomerWithStats = {
+        ...updatedCustomer,
+        totalBookings: customer.totalBookings,
+        lastVisit: customer.lastVisit,
+        customerSince: customer.customerSince,
+      };
+      onEdit(updated);
+      setIsEditing(false);
+    }
   };
 
   const handleCreateBooking = () => {
-    console.log('Create booking for customer:', customerName);
+    setIsCreatingBooking(true);
+    setIsEditing(false);
+  };
+
+  const handleBookingSuccess = () => {
+    setIsCreatingBooking(false);
+    // Refresh bookings list
+    // The query will automatically refresh due to mutation invalidation
   };
 
   const handleSendEmail = () => {
     console.log('Send email to:', customer.email);
   };
 
-  const handleArchiveCustomer = () => {
-    console.log('Archive customer:', customerName);
+  const handleArchiveCustomer = async () => {
+    if (!customer) return;
+    
+    if (window.confirm(`Are you sure you want to archive ${customerName}? Their bookings will remain intact, but they will be hidden from the customer list.`)) {
+      try {
+        await archiveCustomer.mutateAsync(customer.id);
+        onClose(); // Close the panel after archiving
+      } catch (error) {
+        console.error('Error archiving customer:', error);
+      }
+    }
   };
 
-  const handleMergeDuplicate = () => {
-    console.log('Merge duplicate customer:', customerName);
-  };
-
-  const handleViewAllBookings = () => {
-    console.log('View all bookings for:', customerName);
-  };
 
   return (
-    <>
-      {/* Backdrop */}
-      {isOpen && (
-        <div 
-          className="absolute inset-0 bg-black bg-opacity-50 z-40"
-          onClick={onClose}
-        />
-      )}
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        {/* Breadcrumb Navigation */}
+        <Breadcrumb className="mb-4">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              {isCreatingBooking || isEditing ? (
+                <BreadcrumbLink 
+                  onClick={() => {
+                    setIsCreatingBooking(false);
+                    setIsEditing(false);
+                  }}
+                  className="cursor-pointer hover:text-foreground"
+                >
+                  Customer Details
+                </BreadcrumbLink>
+              ) : (
+                <BreadcrumbPage>Customer Details</BreadcrumbPage>
+              )}
+            </BreadcrumbItem>
+            {isCreatingBooking && (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>New Booking</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            )}
+            {isEditing && (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Edit</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            )}
+          </BreadcrumbList>
+        </Breadcrumb>
 
-      {/* Panel - Container relative positioning */}
-      <div className={`
-        absolute top-0 right-0 h-full bg-white shadow-2xl z-50 
-        transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-        w-[400px] max-w-[45%]
-        min-w-[320px]
-        overflow-hidden
-      `}>
-        <div className="flex flex-col h-full">
-          {/* Header - Compact and responsive */}
-          <div className="flex items-center justify-between p-3 sm:p-4 border-b bg-white">
-            <div className="flex-1 min-w-0 pr-3">
-              <h2 className="text-base sm:text-lg font-bold text-gm-neutral-900 truncate">
-                {customerName}
-              </h2>
-              <p className="text-xs sm:text-sm text-gm-neutral-600 truncate">
-                Since {new Date(customer.customerSince).toLocaleDateString()}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="rounded-full flex-shrink-0 h-8 w-8"
+        <SheetHeader>
+          <SheetTitle className="text-xl font-bold">{customerName}</SheetTitle>
+          {customer && (
+            <SheetDescription>
+              Customer since {new Date(customerSince).toLocaleDateString()}
+            </SheetDescription>
+          )}
+        </SheetHeader>
+
+        {/* New Booking and Edit Buttons at Top */}
+        {customer && !isCreatingBooking && (
+          <div className="mt-4 flex items-center gap-2">
+            <Button 
+              onClick={handleCreateBooking}
+              className="flex-1"
+              size="sm"
             >
-              <X className="h-4 w-4" />
+              <Plus className="h-4 w-4 mr-2" />
+              New Booking
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => {
+                setIsEditing(true);
+                setIsCreatingBooking(false);
+              }}
+              size="icon"
+              className="h-9 w-9"
+            >
+              <Edit className="h-4 w-4" />
             </Button>
           </div>
+        )}
 
-          {/* Content - Scrollable with constrained width */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-              {isEditing ? (
-                <CustomerEditForm
-                  customer={customer}
-                  onSave={handleEdit}
-                  onCancel={() => setIsEditing(false)}
-                />
-              ) : (
-                <>
-                  <CustomerInfo customer={detailedCustomer || customer} />
-                  <BookingHistory 
-                    bookings={detailedCustomer?.bookingHistory || []} 
-                    onViewAll={handleViewAllBookings}
-                  />
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Actions - Fixed bottom with compact spacing */}
-          {!isEditing && (
-            <div className="border-t p-3 sm:p-4 bg-white">
-              <CustomerActions
-                onCreateBooking={handleCreateBooking}
-                onSendEmail={handleSendEmail}
-                onEditCustomer={() => setIsEditing(true)}
-                onArchiveCustomer={handleArchiveCustomer}
-                onMergeDuplicate={handleMergeDuplicate}
-                onViewAllBookings={handleViewAllBookings}
+        <div className="mt-6 space-y-6">
+          {isCreatingBooking ? (
+            <div>
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold">Create New Booking</h3>
+                <p className="text-sm text-muted-foreground">
+                  Create a new booking for {customerName}
+                </p>
+              </div>
+              <QuickAddBookingForm
+                defaultCustomerName={customer.name}
+                defaultCustomerEmail={customer.email || ""}
+                defaultCustomerPhone={customer.phone || ""}
+                onSuccess={handleBookingSuccess}
+                onCancel={() => setIsCreatingBooking(false)}
               />
             </div>
-          )}
+          ) : isEditing ? (
+            <CustomerEditForm
+              customer={customer || {
+                id: '',
+                name: '',
+                email: null,
+                phone: null,
+                notes: null,
+                is_member: false,
+                is_archived: false,
+                archived_at: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }}
+              onSave={handleEdit}
+              onCancel={() => {
+                setIsEditing(false);
+                if (!customer) {
+                  onClose();
+                }
+              }}
+            />
+          ) : customer ? (
+            <>
+              <CustomerInfo 
+                customer={customer} 
+                onMemberStatusChange={async (isMember) => {
+                  try {
+                    console.log('Updating member status:', { customerId: customer.id, isMember });
+                    const updated = await updateCustomer.mutateAsync({
+                      id: customer.id,
+                      data: { is_member: isMember ?? false },
+                    });
+                    console.log('Member status updated successfully:', updated);
+                    // Update local customer state to reflect the change immediately
+                    const updatedWithStats: CustomerWithStats = {
+                      ...updated,
+                      totalBookings: customer.totalBookings,
+                      lastVisit: customer.lastVisit,
+                      customerSince: customer.customerSince,
+                    };
+                    onEdit(updatedWithStats);
+                  } catch (error) {
+                    console.error('Error updating member status:', error);
+                    // Re-throw to let the toast handler show the error
+                    throw error;
+                  }
+                }}
+              />
+              <BookingHistory 
+                bookings={customerBookings} 
+                onViewAll={() => {}}
+              />
+            </>
+          ) : null}
         </div>
-      </div>
-    </>
+
+        {/* Archive Button - Standalone */}
+        {customer && !isEditing && !isCreatingBooking && (
+          <div className="mt-8 pt-6 border-t">
+            <Button 
+              variant="ghost" 
+              onClick={handleArchiveCustomer}
+              className="w-full justify-start text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+            >
+              <Archive className="h-4 w-4 mr-2" />
+              Archive
+            </Button>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 };

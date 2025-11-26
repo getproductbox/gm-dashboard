@@ -1,22 +1,28 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { User, Mail, Phone, CreditCard, MessageSquare, Bell } from "lucide-react";
-import { Customer, DetailedCustomer } from "@/data/mockData/customers";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User, Mail, Phone, CreditCard, MessageSquare, Star, ChevronDown } from "lucide-react";
+import { CustomerRow } from "@/services/customerService";
 import { format } from "date-fns";
 
+type CustomerWithStats = CustomerRow & {
+  totalBookings: number;
+  lastVisit: string | null;
+  customerSince: string;
+};
+
 interface CustomerInfoProps {
-  customer: Customer | DetailedCustomer;
+  customer: CustomerWithStats;
+  onMemberStatusChange?: (isMember: boolean) => void;
 }
 
-export const CustomerInfo = ({ customer }: CustomerInfoProps) => {
-  const isDetailedCustomer = (cust: Customer | DetailedCustomer): cust is DetailedCustomer => {
-    return 'totalSpent' in cust;
-  };
-
-  const detailedCustomer = isDetailedCustomer(customer) ? customer : null;
+export const CustomerInfo = ({ customer, onMemberStatusChange }: CustomerInfoProps) => {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-AU', {
@@ -25,18 +31,19 @@ export const CustomerInfo = ({ customer }: CustomerInfoProps) => {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
     return format(new Date(dateString), 'dd/MM/yy');
   };
 
   return (
     <div className="space-y-3 w-full">
-      {/* Contact Info - Compact */}
+      {/* Customer Details - Compact */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <User className="h-4 w-4" />
-            Contact
+            Customer Details
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -44,15 +51,63 @@ export const CustomerInfo = ({ customer }: CustomerInfoProps) => {
             <Mail className="h-3 w-3 text-gm-neutral-500 flex-shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-xs text-gm-neutral-600">Email</p>
-              <p className="text-xs font-medium truncate">{customer.email}</p>
+              <p className="text-xs font-medium truncate">{customer.email || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Phone className="h-3 w-3 text-gm-neutral-500 flex-shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-xs text-gm-neutral-600">Phone</p>
-              <p className="text-xs font-medium">{customer.phone}</p>
+              <p className="text-xs font-medium">{customer.phone || '-'}</p>
             </div>
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-2">
+              <Star className="h-3 w-3 text-gm-neutral-500 flex-shrink-0" />
+              <p className="text-xs text-gm-neutral-600">Member Status</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <Badge 
+                  variant={customer.is_member ? 'default' : 'secondary'} 
+                  className="text-xs cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1"
+                >
+                  {customer.is_member ? (
+                    <>
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      Member
+                    </>
+                  ) : (
+                    'Not a Member'
+                  )}
+                  <ChevronDown className="h-3 w-3" />
+                </Badge>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {customer.is_member ? (
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      onMemberStatusChange?.(false);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    Remove Member Status
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      onMemberStatusChange?.(true);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                    Make Member
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>
@@ -75,7 +130,7 @@ export const CustomerInfo = ({ customer }: CustomerInfoProps) => {
             </div>
             <div className="text-center p-2 bg-gm-neutral-50 rounded">
               <div className="text-sm font-bold text-green-600">
-                {detailedCustomer ? formatCurrency(detailedCustomer.totalSpent) : '-'}
+                -
               </div>
               <div className="text-xs text-gm-neutral-600">Spent</div>
             </div>
@@ -95,52 +150,8 @@ export const CustomerInfo = ({ customer }: CustomerInfoProps) => {
         </CardContent>
       </Card>
 
-      {/* Status - Inline */}
-      <Card>
-        <CardContent className="pt-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium">Status</span>
-            <Badge variant={customer.status === 'returning' ? 'default' : 'secondary'} className="text-xs">
-              {customer.status === 'returning' ? 'Returning' : 'First-time'}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Preferences - Compact switches */}
-      {detailedCustomer && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              Preferences
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="email-consent" className="text-xs">Email Marketing</Label>
-              <Switch
-                id="email-consent"
-                checked={detailedCustomer.emailConsent}
-                disabled
-                className="scale-75"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="sms-consent" className="text-xs">SMS Marketing</Label>
-              <Switch
-                id="sms-consent"
-                checked={detailedCustomer.smsConsent}
-                disabled
-                className="scale-75"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Notes - If present */}
-      {detailedCustomer?.notes && (
+      {customer.notes && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -150,7 +161,7 @@ export const CustomerInfo = ({ customer }: CustomerInfoProps) => {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-gm-neutral-600 leading-relaxed">
-              {detailedCustomer.notes}
+              {customer.notes}
             </p>
           </CardContent>
         </Card>

@@ -169,7 +169,16 @@ export const RevenueTimeChart = () => {
 
     const weekData = await Promise.all(weekDataPromises);
     
-    return weekData.reverse(); // Reverse to show oldest to newest
+    // Filter out the last week if it has no data (revenue = 0 and attendance = 0)
+    const filteredWeekData = weekData.filter((week, index) => {
+      // If it's the last week (index 0 after reverse) and has no data, exclude it
+      if (index === 0 && week.revenue === 0 && week.attendance === 0) {
+        return false;
+      }
+      return true;
+    });
+    
+    return filteredWeekData.reverse(); // Reverse to show oldest to newest
   };
 
   const fetchMonthlyRevenue = async (venueFilter: string | null): Promise<RevenueDataPoint[]> => {

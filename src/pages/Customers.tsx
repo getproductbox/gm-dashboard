@@ -1,74 +1,127 @@
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CustomerFilters, CustomerFilterProps } from "@/components/customers/CustomerFilters";
 import { CustomersTable } from "@/components/customers/CustomersTable";
 import { CustomerPagination } from "@/components/customers/CustomerPagination";
+import { CustomerProfilePanel } from "@/components/customers/CustomerProfilePanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Users, UserPlus, TrendingUp } from "lucide-react";
-import { mockCustomers, mockCustomerStats, Customer } from "@/data/mockData/customers";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useBookings } from "@/hooks/useBookings";
+import { CustomerRow } from "@/services/customerService";
+import { BookingRow } from "@/services/bookingService";
+
+// Extended customer type with booking stats for display
+type CustomerWithStats = CustomerRow & {
+  totalBookings: number;
+  lastVisit: string | null;
+  customerSince: string;
+};
 
 const Customers = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [sortField, setSortField] = useState<keyof Customer>('firstName');
+  const [sortField, setSortField] = useState<keyof CustomerWithStats>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState<CustomerFilterProps>({
     search: '',
     status: 'all',
-    dateFrom: '',
-    dateTo: '',
   });
 
-  const filteredCustomers = useMemo(() => {
-    return mockCustomers.filter(customer => {
-      const matchesSearch = !filters.search || 
-        `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(filters.search.toLowerCase()) ||
-        customer.email.toLowerCase().includes(filters.search.toLowerCase()) ||
-        customer.phone.toLowerCase().includes(filters.search.toLowerCase());
+  // Fetch customers from database
+  const { data: customers = [], isLoading: loadingCustomers } = useCustomers({
+    search: filters.search || undefined,
+  });
 
-      const matchesStatus = filters.status === 'all' || customer.status === filters.status;
-      
-      const matchesDateFrom = !filters.dateFrom || customer.customerSince >= filters.dateFrom;
-      const matchesDateTo = !filters.dateTo || customer.customerSince <= filters.dateTo;
+  // Fetch all bookings to calculate stats
+  const { data: allBookings = [] } = useBookings({});
 
-      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
+  // Calculate booking stats per customer
+  const customersWithStats = useMemo(() => {
+    const customerMap = new Map<string, CustomerWithStats>();
+    
+    // Initialize with customer data
+    customers.forEach(customer => {
+      customerMap.set(customer.id, {
+        ...customer,
+        totalBookings: 0,
+        lastVisit: null,
+        customerSince: customer.created_at || new Date().toISOString(),
+      });
     });
-  }, [filters]);
+
+    // Calculate stats from bookings
+    allBookings.forEach(booking => {
+      // Match booking to customer by email or phone
+      const matchingCustomer = customers.find(c => 
+        (c.email && booking.customer_email && c.email.toLowerCase() === booking.customer_email.toLowerCase()) ||
+        (c.phone && booking.customer_phone && c.phone === booking.customer_phone)
+      );
+
+      if (matchingCustomer) {
+        const customer = customerMap.get(matchingCustomer.id);
+        if (customer) {
+          customer.totalBookings += 1;
+          if (!customer.lastVisit || booking.booking_date > customer.lastVisit) {
+            customer.lastVisit = booking.booking_date;
+          }
+        }
+      }
+    });
+
+    return Array.from(customerMap.values());
+  }, [customers, allBookings]);
+
+  const filteredCustomers = useMemo(() => {
+    return customersWithStats.filter(customer => {
+      const matchesSearch = !filters.search || 
+        customer.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        (customer.email && customer.email.toLowerCase().includes(filters.search.toLowerCase())) ||
+        (customer.phone && customer.phone.toLowerCase().includes(filters.search.toLowerCase()));
+
+      // Status filter: 'members' = is_member is true, 'non-members' = is_member is false
+      const matchesStatus = filters.status === 'all' || 
+        (filters.status === 'members' && customer.is_member === true) ||
+        (filters.status === 'non-members' && customer.is_member !== true);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [customersWithStats, filters]);
 
   const sortedCustomers = useMemo(() => {
     const sorted = [...filteredCustomers].sort((a, b) => {
       let aValue, bValue;
       
       switch (sortField) {
-        case 'firstName':
-          aValue = `${a.firstName} ${a.lastName}`;
-          bValue = `${b.firstName} ${b.lastName}`;
+        case 'name':
+          aValue = a.name;
+          bValue = b.name;
           break;
         case 'email':
-          aValue = a.email;
-          bValue = b.email;
+          aValue = a.email || '';
+          bValue = b.email || '';
           break;
         case 'phone':
-          aValue = a.phone;
-          bValue = b.phone;
+          aValue = a.phone || '';
+          bValue = b.phone || '';
           break;
         case 'totalBookings':
           aValue = a.totalBookings;
           bValue = b.totalBookings;
           break;
         case 'lastVisit':
-          aValue = a.lastVisit;
-          bValue = b.lastVisit;
+          aValue = a.lastVisit || '';
+          bValue = b.lastVisit || '';
           break;
         case 'customerSince':
           aValue = a.customerSince;
           bValue = b.customerSince;
           break;
         default:
-          aValue = a.firstName;
-          bValue = b.firstName;
+          aValue = a.name;
+          bValue = b.name;
       }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -98,7 +151,7 @@ const Customers = () => {
     setCurrentPage(1);
   };
 
-  const handleSort = (field: keyof Customer) => {
+  const handleSort = (field: keyof CustomerWithStats) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -107,18 +160,40 @@ const Customers = () => {
     }
   };
 
+  // Calculate stats
+  const stats = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    
+    const newThisMonth = customersWithStats.filter(c => 
+      c.created_at && c.created_at >= startOfMonth
+    ).length;
+
+    const totalMembers = customersWithStats.filter(c => c.is_member === true).length;
+
+    return {
+      totalCustomers: customersWithStats.length,
+      newThisMonth,
+      totalMembers,
+    };
+  }, [customersWithStats]);
+
   const handleClearFilters = () => {
     setFilters({
       search: '',
       status: 'all',
-      dateFrom: '',
-      dateTo: '',
     });
     setCurrentPage(1);
   };
 
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+
   const handleAddCustomer = () => {
-    console.log('Add new customer clicked');
+    setIsAddCustomerOpen(true);
+  };
+
+  const handleCustomerCreated = () => {
+    setIsAddCustomerOpen(false);
   };
 
   return (
@@ -129,7 +204,7 @@ const Customers = () => {
           <div>
             <h1 className="text-2xl font-bold text-gm-neutral-900 dark:text-white">Customers</h1>
             <p className="text-gm-neutral-600 dark:text-gm-neutral-400">
-              {mockCustomerStats.totalCustomers} customers
+              {loadingCustomers ? 'Loading...' : `${stats.totalCustomers} customers`}
             </p>
           </div>
           <Button onClick={handleAddCustomer} className="flex items-center gap-2">
@@ -146,7 +221,7 @@ const Customers = () => {
               <Users className="h-4 w-4 text-gm-neutral-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockCustomerStats.totalCustomers}</div>
+              <div className="text-2xl font-bold">{loadingCustomers ? '-' : stats.totalCustomers}</div>
             </CardContent>
           </Card>
           
@@ -156,17 +231,17 @@ const Customers = () => {
               <UserPlus className="h-4 w-4 text-gm-neutral-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockCustomerStats.newThisMonth}</div>
+              <div className="text-2xl font-bold">{loadingCustomers ? '-' : stats.newThisMonth}</div>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Returning Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Members</CardTitle>
               <TrendingUp className="h-4 w-4 text-gm-neutral-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockCustomerStats.returningRate}%</div>
+              <div className="text-2xl font-bold">{loadingCustomers ? '-' : stats.totalMembers}</div>
             </CardContent>
           </Card>
         </div>
@@ -191,6 +266,15 @@ const Customers = () => {
           sortField={sortField}
           sortDirection={sortDirection}
           onSort={handleSort}
+        />
+
+        {/* Add Customer Panel */}
+        <CustomerProfilePanel
+          isOpen={isAddCustomerOpen}
+          onClose={() => setIsAddCustomerOpen(false)}
+          customer={null}
+          onEdit={handleCustomerCreated}
+          initialView="edit"
         />
 
         {/* Pagination */}

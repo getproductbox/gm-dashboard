@@ -382,60 +382,20 @@ export const getDetailedCustomerData = (customerId: string): DetailedCustomer | 
   const customer = mockCustomers.find(c => c.id === customerId);
   if (!customer) return null;
 
-  // Generate booking history based on total bookings
-  const generateBookingHistory = (totalBookings: number, customerSince: string): BookingRecord[] => {
-    const services = [
-      'Men\'s Haircut', 'Women\'s Cut & Style', 'Hair Washing', 'Beard Trim', 
-      'Hair Coloring', 'Highlights', 'Perm', 'Straightening', 'Deep Conditioning'
-    ];
-    
-    const statuses: BookingRecord['status'][] = ['completed', 'completed', 'completed', 'confirmed', 'cancelled'];
-    
-    const bookings: BookingRecord[] = [];
-    const startDate = new Date(customerSince);
-    const endDate = new Date(customer.lastVisit);
-    
-    for (let i = 0; i < totalBookings; i++) {
-      const randomDate = new Date(startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime()));
-      
-      bookings.push({
-        date: randomDate.toISOString().split('T')[0],
-        service: services[Math.floor(Math.random() * services.length)],
-        amount: Math.floor(Math.random() * 100) + 30, // £30-£130
-        status: statuses[Math.floor(Math.random() * statuses.length)]
-      });
-    }
-    
-    return bookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  };
-
-  const bookingHistory = generateBookingHistory(customer.totalBookings, customer.customerSince);
-  const totalSpent = bookingHistory.reduce((sum, booking) => sum + booking.amount, 0);
-  const averageBookingValue = totalSpent / customer.totalBookings;
-
-  // Generate insights
-  const serviceCount = bookingHistory.reduce((acc, booking) => {
-    acc[booking.service] = (acc[booking.service] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
-  const favoriteService = Object.entries(serviceCount).sort(([,a], [,b]) => b - a)[0]?.[0] || 'Men\'s Haircut';
-  
-  const preferredTimes = ['Morning (9-11am)', 'Afternoon (2-4pm)', 'Evening (5-7pm)'];
-  const bookingPatterns = ['Weekly regular', 'Monthly visitor', 'Seasonal customer', 'Special occasions only'];
-
+  // Return customer data without fake booking history or preferences
+  // Real booking data should come from the database
   return {
     ...customer,
-    totalSpent,
-    notes: `Regular customer since ${customer.customerSince}. Prefers ${favoriteService}.`,
-    emailConsent: Math.random() > 0.2, // 80% consent rate
-    smsConsent: Math.random() > 0.4, // 60% consent rate
-    bookingHistory,
+    totalSpent: 0,
+    notes: null,
+    emailConsent: false,
+    smsConsent: false,
+    bookingHistory: [],
     insights: {
-      favoriteService,
-      averageBookingValue,
-      preferredTime: preferredTimes[Math.floor(Math.random() * preferredTimes.length)],
-      bookingPattern: bookingPatterns[Math.floor(Math.random() * bookingPatterns.length)]
+      favoriteService: null,
+      averageBookingValue: 0,
+      preferredTime: null,
+      bookingPattern: null
     }
   };
 };

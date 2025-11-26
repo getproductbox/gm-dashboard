@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,9 +7,7 @@ import { Search, X } from "lucide-react";
 
 export interface CustomerFilterProps {
   search: string;
-  status: string;
-  dateFrom: string;
-  dateTo: string;
+  status: string; // 'all' | 'members' | 'non-members'
 }
 
 interface CustomerFiltersProps {
@@ -19,6 +17,35 @@ interface CustomerFiltersProps {
 }
 
 export const CustomerFilters = ({ filters, onFiltersChange, onClearFilters }: CustomerFiltersProps) => {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Command+K (Mac) or Control+K (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        // Don't trigger if user is typing in an input, textarea, or contenteditable element
+        const target = e.target as HTMLElement;
+        const isInputElement = 
+          target.tagName === 'INPUT' || 
+          target.tagName === 'TEXTAREA' || 
+          target.isContentEditable;
+        
+        if (!isInputElement) {
+          e.preventDefault();
+          // Focus the search input
+          searchInputRef.current?.focus();
+          // Select all text if there's any
+          searchInputRef.current?.select();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   return (
     <div className="bg-white dark:bg-gm-neutral-800 p-4 rounded-lg border border-gm-neutral-200 dark:border-gm-neutral-700 space-y-4">
       <div className="flex flex-col lg:flex-row gap-4">
@@ -26,7 +53,8 @@ export const CustomerFilters = ({ filters, onFiltersChange, onClearFilters }: Cu
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gm-neutral-400 dark:text-gm-neutral-500 h-4 w-4" />
           <Input
-            placeholder="Search by name, email, or phone..."
+            ref={searchInputRef}
+            placeholder="Search by name, email, or phone... (⌘K or Ctrl+K)"
             value={filters.search}
             onChange={(e) => onFiltersChange({ search: e.target.value })}
             className="pl-10"
@@ -44,28 +72,10 @@ export const CustomerFilters = ({ filters, onFiltersChange, onClearFilters }: Cu
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Customers</SelectItem>
-              <SelectItem value="first-time">First-time</SelectItem>
-              <SelectItem value="returning">Returning</SelectItem>
+              <SelectItem value="members">Members</SelectItem>
+              <SelectItem value="non-members">Non-Members</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        {/* Date Range Filters */}
-        <div className="flex gap-2">
-          <Input
-            type="date"
-            placeholder="From date"
-            value={filters.dateFrom}
-            onChange={(e) => onFiltersChange({ dateFrom: e.target.value })}
-            className="w-40"
-          />
-          <Input
-            type="date"
-            placeholder="To date"
-            value={filters.dateTo}
-            onChange={(e) => onFiltersChange({ dateTo: e.target.value })}
-            className="w-40"
-          />
         </div>
 
         {/* Clear Filters */}

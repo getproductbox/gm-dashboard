@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, Calendar, Users, BarChart3, Settings, Code, CalendarDays, TestTube, DollarSign, Building, ListChecks } from "lucide-react";
+import { Home, Users, BarChart3, Settings, CalendarDays, DollarSign, Building, ListChecks } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { LastSyncIndicator } from "./LastSyncIndicator";
@@ -19,37 +19,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const menuItems = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: Home,
-  },
-  {
-    title: "Run Sheet",
-    url: "/run-sheet",
-    icon: ListChecks,
-  },
-  {
-    title: "Calendar",
-    url: "/calendar",
-    icon: Calendar,
-  },
-  {
-    title: "Bookings",
-    url: "/bookings",
-    icon: CalendarDays,
-  },
-  {
-    title: "Booth Management",
-    url: "/booth-management",
-    icon: Building,
-  },
-  {
-    title: "Customers",
-    url: "/customers",
-    icon: Users,
-  },
+const financeItems = [
   {
     title: "Revenue",
     url: "/revenue",
@@ -59,6 +29,32 @@ const menuItems = [
     title: "Profit & Loss",
     url: "/pnl",
     icon: BarChart3,
+  },
+];
+
+const operationsItems = [
+  {
+    title: "Run Sheet",
+    url: "/run-sheet",
+    icon: ListChecks,
+  },
+  {
+    title: "Bookings",
+    url: "/bookings",
+    icon: CalendarDays,
+  },
+  {
+    title: "Customers",
+    url: "/customers",
+    icon: Users,
+  },
+];
+
+const settingsItems = [
+  {
+    title: "Booth Management",
+    url: "/booth-management",
+    icon: Building,
   },
   {
     title: "Settings", 
@@ -97,11 +93,66 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
+        {/* Dashboard - standalone */}
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Dashboard">
+                  <Link to="/dashboard">
+                    <Home className="h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Finance Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Finance</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {financeItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title}>
+                    <Link to={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Operations Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Operations</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {operationsItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title}>
+                    <Link to={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Settings Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Settings</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <Link to={item.url}>

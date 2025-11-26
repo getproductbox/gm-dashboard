@@ -11,10 +11,12 @@ import { Progress } from "@/components/ui/progress";
 import { useBookings } from "@/hooks/useBookings";
 import { updateVipTicketCheckins, BookingRow } from "@/services/bookingService";
 import { formatDateToISO } from "@/utils/dateUtils";
-import { Eye, EyeOff, CheckCheck, Search, Users, Mic2, Calendar, ArrowLeft, UserPlus, Star } from "lucide-react";
+import { CheckCheck, Search, Users, Mic2, Calendar, ArrowLeft, UserPlus, Star } from "lucide-react";
 import { QuickAddBookingDialog } from "@/components/bookings/QuickAddBookingDialog";
 import { BookingDetailsSidebar } from "@/components/bookings/BookingDetailsSidebar";
 import { customerService, CustomerRow } from "@/services/customerService";
+import { AddMemberDialog } from "@/components/members/AddMemberDialog";
+import { MemberProfileDialog } from "@/components/members/MemberProfileDialog";
 
 type VenueFilter = 'all' | 'manor' | 'hippie';
 
@@ -31,7 +33,6 @@ export default function RunSheet() {
   const [search, setSearch] = useState<string>("");
   const [venue, setVenue] = useState<VenueFilter>('all');
   const [attendance, setAttendance] = useState<AttendanceState>({ vip: {}, karaoke: {} });
-  const [showFilters, setShowFilters] = useState<boolean>(false);
   const [showCheckedOff, setShowCheckedOff] = useState<boolean>(false);
   const [members, setMembers] = useState<CustomerRow[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -39,6 +40,10 @@ export default function RunSheet() {
   // Editing
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [isEditSidebarOpen, setIsEditSidebarOpen] = useState(false);
+  
+  // Member management
+  const [selectedMember, setSelectedMember] = useState<CustomerRow | null>(null);
+  const [isMemberProfileOpen, setIsMemberProfileOpen] = useState(false);
 
   // Load/save attendance
   useEffect(() => {
@@ -67,14 +72,22 @@ export default function RunSheet() {
   }, [attendance, selectedDate]);
 
   // Fetch Members when tab is active
-  useEffect(() => {
+  const fetchMembers = async () => {
     if (activeTab === 'members') {
       setLoadingMembers(true);
-      customerService.getMembers(search)
-        .then(setMembers)
-        .catch(console.error)
-        .finally(() => setLoadingMembers(false));
+      try {
+        const membersData = await customerService.getMembers(search);
+        setMembers(membersData);
+      } catch (error) {
+        console.error('Error fetching members:', error);
+      } finally {
+        setLoadingMembers(false);
+      }
     }
+  };
+
+  useEffect(() => {
+    fetchMembers();
   }, [activeTab, search]); // Re-fetch on search change for server-side search
 
   const guestFilters = useMemo(() => ({
@@ -158,17 +171,22 @@ export default function RunSheet() {
         {/* Header Area */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-foreground">Run Sheet</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-foreground">Run Sheet</h1>
+              {!isToday && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleBackToToday}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Today
+                </Button>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <QuickAddBookingDialog defaultDate={selectedDate} />
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setShowFilters(!showFilters)}
-                className="text-muted-foreground"
-              >
-                {showFilters ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </Button>
             </div>
           </div>
 
@@ -187,9 +205,11 @@ export default function RunSheet() {
               <CardContent className="p-3">
                 <div className="flex justify-between text-sm mb-2 text-muted-foreground">
                   <span className="flex items-center gap-1.5 font-medium"><Mic2 className="h-3.5 w-3.5" /> Karaoke</span>
-                  <span className="font-mono">{checkedKaraoke}/{totalKaraoke}</span>
+                  <span className="font-mono">
+                    {Number.isFinite(checkedKaraoke) ? checkedKaraoke : 0}/{Number.isFinite(totalKaraoke) ? totalKaraoke : 0}
+                  </span>
                 </div>
-                <Progress value={karaokePercent} className="h-2" indicatorClassName="bg-blue-500" />
+                <Progress value={Number.isFinite(karaokePercent) ? karaokePercent : 0} className="h-2" indicatorClassName="bg-blue-500" />
               </CardContent>
             </Card>
           </div>
@@ -389,10 +409,7 @@ export default function RunSheet() {
                    <div className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">
                      Permanent Guest List
                    </div>
-                   {/* Future: Add Member Dialog */}
-                   <Button size="sm" variant="secondary" className="h-8 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-0">
-                     <UserPlus className="h-3.5 w-3.5 mr-1.5" /> Add Member
-                   </Button>
+                   <AddMemberDialog onMemberAdded={fetchMembers} />
                 </CardContent>
               </Card>
 
@@ -404,13 +421,13 @@ export default function RunSheet() {
                 {members.map(member => (
                   <Card key={member.id} className="bg-card border-l-4 border-l-indigo-400">
                     <CardContent className="p-3 flex justify-between items-start">
-                      <div>
+                      <div className="flex-1">
                         <div className="font-bold text-base flex items-center gap-2">
                           {member.name} 
                           <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">{member.email}</div>
-                        <div className="text-xs text-muted-foreground">{member.phone}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{member.email || 'No email'}</div>
+                        <div className="text-xs text-muted-foreground">{member.phone || 'No phone'}</div>
                         {member.notes && (
                           <div className="mt-2 text-xs bg-muted p-1.5 rounded italic">
                             "{member.notes}"
@@ -418,11 +435,17 @@ export default function RunSheet() {
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
-                         {/* Quick check-in for member? Or just list them? 
-                             For now just listing them as per plan. 
-                             Maybe a "Visit Today" button in future to create a booking.
-                         */}
-                         <Button size="sm" variant="outline" className="h-7 text-xs">Profile</Button>
+                         <Button 
+                           size="sm" 
+                           variant="outline" 
+                           className="h-7 text-xs"
+                           onClick={() => {
+                             setSelectedMember(member);
+                             setIsMemberProfileOpen(true);
+                           }}
+                         >
+                           Profile
+                         </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -439,6 +462,16 @@ export default function RunSheet() {
             setIsEditSidebarOpen(false);
             setSelectedBooking(null);
           }}
+        />
+
+        <MemberProfileDialog
+          member={selectedMember}
+          isOpen={isMemberProfileOpen}
+          onClose={() => {
+            setIsMemberProfileOpen(false);
+            setSelectedMember(null);
+          }}
+          onMemberUpdated={fetchMembers}
         />
       </div>
     </DashboardLayout>

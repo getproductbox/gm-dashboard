@@ -6,66 +6,115 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Customer } from '@/data/mockData/customers';
+import { Star } from 'lucide-react';
+import { CustomerRow, customerService } from '@/services/customerService';
 import { useToast } from '@/hooks/use-toast';
 
 interface CustomerEditFormProps {
-  customer: Customer;
-  onSave: (customer: Customer) => void;
+  customer: CustomerRow;
+  onSave: (customer: CustomerRow) => void;
   onCancel: () => void;
 }
 
 export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFormProps) => {
   const [formData, setFormData] = useState({
-    firstName: customer.firstName,
-    lastName: customer.lastName,
-    email: customer.email,
-    phone: customer.phone,
-    notes: '',
-    emailConsent: true,
-    smsConsent: false,
+    name: customer.name,
+    email: customer.email || '',
+    phone: customer.phone || '',
+    notes: customer.notes || '',
+    is_member: customer.is_member || false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required';
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
     }
 
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone is required';
+    // Email or phone must be provided
+    if (!formData.email.trim() && !formData.phone.trim()) {
+      newErrors.email = 'Either email or phone must be provided';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (validateForm()) {
-      const updatedCustomer: Customer = {
-        ...customer,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-      };
+    if (!validateForm()) {
+      return;
+    }
 
-      onSave(updatedCustomer);
+    // Check for duplicates (for new customers or when email/phone changed)
+    const emailChanged = formData.email !== (customer.email || '');
+    const phoneChanged = formData.phone !== (customer.phone || '');
+    
+    if (!customer.id || emailChanged || phoneChanged) {
+      setIsSubmitting(true);
+      try {
+        const duplicate = await customerService.checkDuplicate(
+          formData.email || null,
+          formData.phone || null
+        );
+
+        // For existing customers, ignore if duplicate is the same customer
+        if (duplicate && (!customer.id || duplicate.id !== customer.id)) {
+          const duplicateFields: string[] = [];
+          if (formData.email && duplicate.email && duplicate.email.toLowerCase() === formData.email.toLowerCase()) {
+            duplicateFields.push('email');
+          }
+          if (formData.phone && duplicate.phone && duplicate.phone === formData.phone) {
+            duplicateFields.push('phone');
+          }
+          
+          setErrors({
+            ...errors,
+            email: duplicateFields.includes('email') ? 'A customer with this email already exists' : errors.email,
+            phone: duplicateFields.includes('phone') ? 'A customer with this phone number already exists' : errors.phone,
+          });
+          
+          toast({
+            title: "Duplicate customer found",
+            description: `A customer with the same ${duplicateFields.join(' and ')} already exists: ${duplicate.name}`,
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking for duplicate:', error);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to check for duplicate customer",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      setIsSubmitting(false);
+    }
+
+    const updatedCustomer: CustomerRow = {
+      ...customer,
+      name: formData.name,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      notes: formData.notes || null,
+      is_member: formData.is_member ?? false,
+    };
+
+    onSave(updatedCustomer);
+    if (customer.id) {
       toast({
         title: "Customer updated",
         description: "Customer information has been updated successfully.",
@@ -84,36 +133,21 @@ export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFor
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Edit Customer</CardTitle>
+        <CardTitle>{customer.id ? 'Edit Customer' : 'Add New Customer'}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                value={formData.firstName}
-                onChange={(e) => updateField('firstName', e.target.value)}
-                className={errors.firstName ? 'border-red-500' : ''}
-              />
-              {errors.firstName && (
-                <p className="text-sm text-red-500">{errors.firstName}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                value={formData.lastName}
-                onChange={(e) => updateField('lastName', e.target.value)}
-                className={errors.lastName ? 'border-red-500' : ''}
-              />
-              {errors.lastName && (
-                <p className="text-sm text-red-500">{errors.lastName}</p>
-              )}
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => updateField('name', e.target.value)}
+              className={errors.name ? 'border-red-500' : ''}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-500">{errors.name}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -154,42 +188,29 @@ export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFor
             />
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium">Marketing Preferences</h4>
-            
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Email Marketing</Label>
-                <p className="text-sm text-muted-foreground">
-                  Send promotional emails and updates
-                </p>
-              </div>
-              <Switch
-                checked={formData.emailConsent}
-                onCheckedChange={(checked) => updateField('emailConsent', checked)}
-              />
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="is_member" className="text-base flex items-center gap-2">
+                <Star className="h-4 w-4" />
+                Member Status
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Mark this customer as a member
+              </p>
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>SMS Marketing</Label>
-                <p className="text-sm text-muted-foreground">
-                  Send SMS notifications and reminders
-                </p>
-              </div>
-              <Switch
-                checked={formData.smsConsent}
-                onCheckedChange={(checked) => updateField('smsConsent', checked)}
-              />
-            </div>
+            <Switch
+              id="is_member"
+              checked={formData.is_member}
+              onCheckedChange={(checked) => updateField('is_member', checked)}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit">
-              Save Changes
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Checking...' : customer.id ? 'Save Changes' : 'Create Customer'}
             </Button>
           </div>
         </form>

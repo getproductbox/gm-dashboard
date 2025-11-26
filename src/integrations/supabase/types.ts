@@ -126,7 +126,9 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
+          is_member: boolean | null
           name: string
+          notes: string | null
           phone: string | null
           updated_at: string | null
         }
@@ -134,7 +136,9 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          is_member?: boolean | null
           name: string
+          notes?: string | null
           phone?: string | null
           updated_at?: string | null
         }
@@ -142,7 +146,9 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          is_member?: boolean | null
           name?: string
+          notes?: string | null
           phone?: string | null
           updated_at?: string | null
         }
@@ -177,7 +183,7 @@ export type Database = {
           metadata?: Json | null
           recipient_email?: string
           status?: string
-          template?: string
+          template?: string | null
         }
         Relationships: [
           {
@@ -357,56 +363,6 @@ export type Database = {
         }
         Relationships: []
       }
-      revenue_event_items: {
-        Row: {
-          category: string | null
-          created_at: string | null
-          event_id: string
-          id: number
-          is_comp: boolean | null
-          is_refund: boolean | null
-          name: string | null
-          occurred_at: string | null
-          quantity: number
-          total_amount_cents: number | null
-          unit_amount_cents: number | null
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string | null
-          event_id: string
-          id?: number
-          is_comp?: boolean | null
-          is_refund?: boolean | null
-          name?: string | null
-          occurred_at?: string | null
-          quantity?: number
-          total_amount_cents?: number | null
-          unit_amount_cents?: number | null
-        }
-        Update: {
-          category?: string | null
-          created_at?: string | null
-          event_id?: string
-          id?: number
-          is_comp?: boolean | null
-          is_refund?: boolean | null
-          name?: string | null
-          occurred_at?: string | null
-          quantity?: number
-          total_amount_cents?: number | null
-          unit_amount_cents?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "revenue_event_items_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "revenue_events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       revenue_events: {
         Row: {
           amount_cents: number
@@ -460,6 +416,59 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "square_payments_raw"
             referencedColumns: ["square_payment_id"]
+          },
+        ]
+      }
+      square_location_sync_status: {
+        Row: {
+          errors: string | null
+          in_progress: boolean | null
+          last_heartbeat: string | null
+          last_order_updated_at_seen: string | null
+          last_payment_created_at_seen: string | null
+          last_successful_sync_at: string | null
+          location_id: string
+          orders_fetched: number | null
+          orders_upserted: number | null
+          payments_fetched: number | null
+          payments_upserted: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          errors?: string | null
+          in_progress?: boolean | null
+          last_heartbeat?: string | null
+          last_order_updated_at_seen?: string | null
+          last_payment_created_at_seen?: string | null
+          last_successful_sync_at?: string | null
+          location_id: string
+          orders_fetched?: number | null
+          orders_upserted?: number | null
+          payments_fetched?: number | null
+          payments_upserted?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          errors?: string | null
+          in_progress?: boolean | null
+          last_heartbeat?: string | null
+          last_order_updated_at_seen?: string | null
+          last_payment_created_at_seen?: string | null
+          last_successful_sync_at?: string | null
+          location_id?: string
+          orders_fetched?: number | null
+          orders_upserted?: number | null
+          payments_fetched?: number | null
+          payments_upserted?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "square_location_sync_status_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "square_locations"
+            referencedColumns: ["square_location_id"]
           },
         ]
       }
@@ -574,249 +583,126 @@ export type Database = {
         }
         Relationships: []
       }
-    }
-    Views: {
-      vw_attendance_by_day: {
+      venue_area_hours: {
         Row: {
-          attendance: number | null
-          day: string | null
-          venue: string | null
+          close_time: string
+          day_of_week: number
+          id: number
+          open_time: string
+          venue_area_id: number
+        }
+        Insert: {
+          close_time: string
+          day_of_week: number
+          id?: never
+          open_time: string
+          venue_area_id: number
+        }
+        Update: {
+          close_time?: string
+          day_of_week?: number
+          id?: never
+          open_time?: string
+          venue_area_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_area_hours_venue_area_id_fkey"
+            columns: ["venue_area_id"]
+            isOneToOne: false
+            referencedRelation: "venue_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_areas: {
+        Row: {
+          capacity_max: number | null
+          capacity_min: number | null
+          code: string
+          created_at: string
+          description: string | null
+          id: number
+          image_url: string | null
+          is_active: boolean
+          name: string
+          sort_order: number | null
+          venue: string
+          weekly_hours: Json
+        }
+        Insert: {
+          capacity_max?: number | null
+          capacity_min?: number | null
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: never
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          sort_order?: number | null
+          venue: string
+          weekly_hours: Json
+        }
+        Update: {
+          capacity_max?: number | null
+          capacity_min?: number | null
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: never
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          sort_order?: number | null
+          venue?: string
+          weekly_hours?: Json
+        }
+        Relationships: []
+      }
+      xero_connections: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          id: string
+          refresh_token_enc: string
+          scopes: string[]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          refresh_token_enc: string
+          scopes?: string[]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          refresh_token_enc?: string
+          scopes?: string[]
+          tenant_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
     }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
-      _upsert_revenue_event: {
-        Args: { p_raw: Json }
-        Returns: undefined
-      }
-      add_missing_locations_from_payments: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      gbt_bit_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bool_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bool_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bpchar_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bytea_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_cash_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_cash_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_date_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_date_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_enum_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_enum_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float4_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float4_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_inet_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int2_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int2_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int4_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int4_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_numeric_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_oid_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_oid_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_text_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_time_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_time_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_timetz_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_ts_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_ts_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_tstz_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_uuid_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_uuid_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_var_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_var_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey_var_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey_var_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey16_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey16_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey2_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey2_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey32_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey32_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey4_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey4_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey8_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey8_out: {
-        Args: { "": unknown }
-        Returns: unknown
+      _upsert_revenue_event: { Args: { p_raw: Json }; Returns: undefined }
+      add_missing_locations_from_payments: { Args: never; Returns: Json }
+      get_attendance_sum: {
+        Args: { end_date: string; start_date: string; venue_filter?: string }
+        Returns: number
       }
       get_available_karaoke_booths: {
         Args: {
@@ -834,29 +720,40 @@ export type Database = {
         }[]
       }
       get_available_weeks: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           week_label: string
           week_start: string
         }[]
       }
-      get_karaoke_booth_availability: {
-        Args:
-          | {
+      get_bar_revenue_sum: {
+        Args: { end_date: string; start_date: string; venue_filter?: string }
+        Returns: number
+      }
+      get_door_revenue_sum: {
+        Args: { end_date: string; start_date: string; venue_filter?: string }
+        Returns: number
+      }
+      get_karaoke_booth_availability:
+        | {
+            Args: {
               booking_date: string
               booth_id: string
               end_time: string
               exclude_booking_id?: string
               start_time: string
             }
-          | {
+            Returns: boolean
+          }
+        | {
+            Args: {
               booking_date: string
               booth_id: string
               end_time: string
               start_time: string
             }
-        Returns: boolean
-      }
+            Returns: boolean
+          }
       get_monthly_revenue_summary: {
         Args: { month_date?: string; venue_filter?: string }
         Returns: {
@@ -868,6 +765,10 @@ export type Database = {
           total_revenue_cents: number
           total_transactions: number
         }[]
+      }
+      get_revenue_sum: {
+        Args: { end_date: string; start_date: string; venue_filter?: string }
+        Returns: number
       }
       get_weekly_attendance_summary: {
         Args: { venue_filter?: string; week_date?: string }
@@ -900,10 +801,7 @@ export type Database = {
           year_start: string
         }[]
       }
-      karaoke_expire_due_holds: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      karaoke_expire_due_holds: { Args: never; Returns: number }
       process_payments_batch: {
         Args: { days_back?: number; payment_ids?: string[] }
         Returns: {
@@ -912,37 +810,27 @@ export type Database = {
           total_payments: number
         }[]
       }
-      reprocess_venues_batch: {
-        Args: { days_back?: number }
+      reprocess_venues_batch: { Args: { days_back?: number }; Returns: Json }
+      reset_stuck_sync_states: { Args: never; Returns: undefined }
+      sync_square_locations: { Args: never; Returns: Json }
+      test_map_100_transactions: { Args: never; Returns: Json }
+      test_map_1000_transactions: { Args: never; Returns: Json }
+      test_map_all_transactions: { Args: never; Returns: Json }
+      transform_backfill_transactions: {
+        Args: { end_date?: string; start_date?: string }
         Returns: Json
       }
-      reset_stuck_sync_states: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
+      transform_orders_window: {
+        Args: { p_end_ts: string; p_start_ts: string }
+        Returns: number
       }
-      sync_square_locations: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      test_map_100_transactions: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      test_map_1000_transactions: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      test_map_all_transactions: {
-        Args: Record<PropertyKey, never>
+      transform_payments_window: {
+        Args: { end_ts: string; start_ts: string }
         Returns: Json
       }
       transform_recent_synced_transactions: {
         Args: { minutes_back?: number }
         Returns: Json
-      }
-      transform_square_orders_to_normalized: {
-        Args: { p_limit?: number }
-        Returns: number
       }
     }
     Enums: {

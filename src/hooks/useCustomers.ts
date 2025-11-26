@@ -65,3 +65,27 @@ export const useUpdateCustomer = () => {
   });
 };
 
+export const useArchiveCustomer = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => customerService.archiveCustomer(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast({
+        title: "Customer Archived",
+        description: "Customer has been archived. Their bookings remain intact.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+};
+

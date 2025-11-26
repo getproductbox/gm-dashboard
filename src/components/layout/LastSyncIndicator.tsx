@@ -92,7 +92,7 @@ export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTi
       size={state === "collapsed" ? "icon" : "sm"}
       onClick={triggerSync}
       disabled={isSyncing}
-      className={state === "collapsed" ? "h-8 w-8 p-0" : "h-6 w-6 p-0"}
+      className={state === "collapsed" ? "h-8 w-8 p-0 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" : "h-6 w-6 p-0"}
       title="Sync & Transform"
     >
       <RotateCcw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
