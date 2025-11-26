@@ -18,6 +18,7 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
     
     if (!SUPABASE_URL || !SERVICE_KEY) {
       return new Response(JSON.stringify({
@@ -102,8 +103,10 @@ serve(async (req) => {
       syncResponse = await fetch(`${SUPABASE_URL}/functions/v1/sync-and-transform`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${SERVICE_KEY}`,
-          'apikey': SERVICE_KEY,
+          // NOTE: use the anon key for edge-function JWT verification,
+          // while the function itself uses SERVICE_ROLE for DB access.
+          'Authorization': `Bearer ${ANON_KEY || SERVICE_KEY}`,
+          'apikey': ANON_KEY || SERVICE_KEY,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

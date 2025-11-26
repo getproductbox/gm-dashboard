@@ -18,6 +18,7 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
     
     if (!SUPABASE_URL || !SERVICE_KEY) {
       return new Response(JSON.stringify({
@@ -105,7 +106,7 @@ serve(async (req) => {
         const pStart = Date.now();
         const pCall = await callFnWithTimeout(
           `${SUPABASE_URL}/functions/v1/square-sync-payments`, 
-          SERVICE_KEY, 
+          ANON_KEY || SERVICE_KEY, 
           {
             start_time: window.start,
             end_time: window.end,
@@ -129,7 +130,7 @@ serve(async (req) => {
         const oStart = Date.now();
         const oCall = await callFnWithTimeout(
           `${SUPABASE_URL}/functions/v1/square-sync-orders`, 
-          SERVICE_KEY, 
+          ANON_KEY || SERVICE_KEY, 
           {
             start_ts: window.start,
             end_ts: window.end,
