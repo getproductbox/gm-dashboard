@@ -62,7 +62,6 @@ export function OperationalForecast({ bookings, utilization, isLoading }: Operat
           <div className="w-full space-y-2">
             <div className="flex justify-between text-sm">
               <span>0%</span>
-              <span>Target: 70%</span>
               <span>100%</span>
             </div>
             <Progress value={utilization} className="h-3" />

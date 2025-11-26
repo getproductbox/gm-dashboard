@@ -2,12 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPnl, PnlResponse } from "./xeroService";
 import { startOfWeek, endOfWeek, subWeeks, format, addDays } from "date-fns";
-
-export interface UncategorizedItem {
-  name?: string;
-  section?: string;
-  amount: number;
-}
+import { bookingService } from "./bookingService";
 
 export interface WeeklyFinancials {
   weekStart: string;
@@ -21,14 +16,19 @@ export interface WeeklyFinancials {
   totalExpenses: number;
   netProfit: number;
   marginPercent: number;
-  uncategorizedItems: UncategorizedItem[];
 }
 
 export interface FinancialKPIs {
-  revenue: { total: number; changePercent: number };
-  netProfit: { total: number; marginPercent: number };
-  wages: { total: number; percentOfRevenue: number };
-  cogs: { total: number; percentOfRevenue: number };
+  revenue: { total: number; previousTotal: number; changePercent: number };
+  netProfit: { total: number; previousTotal: number; marginPercent: number; previousMarginPercent: number; changePercent: number };
+  wages: { total: number; previousTotal: number; percentOfRevenue: number; changePercent: number };
+  cogs: { total: number; previousTotal: number; percentOfRevenue: number; changePercent: number };
+  security: { total: number; previousTotal: number; percentOfRevenue: number; changePercent: number };
+  bookings: { 
+    total: number; 
+    changePercent: number;
+    breakdown: { tickets: number; karaoke: number; venueHire: number };
+  };
 }
 
 export const financialService = {
@@ -98,7 +98,6 @@ export const financialService = {
         let security = 0;
         let marketing = 0;
         let totalExpenses = 0;
-        let uncategorizedItems: UncategorizedItem[] = [];
 
         if (costs) {
           const cats = costs.categories || {};
@@ -108,7 +107,6 @@ export const financialService = {
           marketing = cats['marketing'] || 0; // If mapped
           
           totalExpenses = costs.totals.expenses;
-          uncategorizedItems = costs.uncategorized || [];
         }
 
         const otherExpenses = totalExpenses - (wages + cogs + security + marketing);
@@ -126,8 +124,7 @@ export const financialService = {
           otherExpenses,
           totalExpenses,
           netProfit,
-          marginPercent,
-          uncategorizedItems
+          marginPercent
         };
       });
 
@@ -139,22 +136,41 @@ export const financialService = {
     }
   },
 
-  async fetchKPIs(weeksToAnalyze: number = 4): Promise<FinancialKPIs> {
-    const financials = await this.fetchWeeklyFinancials(weeksToAnalyze * 2); // Fetch double range for comparison
+  async fetchKPIs(daysBack: number = 28): Promise<FinancialKPIs> {
+    // Use rolling days (same as Revenue page) instead of aligned weeks
+    const now = new Date();
+    const currentStart = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
+    const previousStart = new Date(now.getTime() - (daysBack * 2 * 24 * 60 * 60 * 1000));
     
-    // Split into current and previous periods
-    const currentPeriod = financials.slice(-weeksToAnalyze);
-    const previousPeriod = financials.slice(-weeksToAnalyze * 2, -weeksToAnalyze);
-
-    const sum = (items: WeeklyFinancials[], key: keyof WeeklyFinancials) => 
-      items.reduce((acc, item) => acc + (item[key] as number), 0);
-
-    const currentRevenue = sum(currentPeriod, 'revenue');
-    const previousRevenue = sum(previousPeriod, 'revenue');
+    // Fetch revenue using the same RPC as Revenue page
+    const [currentRevenueCents, previousRevenueCents] = await Promise.all([
+      this.getRevenueForPeriod(currentStart, now),
+      this.getRevenueForPeriod(previousStart, currentStart)
+    ]);
     
-    const currentWages = sum(currentPeriod, 'wages');
-    const currentCogs = sum(currentPeriod, 'cogs');
-    const currentNetProfit = sum(currentPeriod, 'netProfit');
+    // Convert to GST-exclusive dollars (same as Revenue page)
+    const currentRevenue = (currentRevenueCents / 100) / 1.1;
+    const previousRevenue = (previousRevenueCents / 100) / 1.1;
+
+    // Fetch costs from Xero P&L for the same periods
+    const [currentCosts, previousCosts] = await Promise.all([
+      fetchPnl(format(currentStart, 'yyyy-MM-dd'), format(now, 'yyyy-MM-dd')).catch(() => null),
+      fetchPnl(format(previousStart, 'yyyy-MM-dd'), format(currentStart, 'yyyy-MM-dd')).catch(() => null)
+    ]);
+    
+    // Extract current period costs
+    const currentWages = currentCosts?.categories?.wages || 0;
+    const currentCogs = currentCosts?.categories?.cogs || 0;
+    const currentSecurity = currentCosts?.categories?.security || 0;
+    const currentTotalExpenses = currentCosts?.totals?.expenses || 0;
+    const currentNetProfit = currentRevenue - currentTotalExpenses;
+    
+    // Extract previous period costs
+    const previousWages = previousCosts?.categories?.wages || 0;
+    const previousCogs = previousCosts?.categories?.cogs || 0;
+    const previousSecurity = previousCosts?.categories?.security || 0;
+    const previousTotalExpenses = previousCosts?.totals?.expenses || 0;
+    const previousNetProfit = previousRevenue - previousTotalExpenses;
 
     const revenueChange = previousRevenue > 0 
       ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
@@ -162,26 +178,111 @@ export const financialService = {
 
     const wagePercent = currentRevenue > 0 ? (currentWages / currentRevenue) * 100 : 0;
     const cogsPercent = currentRevenue > 0 ? (currentCogs / currentRevenue) * 100 : 0;
+    const securityPercent = currentRevenue > 0 ? (currentSecurity / currentRevenue) * 100 : 0;
     const netProfitMargin = currentRevenue > 0 ? (currentNetProfit / currentRevenue) * 100 : 0;
+    const previousNetProfitMargin = previousRevenue > 0 ? (previousNetProfit / previousRevenue) * 100 : 0;
+
+    // Calculate change percentages
+    const netProfitChange = previousNetProfit !== 0
+      ? ((currentNetProfit - previousNetProfit) / Math.abs(previousNetProfit)) * 100
+      : 0;
+    
+    const wagePercentPrevious = previousRevenue > 0 ? (previousWages / previousRevenue) * 100 : 0;
+    const wagePercentChange = wagePercentPrevious > 0
+      ? ((wagePercent - wagePercentPrevious) / wagePercentPrevious) * 100
+      : 0;
+    
+    const cogsPercentPrevious = previousRevenue > 0 ? (previousCogs / previousRevenue) * 100 : 0;
+    const cogsPercentChange = cogsPercentPrevious > 0
+      ? ((cogsPercent - cogsPercentPrevious) / cogsPercentPrevious) * 100
+      : 0;
+    
+    const securityPercentPrevious = previousRevenue > 0 ? (previousSecurity / previousRevenue) * 100 : 0;
+    const securityPercentChange = securityPercentPrevious > 0
+      ? ((securityPercent - securityPercentPrevious) / securityPercentPrevious) * 100
+      : 0;
+
+    // Fetch bookings for the same periods
+    const [currentBookings, previousBookings] = await Promise.all([
+      bookingService.getBookings({
+        dateFrom: format(currentStart, 'yyyy-MM-dd'),
+        dateTo: format(now, 'yyyy-MM-dd'),
+        status: 'confirmed'
+      }),
+      bookingService.getBookings({
+        dateFrom: format(previousStart, 'yyyy-MM-dd'),
+        dateTo: format(currentStart, 'yyyy-MM-dd'),
+        status: 'confirmed'
+      })
+    ]);
+
+    // Calculate booking breakdown for current period
+    const currentBreakdown = {
+      tickets: currentBookings.filter(b => b.booking_type === 'vip_tickets').length,
+      karaoke: currentBookings.filter(b => b.booking_type === 'karaoke_booking').length,
+      venueHire: currentBookings.filter(b => b.booking_type === 'venue_hire').length
+    };
+
+    const currentTotalBookings = currentBookings.length;
+    const previousTotalBookings = previousBookings.length;
+
+    const bookingsChange = previousTotalBookings > 0
+      ? ((currentTotalBookings - previousTotalBookings) / previousTotalBookings) * 100
+      : 0;
 
     return {
       revenue: {
         total: currentRevenue,
+        previousTotal: previousRevenue,
         changePercent: revenueChange
       },
       netProfit: {
         total: currentNetProfit,
-        marginPercent: netProfitMargin
+        previousTotal: previousNetProfit,
+        marginPercent: netProfitMargin,
+        previousMarginPercent: previousNetProfitMargin,
+        changePercent: netProfitChange
       },
       wages: {
         total: currentWages,
-        percentOfRevenue: wagePercent
+        previousTotal: previousWages,
+        percentOfRevenue: wagePercent,
+        changePercent: wagePercentChange
       },
       cogs: {
         total: currentCogs,
-        percentOfRevenue: cogsPercent
+        previousTotal: previousCogs,
+        percentOfRevenue: cogsPercent,
+        changePercent: cogsPercentChange
+      },
+      security: {
+        total: currentSecurity,
+        previousTotal: previousSecurity,
+        percentOfRevenue: securityPercent,
+        changePercent: securityPercentChange
+      },
+      bookings: {
+        total: currentTotalBookings,
+        changePercent: bookingsChange,
+        breakdown: currentBreakdown
       }
     };
+  },
+
+  // Helper to get revenue for a period using the same RPC as Revenue page
+  async getRevenueForPeriod(startDate: Date, endDate: Date): Promise<number> {
+    const { data, error } = await supabase.rpc('get_revenue_sum', {
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      venue_filter: null
+    });
+    
+    if (error) {
+      console.error('Error fetching revenue:', error);
+      return 0;
+    }
+    
+    return data || 0;
   }
 };
 

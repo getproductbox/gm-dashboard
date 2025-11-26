@@ -1,6 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, TrendingDown, Users, ShoppingBag } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DollarSign, TrendingUp, TrendingDown, Users, ShoppingBag, Shield, Calendar } from "lucide-react";
 import { FinancialKPIs as KPIs } from "@/services/financialService";
 
 interface FinancialKPIsProps {
@@ -11,8 +12,8 @@ interface FinancialKPIsProps {
 export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
   if (isLoading || !kpis) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="h-4 w-24 bg-gray-200 rounded"></div>
@@ -34,55 +35,171 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
     `${val > 0 ? '+' : ''}${val.toFixed(1)}%`;
 
   const cards = [
-    {
-      title: "Total Revenue",
-      icon: DollarSign,
-      value: formatCurrency(kpis.revenue.total),
-      subValue: `${formatPercent(kpis.revenue.changePercent)} from previous period`,
-      trend: kpis.revenue.changePercent >= 0 ? "up" : "down"
-    },
+    // Row 1: Profit / Revenue / Bookings
     {
       title: "Net Profit",
       icon: TrendingUp,
-      value: formatCurrency(kpis.netProfit.total),
-      subValue: `${kpis.netProfit.marginPercent.toFixed(1)}% Margin`,
-      trend: kpis.netProfit.total >= 0 ? "up" : "down"
+      headline: formatPercent(kpis.netProfit.changePercent),
+      subheader: formatCurrency(kpis.netProfit.total),
+      changePercent: kpis.netProfit.changePercent,
+      trend: kpis.netProfit.changePercent >= 0 ? "up" : "down",
+      isCost: false,
+      dollarAmount: kpis.netProfit.total,
+      previousDollarAmount: kpis.netProfit.previousTotal,
+      currentMargin: kpis.netProfit.marginPercent,
+      previousMargin: kpis.netProfit.previousMarginPercent
     },
+    {
+      title: "Total Revenue",
+      icon: DollarSign,
+      headline: formatPercent(kpis.revenue.changePercent),
+      subheader: formatCurrency(kpis.revenue.total),
+      changePercent: kpis.revenue.changePercent,
+      trend: kpis.revenue.changePercent >= 0 ? "up" : "down",
+      isCost: false,
+      dollarAmount: kpis.revenue.total,
+      previousDollarAmount: kpis.revenue.previousTotal
+    },
+    {
+      title: "Bookings",
+      icon: Calendar,
+      headline: formatPercent(kpis.bookings.changePercent),
+      subheader: kpis.bookings.total.toLocaleString(),
+      changePercent: kpis.bookings.changePercent,
+      trend: kpis.bookings.changePercent >= 0 ? "up" : "down",
+      isCost: false,
+      breakdown: kpis.bookings.breakdown
+    },
+    // Row 2: Wages / COGS / Security
     {
       title: "Wages",
       icon: Users,
-      value: formatCurrency(kpis.wages.total),
-      subValue: `${kpis.wages.percentOfRevenue.toFixed(1)}% of Revenue`,
-      // For costs, "up" trend might be bad, but here we show context
-      trend: "neutral" 
+      headline: formatPercent(kpis.wages.changePercent),
+      subheader: `${kpis.wages.percentOfRevenue.toFixed(1)}% of Revenue`,
+      changePercent: kpis.wages.changePercent,
+      dollarAmount: kpis.wages.total,
+      previousDollarAmount: kpis.wages.previousTotal,
+      trend: kpis.wages.changePercent <= 0 ? "up" : "down", // Inverted: decrease is good
+      isCost: true
     },
     {
       title: "COGS",
       icon: ShoppingBag,
-      value: formatCurrency(kpis.cogs.total),
-      subValue: `${kpis.cogs.percentOfRevenue.toFixed(1)}% of Revenue`,
-      trend: "neutral"
+      headline: formatPercent(kpis.cogs.changePercent),
+      subheader: `${kpis.cogs.percentOfRevenue.toFixed(1)}% of Revenue`,
+      changePercent: kpis.cogs.changePercent,
+      dollarAmount: kpis.cogs.total,
+      previousDollarAmount: kpis.cogs.previousTotal,
+      trend: kpis.cogs.changePercent <= 0 ? "up" : "down", // Inverted: decrease is good
+      isCost: true
+    },
+    {
+      title: "Security",
+      icon: Shield,
+      headline: formatPercent(kpis.security.changePercent),
+      subheader: `${kpis.security.percentOfRevenue.toFixed(1)}% of Revenue`,
+      changePercent: kpis.security.changePercent,
+      dollarAmount: kpis.security.total,
+      previousDollarAmount: kpis.security.previousTotal,
+      trend: kpis.security.changePercent <= 0 ? "up" : "down", // Inverted: decrease is good
+      isCost: true
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card) => (
-        <Card key={card.title}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-            <card.icon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{card.value}</div>
-            <p className="text-xs text-muted-foreground">
-              {card.trend === "up" && <span className="text-green-600 mr-1">↑</span>}
-              {card.trend === "down" && <span className="text-red-600 mr-1">↓</span>}
-              {card.subValue}
-            </p>
-          </CardContent>
-        </Card>
-      ))}
+    <div>
+      <TooltipProvider>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cards.map((card) => {
+            const cardContent = (
+              <Card className={(card.dollarAmount !== undefined || card.breakdown || card.previousDollarAmount !== undefined) ? "cursor-help" : ""}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+                  <card.icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold flex items-center gap-1">
+                    {card.trend === "up" && <span className="text-green-600">↑</span>}
+                    {card.trend === "down" && <span className="text-red-600">↓</span>}
+                    <span className={card.trend === "up" ? "text-green-600" : card.trend === "down" ? "text-red-600" : ""}>
+                      {card.headline}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {card.subheader}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+
+            // Add tooltip for cards with dollar amounts, breakdown, or previous period data
+            if (card.dollarAmount !== undefined || card.breakdown || card.previousDollarAmount !== undefined) {
+              return (
+                <Tooltip key={card.title}>
+                  <TooltipTrigger asChild>
+                    {cardContent}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {card.breakdown ? (
+                      <div className="space-y-1">
+                        <p className="font-medium mb-2">Booking Breakdown</p>
+                        <div className="text-sm space-y-1">
+                          <div className="flex justify-between gap-4">
+                            <span>Tickets:</span>
+                            <span className="font-medium">{card.breakdown.tickets}</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span>Karaoke:</span>
+                            <span className="font-medium">{card.breakdown.karaoke}</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span>Venue Hire:</span>
+                            <span className="font-medium">{card.breakdown.venueHire}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : card.previousDollarAmount !== undefined ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between gap-4">
+                          <span>Last 28 Days:</span>
+                          <span className="font-medium">
+                            {formatCurrency(card.dollarAmount!)}
+                            {card.currentMargin !== undefined && (
+                              <span className="text-muted-foreground ml-1">
+                                ({card.currentMargin.toFixed(1)}%)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span>Previous Period:</span>
+                          <span className="font-medium">
+                            {formatCurrency(card.previousDollarAmount)}
+                            {card.previousMargin !== undefined && (
+                              <span className="text-muted-foreground ml-1">
+                                ({card.previousMargin.toFixed(1)}%)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="font-medium">
+                        {formatCurrency(card.dollarAmount!)}
+                      </p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return <div key={card.title}>{cardContent}</div>;
+          })}
+        </div>
+      </TooltipProvider>
+      <p className="text-xs text-muted-foreground mt-3 text-center">
+        These stats show the last 28 days
+      </p>
     </div>
   );
 }

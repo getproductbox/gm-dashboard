@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PnlComparisonChart } from '@/components/revenue/PnlComparisonChart';
 import { TrendingUp, TrendingDown, Calendar, DollarSign } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ComparisonType = 'previous' | 'year';
 
@@ -245,11 +246,26 @@ export default function ProfitAndLoss() {
       ? Math.max(0, (periodData.comparison.totals.expenses || 0) - knownComparisonTotal)
       : 0;
 
+    // Get uncategorized items for tooltip
+    const uncategorizedItems = periodData.current.uncategorized || [];
+    // Group by name and sum amounts
+    const groupedItems = uncategorizedItems.reduce((acc, item) => {
+      const name = item.name || 'Unnamed';
+      acc[name] = (acc[name] || 0) + Math.abs(item.amount);
+      return acc;
+    }, {} as Record<string, number>);
+    // Sort by amount descending
+    const sortedItems = Object.entries(groupedItems)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10); // Top 10 items
+
     const items: Array<{
       key: string;
       label: string;
       current: number;
       comparison: number;
+      uncategorized?: Array<{ name: string; amount: number }>;
     }> = [
       { key: 'cogs', label: 'Cost of Goods Sold', current: cogsCurrent, comparison: cogsComparison },
       { key: 'wages', label: 'Wages', current: wagesCurrent, comparison: wagesComparison },
@@ -262,6 +278,7 @@ export default function ProfitAndLoss() {
         label: 'Other Costs',
         current: otherCurrent,
         comparison: otherComparison,
+        uncategorized: sortedItems,
       });
     }
 
@@ -271,28 +288,61 @@ export default function ProfitAndLoss() {
           <CardTitle className="text-sm font-medium">Cost Breakdown</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {items.map(({ key, label, current, comparison }) => {
-            const changePercent = calculateChangePercent(current, comparison);
+          <TooltipProvider>
+            {items.map(({ key, label, current, comparison, uncategorized }) => {
+              const changePercent = calculateChangePercent(current, comparison);
 
-            return (
-              <div key={key} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{label}</span>
+              const content = (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{label}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold">{formatCurrency(current)}</div>
+                    {periodData.comparison && (
+                      <div className="flex items-center justify-end space-x-1 text-xs text-muted-foreground">
+                        {getTrendIcon(changePercent)}
+                        <span className={getTrendColor(changePercent)}>
+                          {formatPercent(changePercent)} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold">{formatCurrency(current)}</div>
-                  {periodData.comparison && (
-                    <div className="flex items-center justify-end space-x-1 text-xs text-muted-foreground">
-                      {getTrendIcon(changePercent)}
-                      <span className={getTrendColor(changePercent)}>
-                        {formatPercent(changePercent)} {comparisonType === 'previous' ? 'vs previous' : 'vs last year'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+
+              // If this is "Other Costs" and we have uncategorized items, wrap in tooltip
+              if (key === 'other' && uncategorized && uncategorized.length > 0) {
+                return (
+                  <Tooltip key={key}>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">{content}</div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-md">
+                      <div className="space-y-2">
+                        <div className="font-semibold text-sm mb-2">Other Costs Breakdown</div>
+                        <div className="space-y-1 max-h-64 overflow-y-auto">
+                          {uncategorized.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground truncate pr-2">{item.name}</span>
+                              <span className="font-medium whitespace-nowrap">{formatCurrency(item.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {uncategorizedItems.length > 10 && (
+                          <div className="text-xs text-muted-foreground pt-1 border-t">
+                            Showing top 10 of {uncategorizedItems.length} items
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return <div key={key}>{content}</div>;
+            })}
+          </TooltipProvider>
         </CardContent>
       </Card>
     );

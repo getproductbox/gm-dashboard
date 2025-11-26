@@ -34,8 +34,8 @@ export function useDashboardData() {
 
         // 1. Fetch Financials
         const [financials, kpis] = await Promise.all([
-          financialService.fetchWeeklyFinancials(8), // Last 8 weeks trend
-          financialService.fetchKPIs(4) // Last 4 weeks KPIs
+          financialService.fetchWeeklyFinancials(12), // Last 12 weeks (will filter to 11)
+          financialService.fetchKPIs(28) // Last 28 days (rolling, same as Revenue page)
         ]);
 
         // 2. Fetch Upcoming Bookings
