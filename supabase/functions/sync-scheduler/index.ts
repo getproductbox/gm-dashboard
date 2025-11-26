@@ -44,11 +44,25 @@ serve(async (req) => {
 
     console.log(`Scheduler triggered at AWST: ${awstTime.toISOString()}, Day: ${dayOfWeek}, Hour: ${hour}, Minute: ${minute}`);
 
-    // TEMPORARY: For testing, run a sync on **every** cron invocation (*/15 * * * *).
-    // This bypasses the 6am-only weekday gate so we can verify end-to-end syncing.
-    // When testing is complete, restore the original day-of-week/hour logic.
-    let shouldSync = true;
-    let syncReason = 'Test mode: sync on every 15-minute cron tick';
+    // Determine if we should sync based on schedule:
+    // - Monday–Friday: once per day at 06:00 AWST
+    // - Saturday/Sunday: every 15 minutes
+    let shouldSync = false;
+    let syncReason = '';
+
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      // Monday to Friday - daily sync at 6 AM AWST
+      if (hour === 6 && minute === 0) {
+        shouldSync = true;
+        syncReason = 'Daily sync (Monday-Friday 6 AM AWST)';
+      }
+    } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+      // Saturday (6) and Sunday (0) - every 15 minutes
+      if (minute % 15 === 0) {
+        shouldSync = true;
+        syncReason = 'Weekend frequent sync (every 15 minutes)';
+      }
+    }
 
     if (!shouldSync) {
       console.log('No sync scheduled for this time');
