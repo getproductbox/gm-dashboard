@@ -9,11 +9,20 @@ export const app = new Hono();
 
 // CORS
 const allowed = (env.API_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+console.log('CORS allowed origins:', allowed);
 app.use('/*', cors({
   origin: (origin) => {
-    if (!origin) return '*';
-    if (allowed.length === 0) return '*';
-    return allowed.includes(origin) ? origin : 'null';
+    if (!origin) {
+      console.log('CORS: No origin header, allowing all');
+      return '*';
+    }
+    if (allowed.length === 0) {
+      console.log('CORS: No allowed origins configured, allowing all');
+      return '*';
+    }
+    const isAllowed = allowed.includes(origin);
+    console.log(`CORS: Origin "${origin}" ${isAllowed ? 'allowed' : 'denied'}`);
+    return isAllowed ? origin : '';
   },
 }));
 
