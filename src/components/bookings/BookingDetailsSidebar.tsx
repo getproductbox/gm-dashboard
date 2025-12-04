@@ -19,6 +19,7 @@ import { formatDate, formatDateToISO } from "@/utils/dateUtils";
 import { BookingRow } from "@/services/bookingService";
 import { useUpdateBooking } from "@/hooks/useBookings";
 import { useKaraokeBooth } from "@/hooks/useKaraoke";
+import { supabase } from "@/integrations/supabase/client";
 
 const bookingUpdateSchema = z.object({
   customerName: z.string().min(2, "Customer name must be at least 2 characters"),
@@ -240,6 +241,8 @@ export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetai
   };
 
   if (!booking) return null;
+
+  const karaokeBooking = isKaraokeBooking(booking);
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -675,6 +678,11 @@ export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetai
                   </CardContent>
                 </Card>
               )}
+
+              {/* Karaoke guest list (read-only for staff) */}
+              {karaokeBooking && (
+                <KaraokeGuestListPanel bookingId={booking.id} />
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -700,3 +708,90 @@ export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetai
     </Sheet>
   );
 }; 
+
+interface KaraokeGuestListPanelProps {
+  bookingId: string;
+}
+
+const KaraokeGuestListPanel = ({ bookingId }: KaraokeGuestListPanelProps) => {
+  const [guestNames, setGuestNames] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch guest names directly from the table
+        const { data: guestRows, error: guestsError } = await supabase
+          .from("karaoke_booking_guests")
+          .select("guest_name")
+          .eq("booking_id", bookingId)
+          .order("created_at");
+
+        if (guestsError) throw guestsError;
+
+        const guests = (guestRows || []).map((r: { guest_name: string }) => r.guest_name);
+        if (!cancelled) {
+          setGuestNames(guests);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setError(msg || "Failed to load guest list");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingId]);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Mic className="h-4 w-4 text-orange-500" />
+          Karaoke Guest List
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading && <p className="text-sm text-muted-foreground">Loading guest list…</p>}
+        {error && (
+          <p className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        {!loading && !error && (
+          <>
+            {guestNames && guestNames.length > 0 ? (
+              <ul className="space-y-1 text-sm">
+                {guestNames.map((name, idx) => (
+                  <li key={`${bookingId}-guest-${idx}`} className="flex items-center gap-2">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
+                      {idx + 1}
+                    </span>
+                    <span>{name}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No guests have been added yet. The customer can curate their guest list from their confirmation email link.
+              </p>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

@@ -61,6 +61,44 @@ async function toIdempotencyKey(value: string): Promise<string> {
   }
 }
 
+async function hmacSha256(message: string, secret: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const signature = await crypto.subtle.sign('HMAC', key, enc.encode(message))
+  const bytes = new Uint8Array(signature)
+  let hex = ''
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0')
+  }
+  return hex
+}
+
+async function generateGuestListToken(bookingId: string, bookingDate: string): Promise<string> {
+  const secret = Deno.env.get('GUEST_LIST_SECRET') || 'guest-list-secret'
+
+  let expiry = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60 // default: 7 days from now
+  try {
+    if (bookingDate) {
+      const d = new Date(String(bookingDate))
+      if (!Number.isNaN(d.getTime())) {
+        d.setDate(d.getDate() + 1) // expire 1 day after booking date
+        expiry = Math.floor(d.getTime() / 1000)
+      }
+    }
+  } catch {
+    // fall back to default expiry
+  }
+
+  const sig = await hmacSha256(`${bookingId}${expiry}`, secret)
+  return `${bookingId}.${expiry}.${sig}`
+}
+
 function timeToMinutes(timeHHMM: string): number {
   const [h, m] = timeHHMM.slice(0, 5).split(':').map((v) => Number(v) || 0)
   return h * 60 + m
@@ -357,6 +395,9 @@ serve(async (req: Request) => {
       durationHours,
     }, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+    // Generate a signed guest list token for this karaoke booking
+    const guestListToken = await generateGuestListToken(booking.bookingId, input.bookingDate)
+
     // Create separate vip_tickets booking row (confirmed/paid)
     let ticketBooking = null
     if (ticketQty > 0) {
@@ -384,7 +425,8 @@ serve(async (req: Request) => {
       ticketBooking: ticketBooking ? {
         id: ticketBooking.bookingId,
         referenceCode: ticketBooking.referenceCode
-      } : null
+      } : null,
+      guestListToken,
     }
 
     console.log('Returning booking result:', result)

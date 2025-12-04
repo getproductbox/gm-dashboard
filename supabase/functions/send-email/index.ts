@@ -50,6 +50,26 @@ function formatDateAU(iso?: string): string {
   }
 }
 
+function getGuestListBaseUrl(overrideOrigin?: string | null): string {
+  // Allow caller to override (e.g. for local dev)
+  if (overrideOrigin && typeof overrideOrigin === 'string' && overrideOrigin.trim()) {
+    return overrideOrigin.trim().replace(/\/$/, '')
+  }
+  const fromEnv =
+    (Deno?.env?.get?.('GUEST_LIST_BASE_URL') as string | undefined) ||
+    (Deno?.env?.get?.('MANOR_FRONTEND_URL') as string | undefined) ||
+    ''
+  const trimmed = (fromEnv || '').trim()
+  if (!trimmed) return 'https://manorleederville.com'
+  return trimmed.replace(/\/$/, '')
+}
+
+function generateGuestListLinkFromToken(token?: string | null, overrideOrigin?: string | null): string | null {
+  if (!token) return null
+  const base = getGuestListBaseUrl(overrideOrigin)
+  return `${base}/guest-list?token=${encodeURIComponent(String(token))}`
+}
+
 function renderVenueConfirmationHTML(data: Record<string, unknown>): string {
   const venue = String(get(data, 'venue') ?? 'manor')
   const venueDisplayName = venue === 'manor' ? 'Manor' : 'Hippie'
@@ -155,6 +175,7 @@ function renderKaraokeConfirmationHTML(data: Record<string, unknown>): string {
   const startTime = String(get(data, 'startTime') ?? '')
   const endTime = String(get(data, 'endTime') ?? '')
   const guestCount = String(get(data, 'guestCount') ?? '')
+  const guestListUrl = String(get(data, 'guestListUrl') ?? '') || ''
 
   return `
   <!DOCTYPE html>
@@ -206,6 +227,22 @@ function renderKaraokeConfirmationHTML(data: Record<string, unknown>): string {
           <div class="detail-row"><span class="detail-label">Time:</span><span class="detail-value">${startTime} - ${endTime}</span></div>
           <div class="detail-row"><span class="detail-label">Capacity:</span><span class="detail-value">${guestCount} people</span></div>
         </div>
+
+        ${
+          guestListUrl
+            ? `
+        <div class="message">
+          <strong>Curate your guest list</strong><br/>
+          Add the names of your guests so they're on the door when they arrive.
+          <div style="margin-top:16px;text-align:center;">
+            <a href="${guestListUrl}" style="display:inline-block;padding:10px 18px;border-radius:999px;background-color:#0d6efd;color:#fff;text-decoration:none;font-weight:600;">
+              Curate your guest list
+            </a>
+          </div>
+        </div>
+        `
+            : ''
+        }
 
         <p>10 minutes before your booking, head to the bar upstairs at Manor to check in and receive your wristbands.</p>
 
@@ -361,6 +398,19 @@ serve(async (req: Request) => {
       : "Manor Perth <phil@manorleederville.com>"
     const from = payload.from ?? defaultFrom
     const replyTo = payload.replyTo
+
+    // For karaoke-confirmation emails, ensure we have a guestListUrl derived from token when present
+    if (tplName === 'karaoke-confirmation' && payload.data) {
+      const token = get(payload.data as Record<string, unknown>, 'guestListToken') as string | undefined
+      const explicitUrl = get(payload.data as Record<string, unknown>, 'guestListUrl') as string | undefined
+      const siteOrigin = get(payload.data as Record<string, unknown>, 'siteOrigin') as string | undefined
+      if (!explicitUrl && token) {
+        const url = generateGuestListLinkFromToken(token, siteOrigin)
+        if (url) {
+          payload.data = { ...(payload.data || {}), guestListUrl: url }
+        }
+      }
+    }
 
     // Prepare HTML (inline templates)
     let html = payload.html ?? ""

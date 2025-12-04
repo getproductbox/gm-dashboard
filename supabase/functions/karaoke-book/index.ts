@@ -22,6 +22,44 @@ function getCorsHeaders(req: Request) {
   } as Record<string, string>;
 }
 
+async function hmacSha256(message: string, secret: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const signature = await crypto.subtle.sign('HMAC', key, enc.encode(message))
+  const bytes = new Uint8Array(signature)
+  let hex = ''
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0')
+  }
+  return hex
+}
+
+async function generateGuestListToken(bookingId: string, bookingDate: string): Promise<string> {
+  const secret = Deno.env.get('GUEST_LIST_SECRET') || 'guest-list-secret'
+
+  let expiry = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60 // default: 7 days from now
+  try {
+    if (bookingDate) {
+      const d = new Date(String(bookingDate))
+      if (!Number.isNaN(d.getTime())) {
+        d.setDate(d.getDate() + 1) // expire 1 day after booking date
+        expiry = Math.floor(d.getTime() / 1000)
+      }
+    }
+  } catch {
+    // fall back to default expiry
+  }
+
+  const sig = await hmacSha256(`${bookingId}${expiry}`, secret)
+  return `${bookingId}.${expiry}.${sig}`
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: getCorsHeaders(req) });
@@ -138,8 +176,10 @@ serve(async (req) => {
       // NOTE: booking already created; this is a soft failure but we surface it
       console.error('Warning: booking created but failed to mark hold consumed', consumeErr);
     }
+    // Generate a signed guest list token for this karaoke booking
+    const guestListToken = await generateGuestListToken(String(booking.id), String(hold.booking_date));
 
-    return new Response(JSON.stringify({ success: true, bookingId: booking.id }), {
+    return new Response(JSON.stringify({ success: true, bookingId: booking.id, guestListToken }), {
       status: 201,
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
