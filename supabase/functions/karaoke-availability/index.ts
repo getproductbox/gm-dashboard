@@ -63,6 +63,38 @@ function addMinutes(timeHHMM: string, minutesToAdd: number): string {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+function timeToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map((v) => Number(v) || 0);
+  return h * 60 + m;
+}
+
+function minutesToTime(totalMinutes: number): string {
+  const normalized = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const hh = Math.floor(normalized / 60);
+  const mm = normalized % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+function isSlotWithinBoothHours(
+  slotStart: string,
+  slotEnd: string,
+  boothStart: string,
+  boothEnd: string,
+): boolean {
+  const ss = timeToMinutes(slotStart);
+  const se = timeToMinutes(slotEnd);
+  const bs = timeToMinutes(boothStart);
+  const be = timeToMinutes(boothEnd);
+
+  // Overnight booth (e.g., 23:00-03:00)
+  if (be < bs) {
+    // Slot must be fully after booth start OR fully before booth end
+    return (ss >= bs && se > bs) || (ss < be && se <= be);
+  }
+  // Same-day booth
+  return ss >= bs && se <= be;
+}
+
 function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   return aStart < bEnd && aEnd > bStart;
 }
@@ -82,16 +114,15 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-        status: 401,
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
-    }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!;
+    // Use service role (or anon as fallback) so availability checks can read config tables under RLS
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      global: {
+        headers: {
+          apikey: supabaseServiceKey,
+          Authorization: `Bearer ${supabaseServiceKey}`,
+        },
+      },
     });
 
     const body = (await req.json()) as AvailabilityRequest;
@@ -149,6 +180,13 @@ serve(async (req) => {
 
       const availableBooths: any[] = [];
       for (const booth of (booths || [])) {
+        const boothStart = (booth.operating_hours_start as string).slice(0, 5);
+        const boothEnd = (booth.operating_hours_end as string).slice(0, 5);
+
+        if (!isSlotWithinBoothHours(body.startTime!, body.endTime!, boothStart, boothEnd)) {
+          continue;
+        }
+
         const bookingsForBooth = (bookingsAll || []).filter(b => b.karaoke_booth_id === booth.id);
         const holdsForBooth = (holdsAll || []).filter(h => h.booth_id === booth.id);
         const hasBooking = bookingsForBooth.some((b) => overlaps(body.startTime!, body.endTime!, (b.start_time as string).slice(0,5), (b.end_time as string).slice(0,5)));
@@ -244,11 +282,13 @@ serve(async (req) => {
     if (boothErr2) {
       return new Response(JSON.stringify({ error: 'Failed to fetch booths' }), { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
-    // Determine venue-wide operating hours based on min/max across booths
-    const startHH = (booths || []).length ? (booths![0].operating_hours_start as string).slice(0,5) : '10:00';
-    const endHH = (booths || []).length ? (booths![0].operating_hours_end as string).slice(0,5) : '23:00';
+    if (!booths || booths.length === 0) {
+      const emptyPayload = { venue: body.venue, bookingDate: body.bookingDate, granularityMinutes: granularity, minCapacity: minCap, slots: [] as AvailabilitySlot[] };
+      setCached(cacheKey, emptyPayload);
+      return new Response(JSON.stringify(emptyPayload), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+    }
 
-    const boothIds = (booths || []).map((b) => b.id);
+    const boothIds = booths.map((b) => b.id);
     const nowIso = new Date().toISOString();
     const [bookingsAllRes, holdsAllRes] = await Promise.all([
       supabase
@@ -268,29 +308,54 @@ serve(async (req) => {
     const bookingsAll = bookingsAllRes.data;
     const holdsAll = holdsAllRes.data;
     const slots: AvailabilitySlot[] = [] as any;
-    let cursor = startHH;
-    while (cursor < endHH) {
-      const next = addMinutes(cursor, granularity);
-      if (next > endHH) break;
+
+    const dayStartMinutes = 0;
+    const dayEndMinutes = 24 * 60;
+
+    for (let startMin = dayStartMinutes; startMin < dayEndMinutes; startMin += granularity) {
+      const endMin = startMin + granularity;
+      if (endMin > dayEndMinutes) break;
+
+      const cursor = minutesToTime(startMin);
+      const next = minutesToTime(endMin);
+
       let available = false;
       const capacities: number[] = [];
+      let anyBoothInHours = false;
+
       // Check if any booth is free for this slot using pre-fetched rows
-      for (const booth of (booths || [])) {
+      for (const booth of booths) {
+        const boothStart = (booth.operating_hours_start as string).slice(0, 5);
+        const boothEnd = (booth.operating_hours_end as string).slice(0, 5);
+
+        if (!isSlotWithinBoothHours(cursor, next, boothStart, boothEnd)) {
+          continue;
+        }
+
+        anyBoothInHours = true;
+
         const bookingsForBooth = (bookingsAll || []).filter(b => b.karaoke_booth_id === booth.id);
         const holdsForBooth = (holdsAll || []).filter(h => h.booth_id === booth.id);
-        const hasBooking = bookingsForBooth.some((b) => overlaps(cursor, next, (b.start_time as string).slice(0,5), (b.end_time as string).slice(0,5)));
+        const hasBooking = bookingsForBooth.some((b) =>
+          overlaps(cursor, next, (b.start_time as string).slice(0, 5), (b.end_time as string).slice(0, 5)),
+        );
         if (hasBooking) continue;
-        const hasHold = holdsForBooth.some((h) => overlaps(cursor, next, (h.start_time as string).slice(0,5), (h.end_time as string).slice(0,5)));
+        const hasHold = holdsForBooth.some((h) =>
+          overlaps(cursor, next, (h.start_time as string).slice(0, 5), (h.end_time as string).slice(0, 5)),
+        );
         if (!hasHold) {
           available = true;
           capacities.push(booth.capacity as number);
         }
       }
+
+      // Skip slots that are completely outside all booth operating hours
+      if (!anyBoothInHours) continue;
+
       // Return sorted unique capacities for transparency on what booth sizes are free
       const uniqueCaps = Array.from(new Set(capacities)).sort((a, b) => a - b);
       // @ts-ignore adding capacities field
       slots.push({ startTime: cursor, endTime: next, available, capacities: uniqueCaps });
-      cursor = next;
     }
 
     const payload = { venue: body.venue, bookingDate: body.bookingDate, granularityMinutes: granularity, minCapacity: minCap, slots };

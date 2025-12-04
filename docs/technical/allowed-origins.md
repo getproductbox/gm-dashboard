@@ -1,6 +1,6 @@
 # Allowed Origins (CORS) for Edge Functions
 
-This value configures CORS for public-facing Supabase Edge Functions (e.g., `karaoke-availability`, `karaoke-holds`, `karaoke-book`, `venue-config-api`, `karaoke-pay-and-book`).
+This value configures CORS for public-facing Supabase Edge Functions (e.g., `karaoke-availability`, `karaoke-holds`, `karaoke-book`, `venue-config-api`, `karaoke-pay-and-book`, `send-email`).
 
 Environment secret key: `ALLOWED_ORIGINS`
 
@@ -14,12 +14,13 @@ https://gm-dashboard.getproductbox.com,https://api.getproductbox.com,https://boo
 
 1) Supabase Dashboard → Edge Functions → Secrets → Add/Update `ALLOWED_ORIGINS` (comma-separated, no trailing slashes).
 
-2) Redeploy the affected functions so the new secret is picked up:
+2) Redeploy the affected functions so the new secret is picked up (all of these live in the `gm-dashboard` repo under `supabase/functions`, and are shared by the GM Dashboard, booking widget, and Manor website frontends):
    - `karaoke-availability`
    - `karaoke-holds`
    - `karaoke-book`
    - `venue-config-api`
    - `karaoke-pay-and-book`
+   - `send-email`
 
 ## Notes
 
