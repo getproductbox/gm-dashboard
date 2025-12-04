@@ -4,10 +4,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AdminRoute } from "@/components/auth/AdminRoute";
 import Dashboard from "./pages/Dashboard";
 import Calendar from "./pages/Calendar";
 import Bookings from "./pages/Bookings";
@@ -22,8 +23,21 @@ import Auth from "./pages/Auth";
 import Revenue from "./pages/Revenue";
 import BoothManagement from "./pages/BoothManagement";
 import ProfitAndLoss from "./pages/ProfitAndLoss";
+import Team from "./pages/Team";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAdmin } from "@/lib/permissions";
 
 const queryClient = new QueryClient();
+
+const RootRoute = () => {
+  const { role } = useAuth();
+
+  if (isAdmin(role)) {
+    return <Dashboard />;
+  }
+
+  return <Navigate to="/calendar" replace />;
+};
 
 const App = () => (
   <ThemeProvider>
@@ -37,12 +51,14 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/" element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <RootRoute />
                 </ProtectedRoute>
               } />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <AdminRoute>
+                    <Dashboard />
+                  </AdminRoute>
                 </ProtectedRoute>
               } />
               <Route path="/calendar" element={
@@ -72,17 +88,26 @@ const App = () => (
               } />
               <Route path="/revenue" element={
                 <ProtectedRoute>
-                  <Revenue />
+                  <AdminRoute>
+                    <Revenue />
+                  </AdminRoute>
                 </ProtectedRoute>
               } />
               <Route path="/pnl" element={
                 <ProtectedRoute>
-                  <ProfitAndLoss />
+                  <AdminRoute>
+                    <ProfitAndLoss />
+                  </AdminRoute>
                 </ProtectedRoute>
               } />
               <Route path="/settings" element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="/team" element={
+                <ProtectedRoute>
+                  <Team />
                 </ProtectedRoute>
               } />
               <Route path="/design" element={

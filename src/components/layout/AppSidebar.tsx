@@ -18,6 +18,8 @@ import { LastSyncIndicator } from "./LastSyncIndicator";
 import { ThemeToggle } from "./ThemeToggle";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAdmin } from "@/lib/permissions";
 
 const financeItems = [
   {
@@ -55,21 +57,10 @@ const operationsItems = [
   },
 ];
 
-const settingsItems = [
-  {
-    title: "Booth Management",
-    url: "/booth-management",
-    icon: Building,
-  },
-  {
-    title: "Settings", 
-    url: "/settings",
-    icon: Settings,
-  },
-];
-
 export function AppSidebar() {
   const [lastSyncTime, setLastSyncTime] = useState<string | undefined>();
+  const { role } = useAuth();
+  const isAdminUser = isAdmin(role);
 
   const fetchLastSyncTime = async () => {
     try {
@@ -98,40 +89,44 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        {/* Dashboard - standalone */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Dashboard">
-                  <Link to="/dashboard">
-                    <Home className="h-4 w-4" />
-                    <span>Dashboard</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Finance Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Finance</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {financeItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <Link to={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+        {/* Dashboard - standalone (admins only) */}
+        {isAdminUser && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Dashboard">
+                    <Link to="/dashboard">
+                      <Home className="h-4 w-4" />
+                      <span>Dashboard</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Finance Section (admins only) */}
+        {isAdminUser && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Finance</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {financeItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild tooltip={item.title}>
+                      <Link to={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Operations Section */}
         <SidebarGroup>
@@ -157,16 +152,30 @@ export function AppSidebar() {
           <SidebarGroupLabel>Settings</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <Link to={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Booth Management">
+                  <Link to="/booth-management">
+                    <Building className="h-4 w-4" />
+                    <span>Booth Management</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Settings">
+                  <Link to="/settings">
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Team">
+                  <Link to="/team">
+                    <Users className="h-4 w-4" />
+                    <span>Team</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -174,7 +183,12 @@ export function AppSidebar() {
       <SidebarFooter>
         <div className="space-y-2">
           <ThemeToggle />
-          <LastSyncIndicator lastSyncTime={lastSyncTime} onSyncComplete={fetchLastSyncTime} />
+          {isAdminUser && (
+            <LastSyncIndicator
+              lastSyncTime={lastSyncTime}
+              onSyncComplete={fetchLastSyncTime}
+            />
+          )}
         </div>
       </SidebarFooter>
     </Sidebar>

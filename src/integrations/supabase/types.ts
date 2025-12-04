@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      allowed_emails: {
+        Row: {
+          id: string
+          email: string
+          role: Database["public"]["Enums"]["staff_role"]
+          invited_by: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          role?: Database["public"]["Enums"]["staff_role"]
+          invited_by?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          role?: Database["public"]["Enums"]["staff_role"]
+          invited_by?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allowed_emails_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "auth.users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           booking_date: string
@@ -834,7 +866,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      staff_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never

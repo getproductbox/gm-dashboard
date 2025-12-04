@@ -2,11 +2,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import type { Enums } from '@/integrations/supabase/types';
+
+type StaffRole = Enums<'staff_role'> | null;
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  accessAllowed: boolean;
+  role: StaffRole;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -18,21 +23,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessAllowed, setAccessAllowed] = useState(false);
+  const [role, setRole] = useState<StaffRole>(null);
+
+  const loadAccess = async (nextUser: User | null) => {
+    if (!nextUser?.email) {
+      setAccessAllowed(false);
+      setRole(null);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('allowed_emails')
+      .select('role')
+      .eq('email', nextUser.email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error loading allowed_emails for user', error);
+      setAccessAllowed(false);
+      setRole(null);
+      return;
+    }
+
+    if (!data) {
+      setAccessAllowed(false);
+      setRole(null);
+      return;
+    }
+
+    setAccessAllowed(true);
+    setRole(data.role as StaffRole);
+  };
 
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+        const nextUser = session?.user ?? null;
+        setUser(nextUser);
+        setLoading(true);
+        loadAccess(nextUser).finally(() => setLoading(false));
       }
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+      if (nextUser) {
+        setLoading(true);
+        await loadAccess(nextUser);
+      } else {
+        setAccessAllowed(false);
+        setRole(null);
+      }
       setLoading(false);
     });
 
@@ -64,12 +111,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setAccessAllowed(false);
+    setRole(null);
   };
 
   const value = {
     user,
     session,
     loading,
+    accessAllowed,
+    role,
     signIn,
     signUp,
     signOut,

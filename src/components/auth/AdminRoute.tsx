@@ -1,15 +1,14 @@
-
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import AccessDenied from '@/pages/AccessDenied';
+import { isAdmin } from '@/lib/permissions';
 
-interface ProtectedRouteProps {
+interface AdminRouteProps {
   children: React.ReactNode;
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading, accessAllowed } = useAuth();
+export function AdminRoute({ children }: AdminRouteProps) {
+  const { role, loading, user } = useAuth();
 
   if (loading) {
     return (
@@ -28,9 +27,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!accessAllowed) {
-    return <AccessDenied />;
+  if (!isAdmin(role)) {
+    return <Navigate to="/calendar" replace />;
   }
 
   return <>{children}</>;
 }
+
+
