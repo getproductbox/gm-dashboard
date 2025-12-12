@@ -1,21 +1,31 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { WeeklyFinancials } from "@/services/financialService";
+import { benchmarkService, CostBenchmarks } from "@/services/benchmarkService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
+import { ChevronDown, Check } from "lucide-react";
 import {
   ComposedChart,
   Bar,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
+  ReferenceLine
 } from "recharts";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfMonth } from "date-fns";
 
 interface CostPercentageChartProps {
   data: WeeklyFinancials[];
@@ -23,6 +33,7 @@ interface CostPercentageChartProps {
 }
 
 type CostCategory = 'wages' | 'cogs' | 'security';
+type TimeScale = 'weekly' | 'monthly';
 
 const COST_CATEGORIES: Array<{ key: CostCategory; label: string; color: string }> = [
   { key: 'wages', label: 'Wages', color: '#f87171' },
@@ -30,10 +41,43 @@ const COST_CATEGORIES: Array<{ key: CostCategory; label: string; color: string }
   { key: 'security', label: 'Security', color: '#a78bfa' },
 ];
 
+const chartConfig = {
+  wages: {
+    label: "Wages",
+    color: "#f87171",
+  },
+  cogs: {
+    label: "COGS",
+    color: "#fbbf24",
+  },
+  security: {
+    label: "Security",
+    color: "#a78bfa",
+  },
+};
+
 export function CostPercentageChart({ data, isLoading }: CostPercentageChartProps) {
   const [selectedCategories, setSelectedCategories] = useState<Set<CostCategory>>(
     new Set(['wages', 'cogs', 'security'])
   );
+  const [timeScale, setTimeScale] = useState<TimeScale>('weekly');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [benchmarks, setBenchmarks] = useState<CostBenchmarks | null>(null);
+
+  // Fetch benchmarks on mount
+  useEffect(() => {
+    const loadBenchmarks = async () => {
+      try {
+        const data = await benchmarkService.getBenchmarks();
+        console.log('Chart received benchmarks:', data);
+        setBenchmarks(data);
+      } catch (error) {
+        console.error('Error loading benchmarks:', error);
+      }
+    };
+    loadBenchmarks();
+  }, []);
+
   if (isLoading) {
     return (
       <Card>
@@ -56,54 +100,68 @@ export function CostPercentageChart({ data, isLoading }: CostPercentageChartProp
     return true;
   });
 
-  // Calculate 4-week trend (comparing current week to 4 weeks ago)
-  const chartData = filteredData.map((item, index) => {
+  // Aggregate weekly data into monthly if monthly time scale is selected
+  const aggregatedData = timeScale === 'monthly' 
+    ? aggregateToMonthly(filteredData)
+    : filteredData;
+
+  // Helper function to aggregate weekly data into monthly
+  function aggregateToMonthly(weeklyData: WeeklyFinancials[]): WeeklyFinancials[] {
+    const monthlyMap = new Map<string, WeeklyFinancials>();
+    
+    weeklyData.forEach(week => {
+      const monthKey = format(startOfMonth(parseISO(week.weekStart)), 'yyyy-MM');
+      const existing = monthlyMap.get(monthKey);
+      
+      if (existing) {
+        existing.revenue += week.revenue;
+        existing.wages += week.wages;
+        existing.cogs += week.cogs;
+        existing.security += week.security;
+      } else {
+        monthlyMap.set(monthKey, {
+          ...week,
+          weekStart: format(startOfMonth(parseISO(week.weekStart)), 'yyyy-MM-dd'),
+          weekEnd: week.weekEnd,
+        });
+      }
+    });
+    
+    return Array.from(monthlyMap.values()).sort((a, b) => 
+      new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime()
+    );
+  }
+
+  // Calculate cost percentages
+  const chartData = aggregatedData.map((item) => {
     // If revenue is very low (< $100), percentage calculations blow up. 
-    // Filter out weeks with negligible revenue to avoid chart spikes, 
-    // or clamp the value? 
-    // For now, let's just calculate raw %, but maybe cap visually?
     const revenue = item.revenue > 100 ? item.revenue : 1; 
     
-    // Calculate 4-week trend (comparing to 4 weeks ago)
-    let trendRate = 0;
-    if (index >= 4) {
-      const fourWeeksAgoRevenue = filteredData[index - 4].revenue;
-      if (fourWeeksAgoRevenue > 0) {
-        trendRate = ((item.revenue - fourWeeksAgoRevenue) / fourWeeksAgoRevenue) * 100;
-      }
-    } else if (index > 0) {
-      // For weeks 1-3, compare to the first week
-      const firstWeekRevenue = filteredData[0].revenue;
-      if (firstWeekRevenue > 0) {
-        trendRate = ((item.revenue - firstWeekRevenue) / firstWeekRevenue) * 100;
-      }
-    }
-    
-    // If revenue is basically 0, these will be 0 (if item.wages is normal) / 1 * 100 = huge.
-    // If revenue is 0, maybe we should return 0 percentages or null?
+    // If revenue is basically 0, return 0 percentages
     if (item.revenue <= 100) {
       return {
-        date: format(parseISO(item.weekStart), "MMM d"),
+        date: timeScale === 'weekly' 
+          ? format(parseISO(item.weekStart), "MMM d")
+          : format(parseISO(item.weekStart), "MMM yyyy"),
         wages: 0,
         wagesAmount: 0,
         cogs: 0,
         cogsAmount: 0,
         security: 0,
         securityAmount: 0,
-        trendRate: 0,
-        revenueTooLow: true
       };
     }
 
     return {
-      date: format(parseISO(item.weekStart), "MMM d"),
+      date: timeScale === 'weekly' 
+        ? format(parseISO(item.weekStart), "MMM d")
+        : format(parseISO(item.weekStart), "MMM yyyy"),
       wages: (item.wages / revenue) * 100,
       wagesAmount: item.wages,
       cogs: (item.cogs / revenue) * 100,
       cogsAmount: item.cogs,
       security: (item.security / revenue) * 100,
       securityAmount: item.security,
-      trendRate
     };
   });
 
@@ -142,34 +200,61 @@ export function CostPercentageChart({ data, isLoading }: CostPercentageChartProp
     return isLast ? [4, 4, 0, 0] : [0, 0, 0, 0];
   };
 
+  const getDropdownLabel = () => {
+    if (selectedCategories.size === 0) return "Select costs";
+    if (selectedCategories.size === COST_CATEGORIES.length) return "All Costs";
+    return Array.from(selectedCategories)
+      .map(key => COST_CATEGORIES.find(c => c.key === key)?.label)
+      .join(", ");
+  };
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Cost as % of Revenue</CardTitle>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="select-all"
-                checked={isAllSelected}
-                onCheckedChange={handleSelectAll}
-              />
-              <Label htmlFor="select-all" className="text-sm cursor-pointer">
-                All
-              </Label>
-            </div>
-            {COST_CATEGORIES.map(({ key, label }) => (
-              <div key={key} className="flex items-center gap-2">
-                <Checkbox
-                  id={`category-${key}`}
-                  checked={selectedCategories.has(key)}
-                  onCheckedChange={() => handleCategoryToggle(key)}
-                />
-                <Label htmlFor={`category-${key}`} className="text-sm cursor-pointer">
-                  {label}
-                </Label>
-              </div>
-            ))}
+            <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-40 justify-between">
+                  <span className="truncate">{getDropdownLabel()}</span>
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-40 p-2" align="end">
+                <div className="space-y-1">
+                  <div
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer"
+                    onClick={handleSelectAll}
+                  >
+                    <div className={`h-4 w-4 border rounded-sm flex items-center justify-center ${isAllSelected ? 'bg-primary border-primary' : 'border-input'}`}>
+                      {isAllSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                    </div>
+                    <span className="text-sm">All</span>
+                  </div>
+                  <div className="h-px bg-border my-1" />
+                  {COST_CATEGORIES.map(({ key, label, color }) => (
+                    <div
+                      key={key}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer"
+                      onClick={() => handleCategoryToggle(key)}
+                    >
+                      <div className={`h-4 w-4 border rounded-sm flex items-center justify-center ${selectedCategories.has(key) ? 'bg-primary border-primary' : 'border-input'}`}>
+                        {selectedCategories.has(key) && <Check className="h-3 w-3 text-primary-foreground" />}
+                      </div>
+                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="text-sm">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Tabs value={timeScale} onValueChange={(value) => setTimeScale(value as TimeScale)}>
+              <TabsList>
+                <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
       </CardHeader>
@@ -179,74 +264,81 @@ export function CostPercentageChart({ data, isLoading }: CostPercentageChartProp
             Select at least one cost category to display
           </div>
         ) : (
-          <div className="h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" />
-                <YAxis 
-                  yAxisId="left"
-                  tickFormatter={(val) => `${val}%`} 
-                />
-                <YAxis 
-                  yAxisId="right"
-                  orientation="right"
-                  tickFormatter={(val) => `${val > 0 ? '+' : ''}${val.toFixed(0)}%`}
-                />
-                <Tooltip 
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload || !payload.length) return null;
-                    
-                    return (
-                      <div className="rounded-lg border bg-background p-3 shadow-sm">
-                        <div className="mb-2 font-medium">{label}</div>
-                        <div className="space-y-1">
+          <ChartContainer config={chartConfig} className="h-96 w-full">
+            <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis 
+                dataKey="date" 
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis 
+                yAxisId="left"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(val) => `${val}%`}
+                domain={[0, (dataMax: number) => {
+                  // Include benchmark in the y-axis domain if it's higher than the data
+                  const totalBenchmark = benchmarks 
+                    ? Array.from(selectedCategories).reduce((sum, cat) => sum + benchmarks[cat], 0)
+                    : 0;
+                  const maxValue = Math.max(dataMax, totalBenchmark);
+                  // Add 10% padding
+                  return Math.ceil(maxValue * 1.1);
+                }]}
+              />
+              <ChartTooltip 
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || !payload.length) return null;
+                  
+                  return (
+                    <div className="rounded-lg border bg-background p-2 shadow-sm">
+                      <div className="grid gap-2">
+                        <div className="text-sm font-medium">{label}</div>
+                        <div className="grid gap-1">
                           {payload.map((item, index) => {
-                            if (item.name === '4-Week Trend') {
-                              return (
-                                <div key={index} className="flex items-center justify-between gap-4 text-sm">
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
-                                    <span className="text-muted-foreground">{item.name}</span>
-                                  </div>
-                                  <span className="font-medium">
-                                    {item.value && Number(item.value) > 0 ? '+' : ''}
-                                    {formatPercent(Number(item.value) || 0)}
-                                  </span>
-                                </div>
-                              );
-                            }
-                            
                             // For cost categories, show both percentage and dollar amount
                             const amountKey = `${item.dataKey}Amount` as keyof typeof item.payload;
                             const amount = item.payload?.[amountKey] as number | undefined;
                             
                             return (
-                              <div key={index} className="flex items-center justify-between gap-4 text-sm">
-                                <div className="flex items-center gap-2">
+                              <div key={index} className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1">
                                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
-                                  <span className="text-muted-foreground">{item.name}</span>
+                                  <span className="text-xs text-muted-foreground">{item.name}</span>
                                 </div>
                                 <div className="text-right">
-                                  <div className="font-medium">{formatCurrency(amount || 0)}</div>
-                                  <div className="text-xs text-muted-foreground">{formatPercent(Number(item.value) || 0)}</div>
+                                  <span className="text-xs font-medium">{formatCurrency(amount || 0)}</span>
+                                  <span className="text-xs text-muted-foreground ml-1">({formatPercent(Number(item.value) || 0)})</span>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
                       </div>
-                    );
-                  }}
-                  cursor={{ fill: 'transparent' }}
-                />
-                <Legend />
+                    </div>
+                  );
+                }}
+              />
+              <ChartLegend
+                content={({ payload }) => {
+                  if (!payload || payload.length === 0) return null;
+                  return (
+                    <ChartLegendContent
+                      payload={payload}
+                      className="mt-4"
+                    />
+                  );
+                }}
+              />
                 
                 {selectedCategories.has('wages') && (
                   <Bar 
                     yAxisId="left"
                     dataKey="wages" 
-                    name="Wages %" 
+                    name="Wages" 
                     stackId="a" 
                     fill={COST_CATEGORIES.find(c => c.key === 'wages')?.color} 
                     radius={getRadius('wages')} 
@@ -256,7 +348,7 @@ export function CostPercentageChart({ data, isLoading }: CostPercentageChartProp
                   <Bar 
                     yAxisId="left"
                     dataKey="cogs" 
-                    name="COGS %" 
+                    name="COGS" 
                     stackId="a" 
                     fill={COST_CATEGORIES.find(c => c.key === 'cogs')?.color} 
                     radius={getRadius('cogs')} 
@@ -266,25 +358,58 @@ export function CostPercentageChart({ data, isLoading }: CostPercentageChartProp
                   <Bar 
                     yAxisId="left"
                     dataKey="security" 
-                    name="Security %" 
+                    name="Security" 
                     stackId="a" 
                     fill={COST_CATEGORIES.find(c => c.key === 'security')?.color} 
                     radius={getRadius('security')} 
                   />
                 )}
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="trendRate"
-                  name="4-Week Trend"
-                  stroke="#16a34a"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: "#16a34a" }}
-                  activeDot={{ r: 6 }}
-                />
+                
+                {/* Benchmark reference line - single category */}
+                {benchmarks && selectedCategories.size === 1 && (() => {
+                  const category = Array.from(selectedCategories)[0];
+                  const benchmarkValue = benchmarks[category];
+                  const categoryConfig = COST_CATEGORIES.find(c => c.key === category);
+                  return benchmarkValue > 0 && categoryConfig ? (
+                    <ReferenceLine
+                      yAxisId="left"
+                      y={benchmarkValue}
+                      stroke={categoryConfig.color}
+                      strokeDasharray="5 5"
+                      strokeWidth={2}
+                      label={{
+                        value: `${categoryConfig.label} Benchmark ${benchmarkValue}%`,
+                        position: 'insideTopRight',
+                        fill: categoryConfig.color,
+                        fontSize: 11,
+                      }}
+                    />
+                  ) : null;
+                })()}
+                
+                {/* Benchmark reference line - multiple categories (total) */}
+                {benchmarks && selectedCategories.size > 1 && (() => {
+                  const totalBenchmark = Array.from(selectedCategories)
+                    .reduce((sum, cat) => sum + benchmarks[cat], 0);
+                  console.log('Total benchmark calculated:', totalBenchmark, 'for categories:', Array.from(selectedCategories));
+                  return totalBenchmark > 0 ? (
+                    <ReferenceLine
+                      yAxisId="left"
+                      y={totalBenchmark}
+                      stroke="#888"
+                      strokeDasharray="5 5"
+                      strokeWidth={2}
+                      label={{
+                        value: `Total Benchmark ${totalBenchmark.toFixed(1)}%`,
+                        position: 'insideTopRight',
+                        fill: '#aaa',
+                        fontSize: 11,
+                      }}
+                    />
+                  ) : null;
+                })()}
               </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+            </ChartContainer>
         )}
       </CardContent>
     </Card>

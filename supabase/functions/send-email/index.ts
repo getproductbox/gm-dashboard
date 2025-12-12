@@ -50,6 +50,20 @@ function formatDateAU(iso?: string): string {
   }
 }
 
+function formatTime12h(time24?: string): string {
+  if (!time24) return ''
+  try {
+    // Handle HH:MM:SS or HH:MM format
+    const [hours, minutes] = String(time24).slice(0, 5).split(':').map(Number)
+    if (isNaN(hours) || isNaN(minutes)) return String(time24)
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const hour12 = hours % 12 || 12
+    return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`
+  } catch {
+    return String(time24)
+  }
+}
+
 function getGuestListBaseUrl(overrideOrigin?: string | null): string {
   // Allow caller to override (e.g. for local dev)
   if (overrideOrigin && typeof overrideOrigin === 'string' && overrideOrigin.trim()) {
@@ -175,7 +189,16 @@ function renderKaraokeConfirmationHTML(data: Record<string, unknown>): string {
   const startTime = String(get(data, 'startTime') ?? '')
   const endTime = String(get(data, 'endTime') ?? '')
   const guestCount = String(get(data, 'guestCount') ?? '')
+  const boothName = String(get(data, 'boothName') ?? '')
   const guestListUrl = String(get(data, 'guestListUrl') ?? '') || ''
+
+  // Format date and times for display
+  const formattedDate = formatDateAU(bookingDate)
+  const formattedStartTime = formatTime12h(startTime)
+  const formattedEndTime = formatTime12h(endTime)
+  const formattedTimeRange = formattedStartTime && formattedEndTime 
+    ? `${formattedStartTime} - ${formattedEndTime}`
+    : `${startTime} - ${endTime}`
 
   return `
   <!DOCTYPE html>
@@ -197,7 +220,10 @@ function renderKaraokeConfirmationHTML(data: Record<string, unknown>): string {
         .detail-row:last-child { border-bottom: none; margin-bottom: 0; }
         .detail-label { font-weight: 600; color: #495057; }
         .detail-value { color: #6c757d; }
-        .message { background: #e7f3ff; border-left: 4px solid #007bff; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0; }
+        .guest-list-cta { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); border-radius: 12px; padding: 24px; margin: 25px 0; text-align: center; }
+        .guest-list-cta h3 { margin: 0 0 12px 0; color: white; font-size: 18px; }
+        .guest-list-cta p { margin: 0 0 20px 0; color: rgba(255,255,255,0.9); font-size: 14px; }
+        .guest-list-cta a { display: inline-block; padding: 14px 32px; border-radius: 8px; background-color: white; color: #ee5a24; text-decoration: none; font-weight: 700; font-size: 16px; }
         .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e9ecef; color: #6c757d; font-size: 14px; }
         .karaoke-highlight { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; }
       </style>
@@ -223,22 +249,19 @@ function renderKaraokeConfirmationHTML(data: Record<string, unknown>): string {
 
         <div class="booking-details">
           <h3 style="margin-top:0;color:#333;">Booking Details</h3>
-          <div class="detail-row"><span class="detail-label">Date:</span><span class="detail-value">${bookingDate}</span></div>
-          <div class="detail-row"><span class="detail-label">Time:</span><span class="detail-value">${startTime} - ${endTime}</span></div>
-          <div class="detail-row"><span class="detail-label">Capacity:</span><span class="detail-value">${guestCount} people</span></div>
+          <div class="detail-row"><span class="detail-label">Date:</span><span class="detail-value">${formattedDate}</span></div>
+          <div class="detail-row"><span class="detail-label">Time:</span><span class="detail-value">${formattedTimeRange}</span></div>
+          ${boothName ? `<div class="detail-row"><span class="detail-label">Booth:</span><span class="detail-value">${boothName}</span></div>` : ''}
+          <div class="detail-row"><span class="detail-label">Guests:</span><span class="detail-value">${guestCount} people</span></div>
         </div>
 
         ${
           guestListUrl
             ? `
-        <div class="message">
-          <strong>Curate your guest list</strong><br/>
-          Add the names of your guests so they're on the door when they arrive.
-          <div style="margin-top:16px;text-align:center;">
-            <a href="${guestListUrl}" style="display:inline-block;padding:10px 18px;border-radius:999px;background-color:#0d6efd;color:#fff;text-decoration:none;font-weight:600;">
-              Curate your guest list
-            </a>
-          </div>
+        <div class="guest-list-cta">
+          <h3>📋 Add Your Guest Names</h3>
+          <p>Make sure your guests get in smoothly! Add their names to your booking so they're on the door list when they arrive.</p>
+          <a href="${guestListUrl}">Add Guest Names</a>
         </div>
         `
             : ''
@@ -441,7 +464,7 @@ serve(async (req: Request) => {
           tplName === 'karaoke-confirmation'
             ? 'Karaoke Booking Confirmation - Manor Perth'
             : tplName === 'staff-invite'
-              ? 'You’ve been invited to GM Staff Portal'
+              ? "You've been invited to GM Staff Portal"
               : 'Booking Confirmation - Manor Perth'
         ),
         html,

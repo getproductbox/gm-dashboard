@@ -16,32 +16,56 @@ export type Database = {
     Tables: {
       allowed_emails: {
         Row: {
-          id: string
-          email: string
-          role: Database["public"]["Enums"]["staff_role"]
-          invited_by: string | null
           created_at: string | null
+          email: string
+          id: string
+          invited_by: string | null
+          role: Database["public"]["Enums"]["staff_role"]
         }
         Insert: {
-          id?: string
-          email: string
-          role?: Database["public"]["Enums"]["staff_role"]
-          invited_by?: string | null
           created_at?: string | null
+          email: string
+          id?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
         }
         Update: {
-          id?: string
-          email?: string
-          role?: Database["public"]["Enums"]["staff_role"]
-          invited_by?: string | null
           created_at?: string | null
+          email?: string
+          id?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
+        }
+        Relationships: []
+      }
+      booking_guests: {
+        Row: {
+          booking_id: string
+          created_at: string | null
+          guest_name: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string | null
+          guest_name: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string | null
+          guest_name?: string
+          id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "allowed_emails_invited_by_fkey"
-            columns: ["invited_by"]
+            foreignKeyName: "karaoke_booking_guests_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: "auth.users"
+            referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
         ]
@@ -155,9 +179,11 @@ export type Database = {
       }
       customers: {
         Row: {
+          archived_at: string | null
           created_at: string | null
           email: string | null
           id: string
+          is_archived: boolean | null
           is_member: boolean | null
           name: string
           notes: string | null
@@ -165,9 +191,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
+          is_archived?: boolean | null
           is_member?: boolean | null
           name: string
           notes?: string | null
@@ -175,9 +203,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archived_at?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
+          is_archived?: boolean | null
           is_member?: boolean | null
           name?: string
           notes?: string | null
@@ -215,7 +245,7 @@ export type Database = {
           metadata?: Json | null
           recipient_email?: string
           status?: string
-          template?: string | null
+          template?: string
         }
         Relationships: [
           {
@@ -762,6 +792,13 @@ export type Database = {
         Args: { end_date: string; start_date: string; venue_filter?: string }
         Returns: number
       }
+      get_booking_guests: {
+        Args: { p_booking_id: string; p_token?: string }
+        Returns: {
+          guests: string[]
+          max_guests: number
+        }[]
+      }
       get_door_revenue_sum: {
         Args: { end_date: string; start_date: string; venue_filter?: string }
         Returns: number
@@ -772,7 +809,6 @@ export type Database = {
               booking_date: string
               booth_id: string
               end_time: string
-              exclude_booking_id?: string
               start_time: string
             }
             Returns: boolean
@@ -782,6 +818,7 @@ export type Database = {
               booking_date: string
               booth_id: string
               end_time: string
+              exclude_booking_id?: string
               start_time: string
             }
             Returns: boolean
@@ -863,6 +900,17 @@ export type Database = {
       transform_recent_synced_transactions: {
         Args: { minutes_back?: number }
         Returns: Json
+      }
+      upsert_booking_guests: {
+        Args: { p_booking_id: string; p_guests: string[]; p_token?: string }
+        Returns: {
+          guests: string[]
+          max_guests: number
+        }[]
+      }
+      validate_guest_list_token: {
+        Args: { p_booking_id: string; p_token: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -993,6 +1041,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      staff_role: ["admin", "user"],
+    },
   },
 } as const

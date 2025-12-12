@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SystemSettings } from '@/components/settings/SystemSettings';
 import { ApiSettings } from '@/components/settings/ApiSettings';
+import { BenchmarkSettings } from '@/components/settings/BenchmarkSettings';
 
 export default function Settings() {
   return (
@@ -16,13 +17,18 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue="integrations" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="integrations">API Integrations</TabsTrigger>
+            <TabsTrigger value="benchmarks">Benchmarks</TabsTrigger>
             <TabsTrigger value="system">System Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="integrations" className="mt-6">
             <ApiSettings />
+          </TabsContent>
+
+          <TabsContent value="benchmarks" className="mt-6">
+            <BenchmarkSettings />
           </TabsContent>
 
           <TabsContent value="system" className="mt-6">

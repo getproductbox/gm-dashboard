@@ -1,42 +1,29 @@
--- Karaoke guest list support for karaoke bookings
--- - Adds karaoke_booking_guests table
--- - Adds RPC helpers for fetching and updating guest lists
--- - Uses signed magic-link tokens for customer access
+-- Rename karaoke_booking_guests to booking_guests (generic for all booking types)
+-- Also rename associated RPC functions to generic names
 
--- Ensure pgcrypto is available for HMAC support
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- 1. Rename the table
+ALTER TABLE public.karaoke_booking_guests RENAME TO booking_guests;
 
--- Table to store per-booking guest names
-CREATE TABLE public.karaoke_booking_guests (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  booking_id UUID NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
-  guest_name TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+-- 2. Rename the index
+ALTER INDEX idx_kbg_booking RENAME TO idx_bg_booking;
 
-CREATE INDEX idx_kbg_booking ON public.karaoke_booking_guests(booking_id);
+-- 3. Rename the RLS policy
+ALTER POLICY "Staff can manage karaoke_booking_guests" ON public.booking_guests
+  RENAME TO "Staff can manage booking_guests";
 
--- Enable RLS – access is via SECURITY DEFINER functions
-ALTER TABLE public.karaoke_booking_guests ENABLE ROW LEVEL SECURITY;
+-- 4. Rename the trigger
+ALTER TRIGGER handle_karaoke_booking_guests_updated_at ON public.booking_guests
+  RENAME TO handle_booking_guests_updated_at;
 
--- Simple staff policy: authenticated users (staff) have full access
-CREATE POLICY "Staff can manage karaoke_booking_guests"
-ON public.karaoke_booking_guests
-FOR ALL
-USING (auth.uid() IS NOT NULL)
-WITH CHECK (auth.uid() IS NOT NULL);
+-- 5. Drop old functions and create new ones with generic names
 
--- updated_at trigger
-CREATE TRIGGER handle_karaoke_booking_guests_updated_at
-  BEFORE UPDATE ON public.karaoke_booking_guests
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_updated_at();
+-- Drop old functions (in reverse dependency order)
+DROP FUNCTION IF EXISTS public.upsert_karaoke_guest_list(UUID, TEXT[], TEXT);
+DROP FUNCTION IF EXISTS public.get_karaoke_guest_list(UUID, TEXT);
+DROP FUNCTION IF EXISTS public.validate_karaoke_guest_token(UUID, TEXT);
 
--- Helper function to validate a magic-link token.
--- Token format: booking_id.expiry_epoch.signature
--- Signature: HMAC-SHA256(booking_id || expiry_epoch, secret)
-CREATE OR REPLACE FUNCTION public.validate_karaoke_guest_token(p_booking_id UUID, p_token TEXT)
+-- Recreate validate function with new name
+CREATE OR REPLACE FUNCTION public.validate_guest_list_token(p_booking_id UUID, p_token TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
 AS $$
@@ -88,9 +75,8 @@ BEGIN
 END;
 $$;
 
--- RPC: get_karaoke_guest_list
--- Returns max_guests (capacity) and current guest names as text[]
-CREATE OR REPLACE FUNCTION public.get_karaoke_guest_list(
+-- Recreate get function with new name
+CREATE OR REPLACE FUNCTION public.get_booking_guests(
   p_booking_id UUID,
   p_token TEXT DEFAULT NULL
 )
@@ -108,7 +94,7 @@ DECLARE
 BEGIN
   -- Authorisation: staff can bypass token; customers must provide valid token
   IF NOT v_is_staff THEN
-    PERFORM public.validate_karaoke_guest_token(p_booking_id, p_token);
+    PERFORM public.validate_guest_list_token(p_booking_id, p_token);
   END IF;
 
   SELECT
@@ -126,16 +112,15 @@ BEGIN
     v_max_guests AS max_guests,
     COALESCE(
       (SELECT array_agg(g.guest_name ORDER BY g.created_at)
-       FROM public.karaoke_booking_guests g
+       FROM public.booking_guests g
        WHERE g.booking_id = p_booking_id),
       ARRAY[]::TEXT[]
     ) AS guests;
 END;
 $$;
 
--- RPC: upsert_karaoke_guest_list
--- Replaces guest list for a booking with the provided array of names
-CREATE OR REPLACE FUNCTION public.upsert_karaoke_guest_list(
+-- Recreate upsert function with new name
+CREATE OR REPLACE FUNCTION public.upsert_booking_guests(
   p_booking_id UUID,
   p_guests TEXT[],
   p_token TEXT DEFAULT NULL
@@ -155,7 +140,7 @@ DECLARE
 BEGIN
   -- Authorisation: staff can bypass token; customers must provide valid token
   IF NOT v_is_staff THEN
-    PERFORM public.validate_karaoke_guest_token(p_booking_id, p_token);
+    PERFORM public.validate_guest_list_token(p_booking_id, p_token);
   END IF;
 
   SELECT
@@ -174,10 +159,10 @@ BEGIN
   END IF;
 
   -- Replace current guest list
-  DELETE FROM public.karaoke_booking_guests
+  DELETE FROM public.booking_guests
   WHERE booking_id = p_booking_id;
 
-  INSERT INTO public.karaoke_booking_guests (booking_id, guest_name)
+  INSERT INTO public.booking_guests (booking_id, guest_name)
   SELECT
     p_booking_id,
     trim(g)
@@ -186,14 +171,8 @@ BEGIN
 
   -- Return updated list
   RETURN QUERY
-  SELECT * FROM public.get_karaoke_guest_list(p_booking_id, p_token);
+  SELECT * FROM public.get_booking_guests(p_booking_id, p_token);
 END;
 $$;
-
-
-
-
-
-
 
 

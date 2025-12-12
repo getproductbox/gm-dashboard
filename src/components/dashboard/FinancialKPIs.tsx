@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { DollarSign, TrendingUp, TrendingDown, Users, ShoppingBag, Shield, Calendar } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Users, ShoppingBag, Shield, Calendar, UserCheck, Receipt } from "lucide-react";
 import { FinancialKPIs as KPIs } from "@/services/financialService";
 
 interface FinancialKPIsProps {
@@ -12,8 +12,8 @@ interface FinancialKPIsProps {
 export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
   if (isLoading || !kpis) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="h-4 w-24 bg-gray-200 rounded"></div>
@@ -34,8 +34,14 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
   const formatPercent = (val: number) => 
     `${val > 0 ? '+' : ''}${val.toFixed(1)}%`;
 
+  // Format absolute change in percentage points for costs (always positive, arrow shows direction)
+  const formatCostChange = (val: number) => 
+    `${Math.abs(val).toFixed(1)}%`;
+
+  const formatNumber = (val: number) => val.toLocaleString();
+
   const cards = [
-    // Row 1: Profit / Revenue / Bookings
+    // Row 1: Profit / Revenue / Attendance / Spend per Head
     {
       title: "Net Profit",
       icon: TrendingUp,
@@ -61,6 +67,29 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
       previousDollarAmount: kpis.revenue.previousTotal
     },
     {
+      title: "Attendance",
+      icon: UserCheck,
+      headline: formatPercent(kpis.attendance.changePercent),
+      subheader: formatNumber(kpis.attendance.total),
+      changePercent: kpis.attendance.changePercent,
+      trend: kpis.attendance.changePercent >= 0 ? "up" : "down",
+      isCost: false,
+      attendanceValue: kpis.attendance.total,
+      previousAttendanceValue: kpis.attendance.previousTotal
+    },
+    {
+      title: "Spend per Head",
+      icon: Receipt,
+      headline: formatPercent(kpis.spendPerHead.changePercent),
+      subheader: formatCurrency(kpis.spendPerHead.total),
+      changePercent: kpis.spendPerHead.changePercent,
+      trend: kpis.spendPerHead.changePercent >= 0 ? "up" : "down",
+      isCost: false,
+      dollarAmount: kpis.spendPerHead.total,
+      previousDollarAmount: kpis.spendPerHead.previousTotal
+    },
+    // Row 2: Bookings / Wages / COGS / Security
+    {
       title: "Bookings",
       icon: Calendar,
       headline: formatPercent(kpis.bookings.changePercent),
@@ -70,38 +99,48 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
       isCost: false,
       breakdown: kpis.bookings.breakdown
     },
-    // Row 2: Wages / COGS / Security
     {
       title: "Wages",
       icon: Users,
-      headline: formatPercent(kpis.wages.changePercent),
+      headline: formatCostChange(kpis.wages.percentOfRevenue - kpis.wages.previousPercentOfRevenue),
       subheader: `${kpis.wages.percentOfRevenue.toFixed(1)}% of Revenue`,
-      changePercent: kpis.wages.changePercent,
+      changePercent: kpis.wages.percentOfRevenue - kpis.wages.previousPercentOfRevenue,
       dollarAmount: kpis.wages.total,
       previousDollarAmount: kpis.wages.previousTotal,
-      trend: kpis.wages.changePercent <= 0 ? "up" : "down", // Inverted: decrease is good
+      currentPercent: kpis.wages.percentOfRevenue,
+      previousPercent: kpis.wages.previousPercentOfRevenue,
+      // For costs: decrease (negative change) is good (green), increase (positive change) is bad (red)
+      // Arrow shows actual direction of change
+      trend: kpis.wages.percentOfRevenue - kpis.wages.previousPercentOfRevenue < 0 ? "down" : "up",
+      isGood: kpis.wages.percentOfRevenue - kpis.wages.previousPercentOfRevenue <= 0, // Decrease is good
       isCost: true
     },
     {
       title: "COGS",
       icon: ShoppingBag,
-      headline: formatPercent(kpis.cogs.changePercent),
+      headline: formatCostChange(kpis.cogs.percentOfRevenue - kpis.cogs.previousPercentOfRevenue),
       subheader: `${kpis.cogs.percentOfRevenue.toFixed(1)}% of Revenue`,
-      changePercent: kpis.cogs.changePercent,
+      changePercent: kpis.cogs.percentOfRevenue - kpis.cogs.previousPercentOfRevenue,
       dollarAmount: kpis.cogs.total,
       previousDollarAmount: kpis.cogs.previousTotal,
-      trend: kpis.cogs.changePercent <= 0 ? "up" : "down", // Inverted: decrease is good
+      currentPercent: kpis.cogs.percentOfRevenue,
+      previousPercent: kpis.cogs.previousPercentOfRevenue,
+      trend: kpis.cogs.percentOfRevenue - kpis.cogs.previousPercentOfRevenue < 0 ? "down" : "up",
+      isGood: kpis.cogs.percentOfRevenue - kpis.cogs.previousPercentOfRevenue <= 0,
       isCost: true
     },
     {
       title: "Security",
       icon: Shield,
-      headline: formatPercent(kpis.security.changePercent),
+      headline: formatCostChange(kpis.security.percentOfRevenue - kpis.security.previousPercentOfRevenue),
       subheader: `${kpis.security.percentOfRevenue.toFixed(1)}% of Revenue`,
-      changePercent: kpis.security.changePercent,
+      changePercent: kpis.security.percentOfRevenue - kpis.security.previousPercentOfRevenue,
       dollarAmount: kpis.security.total,
       previousDollarAmount: kpis.security.previousTotal,
-      trend: kpis.security.changePercent <= 0 ? "up" : "down", // Inverted: decrease is good
+      currentPercent: kpis.security.percentOfRevenue,
+      previousPercent: kpis.security.previousPercentOfRevenue,
+      trend: kpis.security.percentOfRevenue - kpis.security.previousPercentOfRevenue < 0 ? "down" : "up",
+      isGood: kpis.security.percentOfRevenue - kpis.security.previousPercentOfRevenue <= 0,
       isCost: true
     }
   ];
@@ -109,21 +148,29 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
   return (
     <div>
       <TooltipProvider>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {cards.map((card) => {
             const cardContent = (
-              <Card className={(card.dollarAmount !== undefined || card.breakdown || card.previousDollarAmount !== undefined) ? "cursor-help" : ""}>
+              <Card className={(card.dollarAmount !== undefined || card.breakdown || card.previousDollarAmount !== undefined || card.attendanceValue !== undefined) ? "cursor-help" : ""}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
                   <card.icon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold flex items-center gap-1">
-                    {card.trend === "up" && <span className="text-green-600">↑</span>}
-                    {card.trend === "down" && <span className="text-red-600">↓</span>}
-                    <span className={card.trend === "up" ? "text-green-600" : card.trend === "down" ? "text-red-600" : ""}>
-                      {card.headline}
-                    </span>
+                    {(() => {
+                      // For cost cards, use isGood for color, trend for arrow direction
+                      const colorClass = card.isCost 
+                        ? (card.isGood ? "text-green-600" : "text-red-600")
+                        : (card.trend === "up" ? "text-green-600" : "text-red-600");
+                      const arrow = card.trend === "up" ? "↑" : "↓";
+                      return (
+                        <>
+                          <span className={colorClass}>{arrow}</span>
+                          <span className={colorClass}>{card.headline}</span>
+                        </>
+                      );
+                    })()}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     {card.subheader}
@@ -132,8 +179,8 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
               </Card>
             );
 
-            // Add tooltip for cards with dollar amounts, breakdown, or previous period data
-            if (card.dollarAmount !== undefined || card.breakdown || card.previousDollarAmount !== undefined) {
+            // Add tooltip for cards with dollar amounts, breakdown, attendance, or previous period data
+            if (card.dollarAmount !== undefined || card.breakdown || card.previousDollarAmount !== undefined || card.attendanceValue !== undefined) {
               return (
                 <Tooltip key={card.title}>
                   <TooltipTrigger asChild>
@@ -158,6 +205,17 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
                           </div>
                         </div>
                       </div>
+                    ) : card.attendanceValue !== undefined ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between gap-4">
+                          <span>Last 28 Days:</span>
+                          <span className="font-medium">{formatNumber(card.attendanceValue)}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span>Previous Period:</span>
+                          <span className="font-medium">{formatNumber(card.previousAttendanceValue!)}</span>
+                        </div>
+                      </div>
                     ) : card.previousDollarAmount !== undefined ? (
                       <div className="space-y-1">
                         <div className="flex justify-between gap-4">
@@ -169,6 +227,11 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
                                 ({card.currentMargin.toFixed(1)}%)
                               </span>
                             )}
+                            {card.currentPercent !== undefined && (
+                              <span className="text-muted-foreground ml-1">
+                                ({card.currentPercent.toFixed(1)}% of rev)
+                              </span>
+                            )}
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -178,6 +241,11 @@ export function FinancialKPIs({ kpis, isLoading }: FinancialKPIsProps) {
                             {card.previousMargin !== undefined && (
                               <span className="text-muted-foreground ml-1">
                                 ({card.previousMargin.toFixed(1)}%)
+                              </span>
+                            )}
+                            {card.previousPercent !== undefined && (
+                              <span className="text-muted-foreground ml-1">
+                                ({card.previousPercent.toFixed(1)}% of rev)
                               </span>
                             )}
                           </span>

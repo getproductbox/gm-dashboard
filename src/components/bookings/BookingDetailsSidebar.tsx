@@ -727,7 +727,7 @@ const KaraokeGuestListPanel = ({ bookingId }: KaraokeGuestListPanelProps) => {
       try {
         // Fetch guest names directly from the table
         const { data: guestRows, error: guestsError } = await supabase
-          .from("karaoke_booking_guests")
+          .from("booking_guests")
           .select("guest_name")
           .eq("booking_id", bookingId)
           .order("created_at");

@@ -373,7 +373,11 @@ export const RevenueTimeChart = () => {
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `$${((value / 100) / 1.1).toLocaleString()}`}
+                tickFormatter={(value) => {
+                  const dollars = (value / 100) / 1.1;
+                  const rounded = Math.round(dollars / 1000) * 1000;
+                  return `$${rounded.toLocaleString()}`;
+                }}
               />
               <YAxis 
                 yAxisId="attendance"

@@ -127,12 +127,17 @@ serve(async (req) => {
       });
     }
 
-    // Compute duration hours
+    // Compute duration hours (handle overnight bookings like 23:00-00:00)
     const toMinutes = (t: string) => {
       const [h, m] = t.slice(0,5).split(':').map(Number);
       return h * 60 + m;
     };
-    const durationMinutes = Math.max(0, toMinutes(hold.end_time as string) - toMinutes(hold.start_time as string));
+    const startMins = toMinutes(hold.start_time as string);
+    const endMins = toMinutes(hold.end_time as string);
+    // Handle overnight: if end <= start, add 24 hours
+    const durationMinutes = endMins <= startMins
+      ? (24 * 60 - startMins) + endMins
+      : endMins - startMins;
     const durationHours = durationMinutes / 60;
     const totalAmount = Number(booth.hourly_rate) * durationHours;
 

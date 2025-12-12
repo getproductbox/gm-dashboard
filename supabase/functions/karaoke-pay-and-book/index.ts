@@ -261,6 +261,27 @@ async function createKaraokeBooking(payload: Omit<PayAndBookRequest, 'paymentTok
   return { bookingId: String(id), referenceCode: String(reference || '') }
 }
 
+async function insertOrganiserAsGuest(bookingId: string, organiserName: string, supabaseUrl: string, supabaseKey: string): Promise<void> {
+  const res = await fetch(`${supabaseUrl}/rest/v1/booking_guests`, {
+    method: 'POST',
+    headers: {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      booking_id: bookingId,
+      guest_name: organiserName,
+      is_organiser: true
+    })
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    console.error('Failed to insert organiser as guest:', body)
+    // Non-fatal: log but don't throw - the booking is already created
+  }
+}
+
 async function createTicketBookingRow(payload: { customerName: string; customerEmail?: string; customerPhone?: string; venue: string; bookingDate: string; ticketQuantity: number; totalAmount: number; squarePaymentId: string }, supabaseUrl: string, supabaseKey: string) {
   const row: Record<string, unknown> = {
     customer_name: payload.customerName,
@@ -367,8 +388,11 @@ serve(async (req: Request) => {
     // Derive duration from start/end time (in hours) and enforce max 2-hour rule
     const startMinutes = timeToMinutes(input.startTime)
     const endMinutes = timeToMinutes(input.endTime)
-    const durationMinutes = Math.max(0, endMinutes - startMinutes)
-    if (!durationMinutes) return json({ success: false, error: 'Invalid session time range' }, 200)
+    // Handle overnight bookings (e.g. 23:00-00:00): if end <= start, add 24 hours
+    const durationMinutes = endMinutes <= startMinutes
+      ? (24 * 60 - startMinutes) + endMinutes
+      : endMinutes - startMinutes
+    if (!durationMinutes || durationMinutes < 0) return json({ success: false, error: 'Invalid session time range' }, 200)
     const durationHours = durationMinutes / 60
     if (durationHours > 2) {
       return json({ success: false, error: 'Maximum session length is 2 hours' }, 200)
@@ -395,11 +419,14 @@ serve(async (req: Request) => {
       durationHours,
     }, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+    // Insert organiser as the first guest entry (with is_organiser = true)
+    await insertOrganiserAsGuest(booking.bookingId, input.customerName, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
     // Generate a signed guest list token for this karaoke booking
     const guestListToken = await generateGuestListToken(booking.bookingId, input.bookingDate)
 
     // Create separate vip_tickets booking row (confirmed/paid)
-    let ticketBooking = null
+    let ticketBooking: { bookingId: string; referenceCode: string } | null = null
     if (ticketQty > 0) {
       ticketBooking = await createTicketBookingRow({
         customerName: input.customerName,

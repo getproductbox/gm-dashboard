@@ -16,7 +16,7 @@ verify_jwt = false
 
 [functions.sync-scheduler]
 verify_jwt = false
-schedule = "*/15 * * * *"
+# schedule = "*/15 * * * *"
 
 [functions.reprocess-venues]
 verify_jwt = false

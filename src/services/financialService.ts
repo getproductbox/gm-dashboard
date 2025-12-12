@@ -21,9 +21,11 @@ export interface WeeklyFinancials {
 export interface FinancialKPIs {
   revenue: { total: number; previousTotal: number; changePercent: number };
   netProfit: { total: number; previousTotal: number; marginPercent: number; previousMarginPercent: number; changePercent: number };
-  wages: { total: number; previousTotal: number; percentOfRevenue: number; changePercent: number };
-  cogs: { total: number; previousTotal: number; percentOfRevenue: number; changePercent: number };
-  security: { total: number; previousTotal: number; percentOfRevenue: number; changePercent: number };
+  attendance: { total: number; previousTotal: number; changePercent: number };
+  spendPerHead: { total: number; previousTotal: number; changePercent: number };
+  wages: { total: number; previousTotal: number; percentOfRevenue: number; previousPercentOfRevenue: number; changePercent: number };
+  cogs: { total: number; previousTotal: number; percentOfRevenue: number; previousPercentOfRevenue: number; changePercent: number };
+  security: { total: number; previousTotal: number; percentOfRevenue: number; previousPercentOfRevenue: number; changePercent: number };
   bookings: { 
     total: number; 
     changePercent: number;
@@ -142,15 +144,21 @@ export const financialService = {
     const currentStart = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
     const previousStart = new Date(now.getTime() - (daysBack * 2 * 24 * 60 * 60 * 1000));
     
-    // Fetch revenue using the same RPC as Revenue page
-    const [currentRevenueCents, previousRevenueCents] = await Promise.all([
+    // Fetch revenue and attendance using the same RPC as Revenue page
+    const [currentRevenueCents, previousRevenueCents, currentAttendance, previousAttendance] = await Promise.all([
       this.getRevenueForPeriod(currentStart, now),
-      this.getRevenueForPeriod(previousStart, currentStart)
+      this.getRevenueForPeriod(previousStart, currentStart),
+      this.getAttendanceForPeriod(currentStart, now),
+      this.getAttendanceForPeriod(previousStart, currentStart)
     ]);
     
     // Convert to GST-exclusive dollars (same as Revenue page)
     const currentRevenue = (currentRevenueCents / 100) / 1.1;
     const previousRevenue = (previousRevenueCents / 100) / 1.1;
+
+    // Calculate spend per head (revenue in dollars / attendance)
+    const currentSpendPerHead = currentAttendance > 0 ? (currentRevenueCents / 100) / currentAttendance : 0;
+    const previousSpendPerHead = previousAttendance > 0 ? (previousRevenueCents / 100) / previousAttendance : 0;
 
     // Fetch costs from Xero P&L for the same periods
     const [currentCosts, previousCosts] = await Promise.all([
@@ -174,6 +182,14 @@ export const financialService = {
 
     const revenueChange = previousRevenue > 0 
       ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
+      : 0;
+
+    const attendanceChange = previousAttendance > 0
+      ? ((currentAttendance - previousAttendance) / previousAttendance) * 100
+      : 0;
+
+    const spendPerHeadChange = previousSpendPerHead > 0
+      ? ((currentSpendPerHead - previousSpendPerHead) / previousSpendPerHead) * 100
       : 0;
 
     const wagePercent = currentRevenue > 0 ? (currentWages / currentRevenue) * 100 : 0;
@@ -243,22 +259,35 @@ export const financialService = {
         previousMarginPercent: previousNetProfitMargin,
         changePercent: netProfitChange
       },
+      attendance: {
+        total: currentAttendance,
+        previousTotal: previousAttendance,
+        changePercent: attendanceChange
+      },
+      spendPerHead: {
+        total: currentSpendPerHead,
+        previousTotal: previousSpendPerHead,
+        changePercent: spendPerHeadChange
+      },
       wages: {
         total: currentWages,
         previousTotal: previousWages,
         percentOfRevenue: wagePercent,
+        previousPercentOfRevenue: wagePercentPrevious,
         changePercent: wagePercentChange
       },
       cogs: {
         total: currentCogs,
         previousTotal: previousCogs,
         percentOfRevenue: cogsPercent,
+        previousPercentOfRevenue: cogsPercentPrevious,
         changePercent: cogsPercentChange
       },
       security: {
         total: currentSecurity,
         previousTotal: previousSecurity,
         percentOfRevenue: securityPercent,
+        previousPercentOfRevenue: securityPercentPrevious,
         changePercent: securityPercentChange
       },
       bookings: {
@@ -279,6 +308,22 @@ export const financialService = {
     
     if (error) {
       console.error('Error fetching revenue:', error);
+      return 0;
+    }
+    
+    return data || 0;
+  },
+
+  // Helper to get attendance for a period using the same RPC as Revenue page
+  async getAttendanceForPeriod(startDate: Date, endDate: Date): Promise<number> {
+    const { data, error } = await supabase.rpc('get_attendance_sum', {
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      venue_filter: null
+    });
+    
+    if (error) {
+      console.error('Error fetching attendance:', error);
       return 0;
     }
     
