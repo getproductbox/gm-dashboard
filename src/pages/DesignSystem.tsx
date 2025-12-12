@@ -357,7 +357,7 @@ const DesignSystem = () => {
                         >
                           <div className="text-left">
                             <div className="font-medium text-neutral-800">{slot.time}</div>
-                            <div className="text-sm text-neutral-600">£{slot.price}</div>
+                            <div className="text-sm text-neutral-600">${slot.price}</div>
                           </div>
                         </button>
                       ))}
@@ -401,16 +401,16 @@ const DesignSystem = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-neutral-600">Base price (2h)</span>
-                        <span className="text-neutral-800">£70.00</span>
+                        <span className="text-neutral-800">$70.00</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-neutral-600">Service fee</span>
-                        <span className="text-neutral-800">£5.00</span>
+                        <span className="text-neutral-800">$5.00</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between font-semibold text-lg">
                         <span>Total</span>
-                        <span>£75.00</span>
+                        <span>$75.00</span>
                       </div>
                     </div>
                   </div>
@@ -472,24 +472,24 @@ const DesignSystem = () => {
                   <div className="space-y-3 pt-4 border-t border-neutral-200">
                     <div className="flex justify-between text-neutral-600">
                       <span>Base price (2h)</span>
-                      <span>£100.00</span>
+                      <span>$100.00</span>
                     </div>
                     <div className="flex justify-between text-neutral-600">
                       <span>Equipment fee</span>
-                      <span>£15.00</span>
+                      <span>$15.00</span>
                     </div>
                     <div className="flex justify-between text-neutral-600">
                       <span>Service charge</span>
-                      <span>£8.00</span>
+                      <span>$8.00</span>
                     </div>
                     <div className="flex justify-between text-green-600">
                       <span>Early bird discount</span>
-                      <span>-£10.00</span>
+                      <span>-$10.00</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between text-xl font-semibold text-neutral-800">
                       <span>Total</span>
-                      <span>£113.00</span>
+                      <span>$113.00</span>
                     </div>
                   </div>
 

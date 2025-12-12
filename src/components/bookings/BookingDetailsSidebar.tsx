@@ -587,7 +587,7 @@ export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetai
                           <Mic className="h-4 w-4 text-gray-500" />
                           <span className="font-medium">{karaokeBoothData.name}</span>
                           <span className="text-sm text-gray-600">
-                            • £{karaokeBoothData.hourly_rate}/hour
+                            • ${karaokeBoothData.hourly_rate}/hour
                           </span>
                         </div>
                       )}

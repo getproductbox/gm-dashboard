@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit, Trash2, Settings, MapPin, Users, Clock, DollarSign } from "lucide-react";
+import { Plus, Edit, Trash2, Settings, MapPin, Users, Clock } from "lucide-react";
 import { useKaraokeBooths, useCreateKaraokeBooth, useUpdateKaraokeBooth, useToggleBoothAvailability } from "@/hooks/useKaraoke";
 import { useToast } from "@/hooks/use-toast";
 import { KaraokeBoothInsert, KaraokeBoothUpdate } from "@/types/karaoke";
@@ -211,10 +211,7 @@ const BoothManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3 text-gm-neutral-500" />
-                          £{booth.hourly_rate}/hr
-                        </div>
+                        ${booth.hourly_rate}/hr
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -338,7 +335,7 @@ const BoothForm = ({ initialData, onSubmit, isLoading }: BoothFormProps) => {
       </div>
 
       <div>
-        <Label htmlFor="hourly_rate">Hourly Rate (£)</Label>
+        <Label htmlFor="hourly_rate">Hourly Rate ($)</Label>
         <Input
           id="hourly_rate"
           type="number"

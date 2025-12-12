@@ -608,7 +608,7 @@ export const CreateBookingForm = ({ onSuccess, isSidePanel = false }: CreateBook
                         <SelectContent>
                           {(availableBoothsForSlot ?? availableKaraokeBooths).map((booth) => (
                             <SelectItem key={booth.id} value={booth.id}>
-                              {booth.name} - cap {booth.capacity} (£{booth.hourly_rate}/hour)
+                              {booth.name} - cap {booth.capacity} (${booth.hourly_rate}/hour)
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -471,7 +471,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
               {formatTime(slot.startTime)}
             </span>
             <span className="gm-time-slot__price">
-              £{slot.price}
+              ${slot.price}
             </span>
           </button>
         ))}
@@ -552,26 +552,26 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
       <div className="gm-booking-summary__pricing">
         <div className="gm-pricing-line">
           <span>Base price ({booking.duration}h)</span>
-          <span>£{pricing.basePrice.toFixed(2)}</span>
+          <span>${pricing.basePrice.toFixed(2)}</span>
         </div>
         
         {pricing.fees.map((fee) => (
           <div key={fee.name} className="gm-pricing-line gm-pricing-line--fee">
             <span>{fee.name}</span>
-            <span>£{fee.amount.toFixed(2)}</span>
+            <span>${fee.amount.toFixed(2)}</span>
           </div>
         ))}
         
         {pricing.discount && (
           <div className="gm-pricing-line gm-pricing-line--discount">
             <span>Discount</span>
-            <span>-£{pricing.discount.toFixed(2)}</span>
+            <span>-${pricing.discount.toFixed(2)}</span>
           </div>
         )}
         
         <div className="gm-pricing-line gm-pricing-line--total">
           <span>Total</span>
-          <span>£{pricing.total.toFixed(2)}</span>
+          <span>${pricing.total.toFixed(2)}</span>
         </div>
       </div>
     </div>
@@ -790,7 +790,7 @@ const TimeSlotSelector: React.FC<Props> = ({ slots }) => {
         <select className="gm-time-slot-select">
           {slots.map(slot => (
             <option key={slot.startTime} value={slot.startTime}>
-              {formatTime(slot.startTime)} - £{slot.price}
+              {formatTime(slot.startTime)} - ${slot.price}
             </option>
           ))}
         </select>

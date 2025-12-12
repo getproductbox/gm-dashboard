@@ -215,7 +215,7 @@ export const BookingCalendarView = ({
               Capacity: {selectedBooth.capacity} people
             </div>
             <div className="text-sm">
-              £{selectedBooth.hourly_rate}/hour
+              ${selectedBooth.hourly_rate}/hour
             </div>
           </div>
           
