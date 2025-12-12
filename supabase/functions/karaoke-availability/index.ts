@@ -68,6 +68,34 @@ function timeToMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
+function dateToDayNumber(dateStr: string): number {
+  // Use UTC midnight to avoid local timezone shifts; booking_date strings are already "local" business dates.
+  const ms = Date.parse(`${dateStr}T00:00:00Z`);
+  return Math.floor(ms / (24 * 60 * 60 * 1000));
+}
+
+function dayNumberToDate(day: number): string {
+  const ms = day * 24 * 60 * 60 * 1000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function addDays(dateStr: string, deltaDays: number): string {
+  const d = dateToDayNumber(dateStr);
+  return dayNumberToDate(d + deltaDays);
+}
+
+function intervalToAbsMinutes(bookingDate: string, startHHMM: string, endHHMM: string): { start: number; end: number } {
+  const day = dateToDayNumber(bookingDate);
+  const s = day * 1440 + timeToMinutes(startHHMM);
+  let e = day * 1440 + timeToMinutes(endHHMM);
+  if (timeToMinutes(endHHMM) <= timeToMinutes(startHHMM)) e += 1440; // overnight
+  return { start: s, end: e };
+}
+
+function overlapsAbs(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+  return aStart < bEnd && aEnd > bStart;
+}
+
 function minutesToTime(totalMinutes: number): string {
   const normalized = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
   const hh = Math.floor(normalized / 60);
@@ -75,28 +103,23 @@ function minutesToTime(totalMinutes: number): string {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-function isSlotWithinBoothHours(
-  slotStart: string,
-  slotEnd: string,
-  boothStart: string,
-  boothEnd: string,
-): boolean {
-  const ss = timeToMinutes(slotStart);
-  const se = timeToMinutes(slotEnd);
-  const bs = timeToMinutes(boothStart);
-  const be = timeToMinutes(boothEnd);
-
-  // Overnight booth (e.g., 23:00-03:00)
-  if (be < bs) {
-    // Slot must be fully after booth start OR fully before booth end
-    return (ss >= bs && se > bs) || (ss < be && se <= be);
-  }
-  // Same-day booth
-  return ss >= bs && se <= be;
+function normalizeIntervalMinutes(startHHMM: string, endHHMM: string): { start: number; end: number } {
+  const s = timeToMinutes(startHHMM);
+  let e = timeToMinutes(endHHMM);
+  if (e <= s) e += 1440;
+  return { start: s, end: e };
 }
 
-function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
-  return aStart < bEnd && aEnd > bStart;
+function isSlotWithinBoothHours(slotStart: string, slotEnd: string, boothStart: string, boothEnd: string): boolean {
+  const booth = normalizeIntervalMinutes(boothStart, boothEnd);
+  const slot = normalizeIntervalMinutes(slotStart, slotEnd);
+
+  // try as-is
+  if (slot.start >= booth.start && slot.end <= booth.end) return true;
+  // try shifting slot into "next day" representation
+  const shifted = { start: slot.start + 1440, end: slot.end + 1440 };
+  if (shifted.start >= booth.start && shifted.end <= booth.end) return true;
+  return false;
 }
 
 serve(async (req) => {
@@ -127,6 +150,9 @@ serve(async (req) => {
 
     const body = (await req.json()) as AvailabilityRequest;
     const granularity = Math.max(15, body.granularityMinutes ?? 60);
+    const prevDate = addDays(body.bookingDate, -1);
+    const nextDate = addDays(body.bookingDate, 1);
+    const dateWindow = [prevDate, body.bookingDate, nextDate];
 
     if (!body.bookingDate) {
       return new Response(JSON.stringify({ error: 'bookingDate is required' }), {
@@ -163,15 +189,15 @@ serve(async (req) => {
       const [bookingsAllRes, holdsAllRes] = await Promise.all([
         supabase
           .from('bookings')
-          .select('karaoke_booth_id,start_time,end_time,status')
+          .select('karaoke_booth_id,booking_date,start_time,end_time,status')
           .in('karaoke_booth_id', boothIds.length ? boothIds : ['00000000-0000-0000-0000-000000000000'])
-          .eq('booking_date', body.bookingDate)
+          .in('booking_date', dateWindow)
           .neq('status', 'cancelled'),
         supabase
           .from('karaoke_booth_holds')
-          .select('booth_id,start_time,end_time,expires_at,status')
+          .select('booth_id,booking_date,start_time,end_time,expires_at,status')
           .in('booth_id', boothIds.length ? boothIds : ['00000000-0000-0000-0000-000000000000'])
-          .eq('booking_date', body.bookingDate)
+          .in('booking_date', dateWindow)
           .eq('status', 'active')
           .gt('expires_at', nowIso),
       ]);
@@ -179,6 +205,7 @@ serve(async (req) => {
       const holdsAll = holdsAllRes.data;
 
       const availableBooths: any[] = [];
+      const requested = intervalToAbsMinutes(body.bookingDate, body.startTime!, body.endTime!);
       for (const booth of (booths || [])) {
         const boothStart = (booth.operating_hours_start as string).slice(0, 5);
         const boothEnd = (booth.operating_hours_end as string).slice(0, 5);
@@ -189,9 +216,15 @@ serve(async (req) => {
 
         const bookingsForBooth = (bookingsAll || []).filter(b => b.karaoke_booth_id === booth.id);
         const holdsForBooth = (holdsAll || []).filter(h => h.booth_id === booth.id);
-        const hasBooking = bookingsForBooth.some((b) => overlaps(body.startTime!, body.endTime!, (b.start_time as string).slice(0,5), (b.end_time as string).slice(0,5)));
+        const hasBooking = bookingsForBooth.some((b) => {
+          const interval = intervalToAbsMinutes(String((b as any).booking_date), (b.start_time as string).slice(0, 5), (b.end_time as string).slice(0, 5));
+          return overlapsAbs(requested.start, requested.end, interval.start, interval.end);
+        });
         if (hasBooking) continue;
-        const hasHold = holdsForBooth.some((h) => overlaps(body.startTime!, body.endTime!, (h.start_time as string).slice(0,5), (h.end_time as string).slice(0,5)));
+        const hasHold = holdsForBooth.some((h) => {
+          const interval = intervalToAbsMinutes(String((h as any).booking_date), (h.start_time as string).slice(0, 5), (h.end_time as string).slice(0, 5));
+          return overlapsAbs(requested.start, requested.end, interval.start, interval.end);
+        });
         if (hasHold) continue;
         availableBooths.push(booth);
       }
@@ -221,9 +254,9 @@ serve(async (req) => {
       const endHH = (booth.operating_hours_end as string)?.slice(0, 5) || '23:00';
       const { data: bookings, error: bookingsErr } = await supabase
         .from('bookings')
-        .select('start_time,end_time,status')
+        .select('booking_date,start_time,end_time,status')
         .eq('karaoke_booth_id', body.boothId)
-        .eq('booking_date', body.bookingDate)
+        .in('booking_date', dateWindow)
         .neq('status', 'cancelled');
       if (bookingsErr) {
         return new Response(JSON.stringify({ error: 'Failed to fetch bookings' }), {
@@ -234,9 +267,9 @@ serve(async (req) => {
       const nowIso = new Date().toISOString();
       const { data: holds, error: holdsErr } = await supabase
         .from('karaoke_booth_holds')
-        .select('start_time,end_time,status,expires_at')
+        .select('booking_date,start_time,end_time,status,expires_at')
         .eq('booth_id', body.boothId)
-        .eq('booking_date', body.bookingDate)
+        .in('booking_date', dateWindow)
         .eq('status', 'active')
         .gt('expires_at', nowIso);
       if (holdsErr) {
@@ -250,8 +283,15 @@ serve(async (req) => {
       while (cursor < endHH) {
         const next = addMinutes(cursor, granularity);
         if (next > endHH) break;
-        const hasBooking = (bookings || []).some((b) => overlaps(cursor, next, (b.start_time as string).slice(0,5), (b.end_time as string).slice(0,5)));
-        const hasHold = !hasBooking && (holds || []).some((h) => overlaps(cursor, next, (h.start_time as string).slice(0,5), (h.end_time as string).slice(0,5)));
+        const slotInterval = intervalToAbsMinutes(body.bookingDate, cursor, next);
+        const hasBooking = (bookings || []).some((b) => {
+          const interval = intervalToAbsMinutes(String((b as any).booking_date), (b.start_time as string).slice(0, 5), (b.end_time as string).slice(0, 5));
+          return overlapsAbs(slotInterval.start, slotInterval.end, interval.start, interval.end);
+        });
+        const hasHold = !hasBooking && (holds || []).some((h) => {
+          const interval = intervalToAbsMinutes(String((h as any).booking_date), (h.start_time as string).slice(0, 5), (h.end_time as string).slice(0, 5));
+          return overlapsAbs(slotInterval.start, slotInterval.end, interval.start, interval.end);
+        });
         slots.push({ startTime: cursor, endTime: next, available: !(hasBooking || hasHold), blockedBy: hasBooking ? 'booking' : hasHold ? 'hold' : undefined });
         cursor = next;
       }
@@ -293,15 +333,15 @@ serve(async (req) => {
     const [bookingsAllRes, holdsAllRes] = await Promise.all([
       supabase
         .from('bookings')
-        .select('karaoke_booth_id,start_time,end_time,status')
+        .select('karaoke_booth_id,booking_date,start_time,end_time,status')
         .in('karaoke_booth_id', boothIds.length ? boothIds : ['00000000-0000-0000-0000-000000000000'])
-        .eq('booking_date', body.bookingDate)
+        .in('booking_date', dateWindow)
         .neq('status', 'cancelled'),
       supabase
         .from('karaoke_booth_holds')
-        .select('booth_id,start_time,end_time,expires_at,status')
+        .select('booth_id,booking_date,start_time,end_time,expires_at,status')
         .in('booth_id', boothIds.length ? boothIds : ['00000000-0000-0000-0000-000000000000'])
-        .eq('booking_date', body.bookingDate)
+        .in('booking_date', dateWindow)
         .eq('status', 'active')
         .gt('expires_at', nowIso),
     ]);
@@ -336,13 +376,16 @@ serve(async (req) => {
 
         const bookingsForBooth = (bookingsAll || []).filter(b => b.karaoke_booth_id === booth.id);
         const holdsForBooth = (holdsAll || []).filter(h => h.booth_id === booth.id);
-        const hasBooking = bookingsForBooth.some((b) =>
-          overlaps(cursor, next, (b.start_time as string).slice(0, 5), (b.end_time as string).slice(0, 5)),
-        );
+        const slotInterval = intervalToAbsMinutes(body.bookingDate, cursor, next);
+        const hasBooking = bookingsForBooth.some((b) => {
+          const interval = intervalToAbsMinutes(String((b as any).booking_date), (b.start_time as string).slice(0, 5), (b.end_time as string).slice(0, 5));
+          return overlapsAbs(slotInterval.start, slotInterval.end, interval.start, interval.end);
+        });
         if (hasBooking) continue;
-        const hasHold = holdsForBooth.some((h) =>
-          overlaps(cursor, next, (h.start_time as string).slice(0, 5), (h.end_time as string).slice(0, 5)),
-        );
+        const hasHold = holdsForBooth.some((h) => {
+          const interval = intervalToAbsMinutes(String((h as any).booking_date), (h.start_time as string).slice(0, 5), (h.end_time as string).slice(0, 5));
+          return overlapsAbs(slotInterval.start, slotInterval.end, interval.start, interval.end);
+        });
         if (!hasHold) {
           available = true;
           capacities.push(booth.capacity as number);

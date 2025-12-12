@@ -92,7 +92,13 @@ serve(async (req) => {
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+        const errPayload = {
+          error: error.message,
+          code: (error as any)?.code,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+        };
+        return new Response(JSON.stringify(errPayload), {
           status: 409,
           headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
@@ -129,7 +135,13 @@ serve(async (req) => {
         .single();
 
       if (error || !updated) {
-        return new Response(JSON.stringify({ error: error?.message || 'Hold not extendable' }), {
+        const errPayload = {
+          error: error?.message || 'Hold not extendable',
+          code: (error as any)?.code,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+        };
+        return new Response(JSON.stringify(errPayload), {
           status: 400,
           headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
@@ -161,7 +173,13 @@ serve(async (req) => {
         .single();
 
       if (error || !updated) {
-        return new Response(JSON.stringify({ error: error?.message || 'Hold not releasable' }), {
+        const errPayload = {
+          error: error?.message || 'Hold not releasable',
+          code: (error as any)?.code,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+        };
+        return new Response(JSON.stringify(errPayload), {
           status: 400,
           headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
@@ -179,7 +197,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('karaoke-holds error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error', message: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });

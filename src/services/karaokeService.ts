@@ -297,8 +297,12 @@ export const karaokeService = {
     const start = new Date(`2000-01-01T${startTime}:00`);
     const end = new Date(`2000-01-01T${endTime}:00`);
     
-    if (start >= end) {
-      return { valid: false, message: 'End time must be after start time' };
+    // Allow overnight ranges (e.g. 23:00 -> 00:00) by rolling the end into the next day.
+    if (end.getTime() === start.getTime()) {
+      return { valid: false, message: 'End time must be different from start time' };
+    }
+    if (end < start) {
+      end.setDate(end.getDate() + 1);
     }
 
     const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
@@ -320,6 +324,9 @@ export const karaokeService = {
   calculateBookingCost(startTime: string, endTime: string, hourlyRate: number): number {
     const start = new Date(`2000-01-01T${startTime}:00`);
     const end = new Date(`2000-01-01T${endTime}:00`);
+    if (end < start) {
+      end.setDate(end.getDate() + 1);
+    }
     const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
     
     return hourlyRate * durationHours;
