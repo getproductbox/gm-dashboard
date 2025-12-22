@@ -43,10 +43,9 @@ export async function updateVipTicketCheckins(bookingId: string, checkins: (stri
     .select('*')
     .single();
 
-  if (error) {
-    console.error('Error updating ticket checkins:', error);
-    throw new Error(`Failed to update ticket checkins: ${error.message}`);
-  }
+if (error) {
+      throw new Error(`Failed to update ticket checkins: ${error.message}`);
+    }
 
   return booking as BookingRow;
 }
@@ -60,41 +59,20 @@ export const bookingService = {
     endTime: string,
     excludeBookingId?: string
   ): Promise<boolean> {
-    try {
-      console.log('Checking booth availability with params:', {
+    const { data: isAvailable, error } = await supabase
+      .rpc('get_karaoke_booth_availability', {
         booth_id: boothId,
         booking_date: bookingDate,
         start_time: startTime,
         end_time: endTime,
-        exclude_booking_id: excludeBookingId
+        exclude_booking_id: excludeBookingId || null
       });
 
-      const { data: isAvailable, error } = await supabase
-        .rpc('get_karaoke_booth_availability', {
-          booth_id: boothId,
-          booking_date: bookingDate,
-          start_time: startTime,
-          end_time: endTime,
-          exclude_booking_id: excludeBookingId || null
-        });
-
-      if (error) {
-        console.error('Error checking availability:', error);
-        console.error('Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw new Error(`Failed to check booth availability: ${error.message}`);
-      }
-
-      console.log('Availability check result:', isAvailable);
-      return isAvailable;
-    } catch (error) {
-      console.error('Exception in checkKaraokeBoothAvailability:', error);
-      throw error;
+    if (error) {
+      throw new Error(`Failed to check booth availability: ${error.message}`);
     }
+
+    return isAvailable;
   },
 
   // Create VIP ticket booking (single entry with ticket quantity)
@@ -131,7 +109,6 @@ export const bookingService = {
       .single();
 
     if (error) {
-      console.error('Error creating VIP ticket booking:', error);
       throw new Error(`Failed to create VIP ticket booking: ${error.message}`);
     }
 
@@ -182,7 +159,6 @@ export const bookingService = {
       .single();
 
     if (error) {
-      console.error('Error creating booking:', error);
       throw new Error(`Failed to create booking: ${error.message}`);
     }
 
@@ -213,7 +189,6 @@ export const bookingService = {
       .single();
 
     if (boothError) {
-      console.error('Error fetching booth details:', boothError);
       throw new Error('Failed to fetch booth details');
     }
 
@@ -271,7 +246,6 @@ export const bookingService = {
       .single();
 
     if (error) {
-      console.error('Error creating karaoke booking:', error);
       throw new Error(`Failed to create karaoke booking: ${error.message}`);
     }
 
@@ -314,7 +288,6 @@ export const bookingService = {
     const { data: bookings, error } = await query;
 
     if (error) {
-      console.error('Error fetching bookings:', error);
       throw new Error(`Failed to fetch bookings: ${error.message}`);
     }
 
@@ -329,7 +302,6 @@ export const bookingService = {
       .single();
 
     if (error) {
-      console.error('Error fetching booking:', error);
       throw new Error(`Failed to fetch booking: ${error.message}`);
     }
 
@@ -381,7 +353,6 @@ export const bookingService = {
       .single();
 
     if (error) {
-      console.error('Error updating booking:', error);
       throw new Error(`Failed to update booking: ${error.message}`);
     }
 
@@ -397,7 +368,6 @@ export const bookingService = {
       .single();
 
     if (error) {
-      console.error('Error updating booking status:', error);
       throw new Error(`Failed to update booking status: ${error.message}`);
     }
 
@@ -413,7 +383,6 @@ export const bookingService = {
       .order('booking_date', { ascending: true });
 
     if (error) {
-      console.error('Error fetching VIP tickets for export:', error);
       throw new Error(`Failed to fetch VIP tickets for export: ${error.message}`);
     }
 
@@ -430,7 +399,6 @@ export const bookingService = {
       .in('id', bookingIds);
 
     if (error) {
-      console.error('Error marking VIP tickets as exported:', error);
       throw new Error(`Failed to mark VIP tickets as exported: ${error.message}`);
     }
   }

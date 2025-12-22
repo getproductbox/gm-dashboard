@@ -70,7 +70,6 @@ export default function Auth() {
       .maybeSingle();
 
     if (inviteError) {
-      console.error('Error checking allowed_emails for signup', inviteError);
       toast({
         title: 'Signup Failed',
         description: 'There was a problem checking your invite. Please try again or contact an administrator.',
@@ -105,7 +104,6 @@ export default function Auth() {
     // Auto-login after successful signup (invited users have verified email ownership)
     const { error: signInError } = await signIn(email, password);
     if (signInError) {
-      console.error('Auto-login failed after signup:', signInError);
       toast({
         title: 'Account Created',
         description: 'Your account was created. Please log in with your new password.',

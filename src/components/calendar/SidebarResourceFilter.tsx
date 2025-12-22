@@ -1,5 +1,5 @@
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarResource } from "@/data/mockData/calendar";
+import { CalendarResource } from "@/types/calendar";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -137,6 +137,13 @@ export const SidebarResourceFilter = ({
     </div>
   );
 };
+
+
+
+
+
+
+
 
 
 

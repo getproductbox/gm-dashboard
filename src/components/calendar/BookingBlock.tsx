@@ -1,5 +1,5 @@
 
-import { CalendarBooking } from "@/data/mockData/calendar";
+import { CalendarBooking } from "@/types/calendar";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 

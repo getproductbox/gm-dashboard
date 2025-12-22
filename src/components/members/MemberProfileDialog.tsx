@@ -79,8 +79,8 @@ export function MemberProfileDialog({ member, isOpen, onClose, onMemberUpdated }
       
       setIsEditing(false);
       onMemberUpdated?.();
-    } catch (error) {
-      console.error("Error updating member:", error);
+    } catch (_error) {
+      // Silent fail for member update
     }
   };
 
@@ -240,6 +240,13 @@ export function MemberProfileDialog({ member, isOpen, onClose, onMemberUpdated }
     </Dialog>
   );
 }
+
+
+
+
+
+
+
 
 
 

@@ -96,23 +96,22 @@ export default function Team() {
         });
 
         if (error) {
-          console.error('Error sending staff invite email', error);
           toast({
             title: 'Invite email failed',
             description: 'The invite was created, but the email could not be sent. Please try again or contact support.',
             variant: 'destructive',
           });
         }
-      } catch (err: any) {
-        console.error('Unexpected error sending staff invite email', err);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'The invite was created, but the email could not be sent.';
         toast({
           title: 'Invite email failed',
-          description: err?.message ?? 'The invite was created, but the email could not be sent.',
+          description: message,
           variant: 'destructive',
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error inviting user',
         description: error.message ?? 'An unknown error occurred.',
@@ -139,7 +138,7 @@ export default function Team() {
         description: 'The user will no longer be able to access the dashboard.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error removing access',
         description: error.message ?? 'An unknown error occurred.',
@@ -170,7 +169,7 @@ export default function Team() {
         description: 'Team member role has been updated.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error updating role',
         description: error.message ?? 'An unknown error occurred.',

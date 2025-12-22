@@ -1,5 +1,5 @@
 
-import { CalendarBooking, CalendarResource, generateTimeSlots } from "@/data/mockData/calendar";
+import { CalendarBooking, CalendarResource, generateTimeSlots } from "@/types/calendar";
 import { BookingBlock } from "./BookingBlock";
 import { cn } from "@/lib/utils";
 

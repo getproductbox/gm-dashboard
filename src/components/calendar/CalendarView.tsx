@@ -7,7 +7,7 @@ import { SidebarResourceFilter } from "./SidebarResourceFilter";
 import { ResourceGroup } from "./ResourceFilter"; // Import type, but we use SidebarResourceFilter component
 import { BookingDetailsSidebar } from "./BookingDetailsSidebar";
 import { UnifiedBookingSidePanel } from "@/components/bookings/UnifiedBookingSidePanel";
-import { CalendarBooking, CalendarResource } from "@/data/mockData/calendar";
+import { CalendarBooking, CalendarResource } from "@/types/calendar";
 import { useKaraokeBooths } from "@/hooks/useKaraoke";
 import { useBookings } from "@/hooks/useBookings";
 import { addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
@@ -113,7 +113,6 @@ export const CalendarView = () => {
   };
 
   const handleBookingClick = (booking: CalendarBooking) => {
-    console.log('Booking clicked:', booking);
     setSelectedBooking(booking);
   };
 
@@ -139,7 +138,6 @@ export const CalendarView = () => {
         const dateStr = formatDateToYMD(date);
         if (timeSlot) {
             // Week view click
-            console.log('Empty slot clicked (Week View):', { date: dateStr, timeSlot });
             
             // Calculate end time (default 1 hour)
             const [hours, minutes] = timeSlot.split(':').map(Number);
@@ -158,7 +156,6 @@ export const CalendarView = () => {
             setIsCreateSidebarOpen(true);
         } else {
              // Month view click - open for that day, default time
-             console.log('Empty slot clicked (Month View):', { date: dateStr });
              setNewBookingInitialData({
                 bookingDate: dateStr,
                 startTime: "10:00",
@@ -169,7 +166,6 @@ export const CalendarView = () => {
     } else {
         // Day view passes resourceId as first arg
         const resourceId = date as unknown as string;
-        console.log('Empty slot clicked (Day View):', { resourceId, timeSlot, date: currentDate.toISOString().split('T')[0] });
         
         const dateStr = formatDateToYMD(currentDate);
         // Calculate end time (default 1 hour)

@@ -125,15 +125,20 @@ export default function ProfitAndLoss() {
   }, [comparisonType]);
 
   // Fetch data for all three periods
+  // P&L data is expensive to fetch from Xero API, cache for 10 minutes
+  const PNL_STALE_TIME = 1000 * 60 * 10; // 10 minutes
+
   const weeklyQueries = useQueries({
     queries: [
       {
         queryKey: ['pnl', 'weekly', 'current', periods.weekly.current.start, periods.weekly.current.end],
         queryFn: () => fetchPnl(periods.weekly.current.start, periods.weekly.current.end),
+        staleTime: PNL_STALE_TIME,
       },
       {
         queryKey: ['pnl', 'weekly', 'comparison', periods.weekly.comparison.start, periods.weekly.comparison.end],
         queryFn: () => fetchPnl(periods.weekly.comparison.start, periods.weekly.comparison.end),
+        staleTime: PNL_STALE_TIME,
       },
     ],
   }) as [UseQueryResult<PnlResponse, Error>, UseQueryResult<PnlResponse, Error>];
@@ -143,10 +148,12 @@ export default function ProfitAndLoss() {
       {
         queryKey: ['pnl', 'monthly', 'current', periods.monthly.current.start, periods.monthly.current.end],
         queryFn: () => fetchPnl(periods.monthly.current.start, periods.monthly.current.end),
+        staleTime: PNL_STALE_TIME,
       },
       {
         queryKey: ['pnl', 'monthly', 'comparison', periods.monthly.comparison.start, periods.monthly.comparison.end],
         queryFn: () => fetchPnl(periods.monthly.comparison.start, periods.monthly.comparison.end),
+        staleTime: PNL_STALE_TIME,
       },
     ],
   }) as [UseQueryResult<PnlResponse, Error>, UseQueryResult<PnlResponse, Error>];
@@ -156,10 +163,12 @@ export default function ProfitAndLoss() {
       {
         queryKey: ['pnl', 'yearly', 'current', periods.yearly.current.start, periods.yearly.current.end],
         queryFn: () => fetchPnl(periods.yearly.current.start, periods.yearly.current.end),
+        staleTime: PNL_STALE_TIME,
       },
       {
         queryKey: ['pnl', 'yearly', 'comparison', periods.yearly.comparison.start, periods.yearly.comparison.end],
         queryFn: () => fetchPnl(periods.yearly.comparison.start, periods.yearly.comparison.end),
+        staleTime: PNL_STALE_TIME,
       },
     ],
   }) as [UseQueryResult<PnlResponse, Error>, UseQueryResult<PnlResponse, Error>];

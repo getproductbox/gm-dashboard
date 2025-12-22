@@ -185,8 +185,8 @@ export const BookingDetailsSidebar = ({ booking, isOpen, onClose }: BookingDetai
         },
       });
       setIsEditing(false);
-    } catch (error) {
-      console.error('Error updating booking:', error);
+    } catch (_error) {
+      // Silent fail for booking update
     }
   };
 

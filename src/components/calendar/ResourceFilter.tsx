@@ -5,7 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarResource } from "@/data/mockData/calendar";
+import { CalendarResource } from "@/types/calendar";
 import { Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";

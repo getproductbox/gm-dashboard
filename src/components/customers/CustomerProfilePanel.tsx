@@ -94,8 +94,8 @@ export const CustomerProfilePanel = ({
         onEdit(newCustomerWithStats);
         setIsEditing(false);
         onClose();
-      } catch (error) {
-        console.error('Error creating customer:', error);
+      } catch (_error) {
+        // Silent fail for customer creation
       }
     } else {
       // Updating existing customer
@@ -122,7 +122,7 @@ export const CustomerProfilePanel = ({
   };
 
   const handleSendEmail = () => {
-    console.log('Send email to:', customer.email);
+    // Send email to customer (not implemented)
   };
 
   const handleArchiveCustomer = async () => {
@@ -132,8 +132,8 @@ export const CustomerProfilePanel = ({
       try {
         await archiveCustomer.mutateAsync(customer.id);
         onClose(); // Close the panel after archiving
-      } catch (error) {
-        console.error('Error archiving customer:', error);
+      } catch (_error) {
+        // Silent fail for customer archiving
       }
     }
   };
@@ -258,12 +258,10 @@ export const CustomerProfilePanel = ({
                 customer={customer} 
                 onMemberStatusChange={async (isMember) => {
                   try {
-                    console.log('Updating member status:', { customerId: customer.id, isMember });
                     const updated = await updateCustomer.mutateAsync({
                       id: customer.id,
                       data: { is_member: isMember ?? false },
                     });
-                    console.log('Member status updated successfully:', updated);
                     // Update local customer state to reflect the change immediately
                     const updatedWithStats: CustomerWithStats = {
                       ...updated,
@@ -273,7 +271,6 @@ export const CustomerProfilePanel = ({
                     };
                     onEdit(updatedWithStats);
                   } catch (error) {
-                    console.error('Error updating member status:', error);
                     // Re-throw to let the toast handler show the error
                     throw error;
                   }

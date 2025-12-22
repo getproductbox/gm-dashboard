@@ -25,6 +25,13 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useToast } from "@/hooks/use-toast";
 import { User, CalendarDays, FileText } from "lucide-react";
 import { CustomerDetailsSection } from "./booking-form-sections/CustomerDetailsSection";
+
+interface HoldResponse {
+  hold?: {
+    id: string;
+    expires_at: string;
+  };
+}
 import { BookingDetailsSection } from "./booking-form-sections/BookingDetailsSection";
 import { BookingOptionsSection } from "./booking-form-sections/BookingOptionsSection";
 import { AdditionalDetailsSection } from "./booking-form-sections/AdditionalDetailsSection";
@@ -187,7 +194,7 @@ export const UnifiedBookingSidePanel = ({
   // Filter available booths based on selected time slot
   const availableKaraokeBooths = karaokeBooths?.filter(booth => booth.venue === venue) || [];
   const availableBoothsForSlot = venueAvailability?.slots?.find(
-    (s: any) => s.startTime === startTime && s.endTime === endTime
+    (s) => s.startTime === startTime && s.endTime === endTime
   )?.availableBooths;
 
   // Update form when initialData changes or sidebar opens
@@ -272,7 +279,7 @@ export const UnifiedBookingSidePanel = ({
       customerEmail: form.getValues('customerEmail') || undefined,
       ttlMinutes: 10,
     }, {
-      onSuccess: (res: any) => {
+      onSuccess: (res: HoldResponse) => {
         setActiveHoldId(res.hold?.id || null);
         setHoldExpiresAt(res.hold?.expires_at || null);
       }
@@ -353,8 +360,8 @@ export const UnifiedBookingSidePanel = ({
       setHoldExpiresAt(null);
       onClose();
       onSuccess?.();
-    } catch (error) {
-      console.error('Error creating booking:', error);
+    } catch (_error) {
+      // Silent fail for booking creation
     }
   };
 

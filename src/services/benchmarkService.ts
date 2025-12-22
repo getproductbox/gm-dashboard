@@ -24,7 +24,6 @@ export const benchmarkService = {
       .select('category, benchmark_percent') as any);
 
     if (error) {
-      console.error('Error fetching benchmarks:', error);
       throw error;
     }
 
@@ -41,7 +40,6 @@ export const benchmarkService = {
       }
     });
 
-    console.log('Loaded benchmarks:', benchmarks);
     return benchmarks;
   },
 
@@ -63,7 +61,6 @@ export const benchmarkService = {
         .eq('category', category) as any);
 
       if (error) {
-        console.error(`Error saving ${category} benchmark:`, error);
         throw error;
       }
     }

@@ -75,8 +75,8 @@ export function AppSidebar() {
       if (!error && data?.last_successful_sync_at) {
         setLastSyncTime(data.last_successful_sync_at);
       }
-    } catch (error) {
-      console.error('Error fetching last sync time:', error);
+    } catch (_error) {
+      // Silent fail for last sync time fetch
     }
   };
 

@@ -11,11 +11,11 @@ export const QuickActions = () => {
   };
 
   const handleTodaysReports = () => {
-    console.log('View today\'s reports');
+    // View today's reports (not implemented)
   };
 
   const handleCustomerLookup = () => {
-    console.log('Customer lookup');
+    // Customer lookup (not implemented)
   };
 
   return (

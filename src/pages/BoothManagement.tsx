@@ -13,12 +13,12 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Edit, Trash2, Settings, MapPin, Users, Clock } from "lucide-react";
 import { useKaraokeBooths, useCreateKaraokeBooth, useUpdateKaraokeBooth, useToggleBoothAvailability } from "@/hooks/useKaraoke";
 import { useToast } from "@/hooks/use-toast";
-import { KaraokeBoothInsert, KaraokeBoothUpdate } from "@/types/karaoke";
+import { KaraokeBoothRow, KaraokeBoothInsert, KaraokeBoothUpdate } from "@/types/karaoke";
 
 const BoothManagement = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedBooth, setSelectedBooth] = useState<any>(null);
+  const [selectedBooth, setSelectedBooth] = useState<KaraokeBoothRow | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [venueFilter, setVenueFilter] = useState<'all' | 'manor' | 'hippie'>('all');
 
@@ -35,8 +35,8 @@ const BoothManagement = () => {
     try {
       await createBooth.mutateAsync(data);
       setIsCreateDialogOpen(false);
-    } catch (error) {
-      console.error('Error creating booth:', error);
+    } catch (_error) {
+      // Silent fail for booth creation
     }
   };
 
@@ -47,20 +47,20 @@ const BoothManagement = () => {
       await updateBooth.mutateAsync({ id: selectedBooth.id, data });
       setIsEditDialogOpen(false);
       setSelectedBooth(null);
-    } catch (error) {
-      console.error('Error updating booth:', error);
+    } catch (_error) {
+      // Silent fail for booth update
     }
   };
 
   const handleToggleAvailability = async (boothId: string, isAvailable: boolean) => {
     try {
       await toggleAvailability.mutateAsync({ id: boothId, isAvailable });
-    } catch (error) {
-      console.error('Error toggling availability:', error);
+    } catch (_error) {
+      // Silent fail for availability toggle
     }
   };
 
-  const openEditDialog = (booth: any) => {
+  const openEditDialog = (booth: KaraokeBoothRow) => {
     setSelectedBooth(booth);
     setIsEditDialogOpen(true);
   };
@@ -273,7 +273,7 @@ const BoothManagement = () => {
 
 // Form component for creating/editing booths
 interface BoothFormProps {
-  initialData?: any;
+  initialData?: KaraokeBoothRow;
   onSubmit: (data: KaraokeBoothInsert | KaraokeBoothUpdate) => void;
   isLoading: boolean;
 }

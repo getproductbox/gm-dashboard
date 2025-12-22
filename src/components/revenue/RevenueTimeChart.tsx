@@ -59,6 +59,7 @@ export const RevenueTimeChart = () => {
   useEffect(() => {
     fetchRevenueData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally omit fetchRevenueData - function reference changes on every render
   }, [timeScale, selectedVenue]);
 
   const fetchVenues = async () => {
@@ -70,14 +71,13 @@ export const RevenueTimeChart = () => {
         .order('location_name');
 
       if (error) {
-        console.error('Error fetching venues:', error);
         return;
       }
 
       const locationNames = data?.map(row => row.location_name) || [];
       setVenues(locationNames);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (_error) {
+      // Silent fail for venue fetch
     }
   };
 
@@ -103,8 +103,8 @@ export const RevenueTimeChart = () => {
       }
 
       setData(revenueData);
-    } catch (error) {
-      console.error('Error fetching revenue data:', error);
+    } catch (_error) {
+      // Silent fail for revenue data fetch
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +189,6 @@ export const RevenueTimeChart = () => {
     });
 
     if (revenueError) {
-      console.error('Error fetching monthly revenue data:', revenueError);
       return [];
     }
 
@@ -212,7 +211,6 @@ export const RevenueTimeChart = () => {
       });
 
       if (attendanceError) {
-        console.error('Error fetching attendance for month:', attendanceError);
         return 0;
       }
 
@@ -243,7 +241,6 @@ export const RevenueTimeChart = () => {
     });
 
     if (revenueError) {
-      console.error('Error fetching yearly revenue data:', revenueError);
       return [];
     }
 
@@ -266,7 +263,6 @@ export const RevenueTimeChart = () => {
       });
 
       if (attendanceError) {
-        console.error('Error fetching attendance for year:', attendanceError);
         return 0;
       }
 

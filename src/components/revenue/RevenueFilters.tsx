@@ -25,9 +25,15 @@ interface RevenueEvent {
   updated_at: string;
 }
 
+interface RevenueFiltersState {
+  dateRange: { from?: Date; to?: Date };
+  revenueType: string;
+  venue: string;
+}
+
 interface RevenueFiltersProps {
   revenueData: RevenueEvent[];
-  onFilterChange: (filters: any) => void;
+  onFilterChange: (filters: RevenueFiltersState) => void;
 }
 
 export const RevenueFilters = ({ revenueData, onFilterChange }: RevenueFiltersProps) => {

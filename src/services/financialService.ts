@@ -4,6 +4,11 @@ import { fetchPnl, PnlResponse } from "./xeroService";
 import { startOfWeek, endOfWeek, subWeeks, format, addDays } from "date-fns";
 import { bookingService } from "./bookingService";
 
+interface WeeklyRevenueRow {
+  week_start: string;
+  total_revenue_cents: number;
+}
+
 export interface WeeklyFinancials {
   weekStart: string;
   weekEnd: string;
@@ -63,7 +68,6 @@ export const financialService = {
       });
 
       if (revenueError) {
-        console.error('Error fetching revenue:', revenueError);
         throw new Error('Failed to fetch revenue data');
       }
 
@@ -71,8 +75,7 @@ export const financialService = {
       // Run in parallel
       const costPromises = weeks.map(week => 
         fetchPnl(week.start, week.end)
-          .catch(err => {
-            console.warn(`Failed to fetch P&L for ${week.start}:`, err);
+          .catch(_err => {
             return null;
           })
       );
@@ -83,7 +86,7 @@ export const financialService = {
       const financials: WeeklyFinancials[] = weeks.map((week, index) => {
         // Find revenue for this week
         // RPC returns `week_start` as timestamp string
-        const weekRevenueRow = revenueData?.find((r: any) => {
+        const weekRevenueRow = (revenueData as WeeklyRevenueRow[] | null)?.find((r) => {
           const rowDate = new Date(r.week_start);
           return format(rowDate, 'yyyy-MM-dd') === week.start;
         });
@@ -133,7 +136,6 @@ export const financialService = {
       return financials;
 
     } catch (error) {
-      console.error('Error in fetchWeeklyFinancials:', error);
       throw error;
     }
   },
@@ -307,7 +309,6 @@ export const financialService = {
     });
     
     if (error) {
-      console.error('Error fetching revenue:', error);
       return 0;
     }
     
@@ -323,7 +324,6 @@ export const financialService = {
     });
     
     if (error) {
-      console.error('Error fetching attendance:', error);
       return 0;
     }
     

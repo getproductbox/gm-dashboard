@@ -5,7 +5,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { CalendarBooking } from "@/data/mockData/calendar";
+import { CalendarBooking } from "@/types/calendar";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, Clock, Users, Phone, User, MapPin } from "lucide-react";

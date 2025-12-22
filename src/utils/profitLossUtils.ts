@@ -160,7 +160,7 @@ export const getProfitLossColors = () => ({
   neutral: 'text-gray-600'
 });
 
-export const validateProfitLossData = (data: any): boolean => {
+export const validateProfitLossData = (data: unknown): boolean => {
   if (!data || typeof data !== 'object') return false;
   
   const requiredFields = [

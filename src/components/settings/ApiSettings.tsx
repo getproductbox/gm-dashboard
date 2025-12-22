@@ -11,16 +11,13 @@ export const ApiSettings = () => {
   const triggerTransform = async () => {
     setIsTransforming(true);
     try {
-      console.log('Triggering transform from settings...');
       const { data, error } = await supabase.rpc('transform_recent_synced_transactions', {
         minutes_back: 1440
       });
 
       if (error) {
-        console.error('Transform error:', error);
         alert('Transform failed: ' + error.message);
       } else {
-        console.log('Transform completed successfully:', data);
         const message = `Transform completed successfully!
 
 Time Window: Last ${data.minutes_back} minutes (${Math.round(data.minutes_back / 60)} hours)
@@ -32,7 +29,6 @@ ${data.sample_results && data.sample_results.length > 0 ?
         alert(message);
       }
     } catch (error) {
-      console.error('Error triggering transform:', error);
       alert('Error triggering transform: ' + (error as Error).message);
     } finally {
       setIsTransforming(false);

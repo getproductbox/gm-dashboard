@@ -25,21 +25,18 @@ export const karaokeService = {
    */
   async getKaraokeBooths(filters?: KaraokeBoothFilters): Promise<KaraokeBoothRow[]> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
-        .from('karaoke_booths' as any)
+        .from('karaoke_booths')
         .select('*')
         .order('venue', { ascending: true })
         .order('name', { ascending: true });
 
       if (error) {
-        console.error('Error fetching karaoke booths:', error);
         throw new Error(`Failed to fetch karaoke booths: ${error.message}`);
       }
 
       return (data || []) as unknown as KaraokeBoothRow[];
-    } catch (error) {
-      console.error('Karaoke booths table not found - migration may not be applied yet:', error);
+    } catch (_error) {
       throw new Error('Karaoke booths table not found. Please apply the database migration first.');
     }
   },
@@ -50,19 +47,17 @@ export const karaokeService = {
   async getKaraokeBooth(id: string): Promise<KaraokeBoothRow> {
     try {
       const { data, error } = await supabase
-        .from('karaoke_booths' as any)
+        .from('karaoke_booths')
         .select('*')
         .eq('id', id)
         .single();
 
       if (error) {
-        console.error('Error fetching karaoke booth:', error);
         throw new Error(`Failed to fetch karaoke booth: ${error.message}`);
       }
 
       return data as unknown as KaraokeBoothRow;
-    } catch (error) {
-      console.error('Karaoke booth not found:', error);
+    } catch (_error) {
       throw new Error('Karaoke booth not found. Please apply the database migration first.');
     }
   },
@@ -73,19 +68,17 @@ export const karaokeService = {
   async createKaraokeBooth(data: KaraokeBoothInsert): Promise<KaraokeBoothRow> {
     try {
       const { data: booth, error } = await supabase
-        .from('karaoke_booths' as any)
+        .from('karaoke_booths')
         .insert(data)
         .select()
         .single();
 
       if (error) {
-        console.error('Error creating karaoke booth:', error);
         throw new Error(`Failed to create karaoke booth: ${error.message}`);
       }
 
       return booth as unknown as KaraokeBoothRow;
-    } catch (error) {
-      console.error('Failed to create karaoke booth:', error);
+    } catch (_error) {
       throw new Error('Failed to create karaoke booth. Please apply the database migration first.');
     }
   },
@@ -96,20 +89,18 @@ export const karaokeService = {
   async updateKaraokeBooth(id: string, updates: KaraokeBoothUpdate): Promise<KaraokeBoothRow> {
     try {
       const { data: booth, error } = await supabase
-        .from('karaoke_booths' as any)
+        .from('karaoke_booths')
         .update(updates)
         .eq('id', id)
         .select()
         .single();
 
       if (error) {
-        console.error('Error updating karaoke booth:', error);
         throw new Error(`Failed to update karaoke booth: ${error.message}`);
       }
 
       return booth as unknown as KaraokeBoothRow;
-    } catch (error) {
-      console.error('Failed to update karaoke booth:', error);
+    } catch (_error) {
       throw new Error('Failed to update karaoke booth. Please apply the database migration first.');
     }
   },
@@ -180,7 +171,6 @@ export const karaokeService = {
       .single();
 
     if (error) {
-      console.error('Error creating karaoke booking:', error);
       throw new Error(`Failed to create karaoke booking: ${error.message}`);
     }
 
@@ -206,7 +196,6 @@ export const karaokeService = {
     const { data: bookings, error } = await query;
 
     if (error) {
-      console.error('Error checking booking conflicts:', error);
       throw new Error(`Failed to check booking conflicts: ${error.message}`);
     }
 
@@ -246,7 +235,6 @@ export const karaokeService = {
       .neq('status', 'cancelled');
 
     if (error) {
-      console.error('Error fetching bookings:', error);
       throw new Error(`Failed to fetch bookings: ${error.message}`);
     }
 

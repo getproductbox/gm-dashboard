@@ -101,8 +101,8 @@ export function QuickAddBookingForm({
       await createBookingMutation.mutateAsync(bookingData);
       form.reset();
       onSuccess?.();
-    } catch (error) {
-      console.error("Failed to create booking", error);
+    } catch (_error) {
+      // Silent fail for booking creation
     }
   };
 
@@ -230,6 +230,13 @@ export function QuickAddBookingForm({
     </Form>
   );
 }
+
+
+
+
+
+
+
 
 
 

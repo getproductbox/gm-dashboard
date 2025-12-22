@@ -69,10 +69,9 @@ export function CostPercentageChart({ data, isLoading }: CostPercentageChartProp
     const loadBenchmarks = async () => {
       try {
         const data = await benchmarkService.getBenchmarks();
-        console.log('Chart received benchmarks:', data);
         setBenchmarks(data);
-      } catch (error) {
-        console.error('Error loading benchmarks:', error);
+      } catch (_error) {
+        // Silent fail for benchmark loading
       }
     };
     loadBenchmarks();
@@ -391,7 +390,6 @@ export function CostPercentageChart({ data, isLoading }: CostPercentageChartProp
                 {benchmarks && selectedCategories.size > 1 && (() => {
                   const totalBenchmark = Array.from(selectedCategories)
                     .reduce((sum, cat) => sum + benchmarks[cat], 0);
-                  console.log('Total benchmark calculated:', totalBenchmark, 'for categories:', Array.from(selectedCategories));
                   return totalBenchmark > 0 ? (
                     <ReferenceLine
                       yAxisId="left"

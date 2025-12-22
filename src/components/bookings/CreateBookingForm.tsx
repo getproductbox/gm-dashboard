@@ -20,6 +20,23 @@ import { karaokeService } from "@/services/karaokeService";
 import { useToast } from "@/hooks/use-toast";
 import { BookingCalendarView } from "./BookingCalendarView";
 
+interface AvailableBooth {
+  id: string;
+  name: string;
+  capacity: number;
+}
+
+interface BoothsForSlotResponse {
+  availableBooths?: AvailableBooth[];
+}
+
+interface HoldResponse {
+  hold?: {
+    id: string;
+    expires_at: string;
+  };
+}
+
 const bookingFormSchema = z.object({
   customerName: z.string().min(2, "Customer name must be at least 2 characters"),
   customerEmail: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
@@ -245,11 +262,11 @@ export const CreateBookingForm = ({ onSuccess, isSidePanel = false }: CreateBook
         startTime,
         endTime,
         minCapacity: guestCountNum,
-      }).then((res: any) => {
+      }).then((res: BoothsForSlotResponse) => {
         const list = res?.availableBooths || [];
         setAvailableBoothsForSlot(list);
         // If current booth not in list, clear selection
-        if (form.getValues('karaokeBoothId') && !list.find((b: any) => b.id === form.getValues('karaokeBoothId'))) {
+        if (form.getValues('karaokeBoothId') && !list.find((b) => b.id === form.getValues('karaokeBoothId'))) {
           form.setValue('karaokeBoothId', undefined as unknown as string);
         }
       }).catch(() => {
@@ -315,8 +332,8 @@ export const CreateBookingForm = ({ onSuccess, isSidePanel = false }: CreateBook
       } else {
         navigate('/bookings');
       }
-    } catch (error) {
-      console.error('Error creating booking:', error);
+    } catch (_error) {
+      // Silent fail for booking creation
     }
   };
 
@@ -519,7 +536,7 @@ export const CreateBookingForm = ({ onSuccess, isSidePanel = false }: CreateBook
                 <div className="col-span-2">
                   <div className="mb-2 text-sm text-gray-600">Select a time slot</div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {(venueAvailability?.slots || []).map((s: any) => {
+                    {(venueAvailability?.slots || []).map((s) => {
                       const isSelected = startTime === s.startTime && endTime === s.endTime;
                       const disabled = !s.available;
                       return (
@@ -593,7 +610,7 @@ export const CreateBookingForm = ({ onSuccess, isSidePanel = false }: CreateBook
                             customerEmail: form.getValues('customerEmail') || undefined,
                             ttlMinutes: 10,
                           }, {
-                            onSuccess: (res: any) => {
+                            onSuccess: (res: HoldResponse) => {
                               setActiveHoldId(res.hold?.id || null);
                               setHoldExpiresAt(res.hold?.expires_at || null);
                             }

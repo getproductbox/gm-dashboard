@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { format, isSameMonth, isSameDay } from "date-fns";
-import { CalendarBooking, CalendarResource } from "@/data/mockData/calendar";
+import { CalendarBooking } from "@/types/calendar";
 import { cn } from "@/lib/utils";
 import { BookingBlock } from "./BookingBlock";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

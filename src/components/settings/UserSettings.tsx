@@ -21,11 +21,11 @@ export const UserSettings = () => {
     });
   };
 
-  const updateSetting = (key: string, value: any) => {
+  const updateSetting = (key: string, value: string | boolean | number) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const updatePrivacySetting = (key: string, value: any) => {
+  const updatePrivacySetting = (key: string, value: boolean) => {
     setSettings(prev => ({
       ...prev,
       privacy: { ...prev.privacy, [key]: value }

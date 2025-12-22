@@ -23,6 +23,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate, formatDateToISO } from "@/utils/dateUtils";
 import { UnifiedBookingFormValues } from "../UnifiedBookingSidePanel";
+import { AvailabilityResponse } from "@/types/karaoke";
 
 const venueOptions = [
   { value: "manor", label: "Manor" },
@@ -56,7 +57,7 @@ interface BookingDetailsSectionProps {
   bookingDate: string | undefined;
   startTime: string | undefined;
   endTime: string | undefined;
-  venueAvailability?: any;
+  venueAvailability?: AvailabilityResponse;
   onTimeSlotSelect?: (start: string, end: string) => void;
   hideHeader?: boolean;
 }
@@ -178,7 +179,7 @@ export const BookingDetailsSection = ({
         <div>
           <FormLabel>Time Slot *</FormLabel>
           <div className="grid grid-cols-3 gap-2 mt-2">
-            {(venueAvailability?.slots || []).map((s: any) => {
+            {(venueAvailability?.slots || []).map((s) => {
               const isSelected = startTime === s.startTime && endTime === s.endTime;
               const disabled = !s.available;
               return (

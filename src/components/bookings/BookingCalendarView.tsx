@@ -101,7 +101,7 @@ export const BookingCalendarView = ({
       });
 
       // If availability API exists, prefer it for holds awareness
-      const availabilitySlot = (availability?.slots || []).find((s: any) => s.startTime === startTime && s.endTime === endTime);
+      const availabilitySlot = (availability?.slots || []).find((s) => s.startTime === startTime && s.endTime === endTime);
       const isAvailableByApi = availabilitySlot ? availabilitySlot.available : !conflictingBooking;
 
       const isSelected = selectedStartTime === startTime && selectedEndTime === endTime;

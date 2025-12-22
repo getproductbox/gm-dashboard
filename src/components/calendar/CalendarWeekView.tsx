@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { format, addMinutes, startOfDay, differenceInMinutes } from "date-fns";
-import { CalendarBooking, CalendarResource, generateTimeSlots } from "@/data/mockData/calendar";
+import { CalendarBooking, CalendarResource, generateTimeSlots } from "@/types/calendar";
 import { BookingBlock } from "./BookingBlock";
 import { cn } from "@/lib/utils";
 
@@ -261,6 +261,13 @@ export const CalendarWeekView = ({
     </div>
   );
 };
+
+
+
+
+
+
+
 
 
 

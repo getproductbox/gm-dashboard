@@ -21,8 +21,12 @@ export async function fetchPnl(startDate: string, endDate: string, refresh?: boo
     body: JSON.stringify({ startDate, endDate, refresh: !!refresh }),
   });
   const text = await resp.text();
-  let json: any = null; try { json = text ? JSON.parse(text) : null; } catch {}
-  if (!resp.ok) throw new Error(json?.detail || json?.error || `P&L failed: ${resp.status}`);
+  let json: PnlResponse | { detail?: string; error?: string } | null = null;
+  try { json = text ? JSON.parse(text) : null; } catch { /* ignore parse errors */ }
+  if (!resp.ok) {
+    const errorJson = json as { detail?: string; error?: string } | null;
+    throw new Error(errorJson?.detail || errorJson?.error || `P&L failed: ${resp.status}`);
+  }
   return json as PnlResponse;
 }
 

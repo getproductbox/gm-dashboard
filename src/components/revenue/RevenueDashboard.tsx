@@ -7,7 +7,6 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useRevenueDashboard } from '@/hooks/useRevenueDashboard';
 import { useDateRanges } from '@/hooks/useDateRanges';
-import { useEffect } from 'react';
 
 export const RevenueDashboard = () => {
   const {
@@ -37,10 +36,7 @@ export const RevenueDashboard = () => {
     }
   };
 
-  // Fetch core statistics on component mount
-  useEffect(() => {
-    fetchCoreStatistics();
-  }, [fetchCoreStatistics]);
+  // Core statistics are now automatically fetched and cached by React Query
 
   const formatCurrency = (cents: number) => {
     // Convert from GST inclusive to GST exclusive by dividing by 1.1

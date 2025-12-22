@@ -17,13 +17,20 @@ import {
 } from "@/components/ui/select";
 import { UnifiedBookingFormValues } from "../UnifiedBookingSidePanel";
 
+interface AvailableBooth {
+  id: string;
+  name: string;
+  capacity: number;
+  hourly_rate?: number;
+}
+
 interface BookingOptionsSectionProps {
   control: Control<UnifiedBookingFormValues>;
   bookingType: string | undefined;
   startTime: string | undefined;
   endTime: string | undefined;
-  availableBoothsForSlot?: any[];
-  availableKaraokeBooths?: any[];
+  availableBoothsForSlot?: AvailableBooth[];
+  availableKaraokeBooths?: AvailableBooth[];
   onBoothSelect?: (boothId: string) => void;
   hideHeader?: boolean;
 }

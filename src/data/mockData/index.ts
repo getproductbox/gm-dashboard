@@ -5,5 +5,4 @@ export * from './analytics';
 export * from './notifications';
 export * from './settings';
 export * from './bookings';
-export * from './calendar';
 export * from './customers';

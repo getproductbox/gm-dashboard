@@ -32,8 +32,7 @@ export const BenchmarkSettings = () => {
       setIsLoading(true);
       const data = await benchmarkService.getBenchmarks();
       setBenchmarks(data);
-    } catch (error) {
-      console.error('Error loading benchmarks:', error);
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to load benchmark settings.",
@@ -52,8 +51,7 @@ export const BenchmarkSettings = () => {
         title: "Benchmarks saved",
         description: "Your cost benchmarks have been updated successfully.",
       });
-    } catch (error) {
-      console.error('Error saving benchmarks:', error);
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to save benchmark settings.",
@@ -162,4 +160,11 @@ export const BenchmarkSettings = () => {
     </div>
   );
 };
+
+
+
+
+
+
+
 

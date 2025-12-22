@@ -91,8 +91,7 @@ export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFor
           setIsSubmitting(false);
           return;
         }
-      } catch (error) {
-        console.error('Error checking for duplicate:', error);
+      } catch (_error) {
         toast({
           title: "Error",
           description: error instanceof Error ? error.message : "Failed to check for duplicate customer",
@@ -122,7 +121,7 @@ export const CustomerEditForm = ({ customer, onSave, onCancel }: CustomerEditFor
     }
   };
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: string | number | boolean | null) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field]) {

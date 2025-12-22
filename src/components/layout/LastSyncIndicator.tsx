@@ -14,6 +14,11 @@ interface LastSyncIndicatorProps {
   onSyncComplete?: () => void;
 }
 
+interface SyncResult {
+  payments?: { upserted?: number };
+  orders?: { upserted?: number };
+}
+
 export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTime, onSyncComplete }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const { state } = useSidebar();
@@ -21,7 +26,6 @@ export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTi
   const triggerSync = async () => {
     setIsSyncing(true);
     try {
-      console.log('Triggering sync via API (will resume from last successful sync)...');
       const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:4000';
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -43,20 +47,18 @@ export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTi
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.success) {
-        console.error('Sync error:', json);
         const stage = json?.stage ? ` (${json.stage})` : '';
         const errorMsg = json?.error || res.statusText || 'Unknown error';
         alert(`Sync failed${stage}: ${errorMsg}`);
         return;
       }
-      console.log('Sync completed:', json);
       
       // Show summary if available
-      const results = json?.results || [];
+      const results: SyncResult[] = json?.results || [];
       if (results.length > 0) {
-        const totalPayments = results.reduce((sum: number, r: any) => 
+        const totalPayments = results.reduce((sum: number, r: SyncResult) => 
           sum + (r.payments?.upserted || 0), 0);
-        const totalOrders = results.reduce((sum: number, r: any) => 
+        const totalOrders = results.reduce((sum: number, r: SyncResult) => 
           sum + (r.orders?.upserted || 0), 0);
         alert(`Sync completed successfully!\n\nLocations: ${results.length}\nPayments: ${totalPayments}\nOrders: ${totalOrders}`);
       } else {
@@ -67,7 +69,6 @@ export const LastSyncIndicator: React.FC<LastSyncIndicatorProps> = ({ lastSyncTi
         onSyncComplete();
       }
     } catch (error) {
-      console.error('Error triggering sync:', error);
       alert('Error triggering sync: ' + (error as Error).message);
     } finally {
       setIsSyncing(false);

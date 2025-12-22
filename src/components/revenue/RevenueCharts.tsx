@@ -23,6 +23,20 @@ interface RevenueChartsProps {
   data: RevenueEvent[];
 }
 
+interface DailyRevenueItem {
+  date: string;
+  total: number;
+  bar: number;
+  door: number;
+  other: number;
+}
+
+interface HourlyRevenueItem {
+  hour: string;
+  amount: number;
+  count: number;
+}
+
 const COLORS = {
   bar: '#8884d8',
   door: '#82ca9d', 
@@ -39,11 +53,11 @@ export const RevenueCharts = ({ data }: RevenueChartsProps) => {
     acc[date].total += event.amount_cents;
     acc[date][event.revenue_type] += event.amount_cents;
     return acc;
-  }, {} as Record<string, any>);
+  }, {} as Record<string, DailyRevenueItem>);
 
   const dailyRevenueArray = Object.values(dailyRevenue)
-    .sort((a: any, b: any) => a.date.localeCompare(b.date))
-    .map((item: any) => ({
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((item) => ({
       ...item,
       total: item.total / 100,
       bar: item.bar / 100,
@@ -75,11 +89,11 @@ export const RevenueCharts = ({ data }: RevenueChartsProps) => {
     acc[hour].amount += event.amount_cents;
     acc[hour].count += 1;
     return acc;
-  }, {} as Record<number, any>);
+  }, {} as Record<number, HourlyRevenueItem>);
 
   const hourlyRevenueArray = Object.values(hourlyRevenue)
-    .sort((a: any, b: any) => parseInt(a.hour) - parseInt(b.hour))
-    .map((item: any) => ({
+    .sort((a, b) => parseInt(a.hour) - parseInt(b.hour))
+    .map((item) => ({
       ...item,
       amount: item.amount / 100
     }));

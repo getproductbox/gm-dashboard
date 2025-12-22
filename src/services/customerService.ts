@@ -35,7 +35,6 @@ export const customerService = {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching customers:', error);
       throw new Error(`Failed to fetch customers: ${error.message}`);
     }
 
@@ -51,7 +50,6 @@ export const customerService = {
       .single();
 
     if (error) {
-      console.error('Error fetching customer:', error);
       throw new Error(`Failed to fetch customer: ${error.message}`);
     }
 
@@ -88,7 +86,6 @@ export const customerService = {
     const { data, error } = await query.limit(1);
 
     if (error) {
-      console.error('Error checking duplicate customer:', error);
       throw new Error(`Failed to check for duplicate customer: ${error.message}`);
     }
 
@@ -121,7 +118,6 @@ export const customerService = {
       .single();
 
     if (error) {
-      console.error('Error creating customer:', error);
       throw new Error(`Failed to create customer: ${error.message}`);
     }
 
@@ -138,7 +134,6 @@ export const customerService = {
       .single();
 
     if (error) {
-      console.error('Error updating customer:', error);
       throw new Error(`Failed to update customer: ${error.message}`);
     }
 
@@ -163,7 +158,6 @@ export const customerService = {
       .single();
 
     if (error) {
-      console.error('Error archiving customer:', error);
       throw new Error(`Failed to archive customer: ${error.message}`);
     }
 
@@ -183,7 +177,6 @@ export const customerService = {
       .single();
 
     if (error) {
-      console.error('Error unarchiving customer:', error);
       throw new Error(`Failed to unarchive customer: ${error.message}`);
     }
 

@@ -113,8 +113,8 @@ export default function RunSheet() {
       try {
         const membersData = await customerService.getMembers(search);
         setMembers(membersData);
-      } catch (error) {
-        console.error('Error fetching members:', error);
+      } catch (_error) {
+        // Silent fail for member fetch
       } finally {
         setLoadingMembers(false);
       }
@@ -173,7 +173,7 @@ export default function RunSheet() {
         });
 
         if (guestRows) {
-          guestRows.forEach((row: any) => {
+          guestRows.forEach((row) => {
             if (row.booking_id) {
               if (!lists[row.booking_id]) {
                 lists[row.booking_id] = [];
@@ -188,8 +188,8 @@ export default function RunSheet() {
         }
 
         setGuestLists(lists);
-      } catch (error) {
-        console.error('Error fetching guest lists:', error);
+      } catch (_error) {
+        // Silent fail for guest lists fetch
       } finally {
         setLoadingGuestLists(false);
       }
@@ -214,7 +214,6 @@ export default function RunSheet() {
         .in("id", uniqueIds);
 
       if (error) {
-        console.error('Error fetching booth names:', error);
         return;
       }
 
@@ -348,8 +347,8 @@ export default function RunSheet() {
     const checkins = nextState.map(c => (c ? new Date().toISOString() : null));
     try {
       await updateVipTicketCheckins(bookingId, checkins);
-    } catch (e) {
-      console.error(e);
+    } catch (_e) {
+      // Silent fail for checkins update
     }
   };
 
@@ -449,7 +448,7 @@ export default function RunSheet() {
       if (!error && guestRows) {
         setGuestLists(prev => ({
           ...prev,
-          [bookingId]: guestRows.map((row: any) => ({
+          [bookingId]: guestRows.map((row) => ({
             id: row.id,
             guest_name: row.guest_name || '',
             is_organiser: row.is_organiser || false,
@@ -457,8 +456,8 @@ export default function RunSheet() {
         }));
       }
 
-    } catch (error) {
-      console.error('Error saving guest name:', error);
+    } catch (_error) {
+      // Silent fail for guest name save
     }
 
     setEditingGuestId(null);

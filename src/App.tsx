@@ -27,7 +27,15 @@ import Team from "./pages/Team";
 import { useAuth } from "@/contexts/AuthContext";
 import { isAdmin } from "@/lib/permissions";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes - data considered fresh
+      gcTime: 1000 * 60 * 30,   // 30 minutes - keep in cache
+      refetchOnWindowFocus: false, // Don't refetch when user returns to tab
+    },
+  },
+});
 
 const RootRoute = () => {
   const { role } = useAuth();

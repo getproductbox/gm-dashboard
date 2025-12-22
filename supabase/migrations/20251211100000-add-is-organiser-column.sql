@@ -12,3 +12,10 @@ CREATE UNIQUE INDEX idx_bg_one_organiser_per_booking
 ON public.booking_guests(booking_id) 
 WHERE is_organiser = TRUE;
 
+
+
+
+
+
+
+

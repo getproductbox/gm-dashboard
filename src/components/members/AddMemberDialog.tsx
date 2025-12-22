@@ -56,8 +56,8 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
       form.reset();
       setIsOpen(false);
       onMemberAdded?.();
-    } catch (error) {
-      console.error("Error creating member:", error);
+    } catch (_error) {
+      // Silent fail for member creation
     }
   };
 
@@ -153,6 +153,13 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
     </Dialog>
   );
 }
+
+
+
+
+
+
+
 
 
 
